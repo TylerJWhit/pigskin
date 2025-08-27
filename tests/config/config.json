@@ -1,0 +1,22 @@
+{
+    "budget": 200,
+    "num_teams": 10,
+    "sleeper_draft_id": null,
+    "sleeper_user_id": null,
+    "sleeper_username": null,
+    "refresh_interval": 30,
+    "roster_positions": {
+        "QB": 1,
+        "RB": 2,
+        "WR": 2,
+        "TE": 1,
+        "FLEX": 2,
+        "K": 1,
+        "DST": 1,
+        "BN": 5
+    },
+    "strategy_type": "value",
+    "data_source": "fantasypros",
+    "data_path": "data/data/sheets",
+    "min_projected_points": 0.0
+}

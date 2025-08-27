@@ -1,0 +1,9 @@
+#!/bin/bash
+# Pigskin CLI wrapper script
+
+# Get the directory where this script is located
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)"
+
+# Change to the project directory and execute the Python CLI with proper PYTHONPATH
+cd "$DIR"
+PYTHONPATH="$DIR:$PYTHONPATH" python3 cli/main.py "$@"
