@@ -5,14 +5,7 @@ This service handles fetching and displaying current Sleeper draft data
 including draft order, picks, and league information.
 """
 
-import sys
-import os
 from typing import Dict, List, Optional, Any
-
-# Add parent directory to path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from api.sleeper_api import SleeperAPI
 from utils.print_module import print_sleeper_draft, print_sleeper_league
