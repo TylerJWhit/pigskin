@@ -1,13 +1,6 @@
 """Bid recommendation service for the auction draft tool."""
 
-import os
-import sys
 from typing import Optional, Dict, Any, List
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from classes import Player, Team, Owner, Strategy, create_strategy, Draft
 from config.config_manager import ConfigManager

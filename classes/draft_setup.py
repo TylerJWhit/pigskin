@@ -1,13 +1,6 @@
 """Utilities for setting up draft relationships and importing from Sleeper API."""
 
-import sys
-import os
 from typing import List, Dict, Optional
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from .player import Player
 from .team import Team

@@ -1,15 +1,9 @@
 """Tournament service for testing auction draft strategies."""
 
 import os
-import sys
 from typing import Optional, Dict, Any, List, Tuple
 import json
 from datetime import datetime
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from classes import Tournament, DraftSetup, create_strategy, AVAILABLE_STRATEGIES
 from config.config_manager import ConfigManager
