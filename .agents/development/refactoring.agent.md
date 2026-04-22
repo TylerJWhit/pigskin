@@ -44,12 +44,27 @@ You are the Refactoring Agent for the **Pigskin Fantasy Football Auction Draft S
 - AlphaZero had multiple overlapping implementations (consolidated Sept 2025)
 - Draft creation methods were duplicated across multiple class files
 
+## Definition of Done
+
+Every refactoring is **not complete** until tests confirm behavior is preserved and any newly exposed paths are covered:
+
+1. **Any refactoring**: Run `python -m pytest tests/ -q` before and after — both runs must be green with the same test count
+2. **New utility/helper extracted**: Add or extend a test directly exercising the extracted function
+3. **Behavior-neutral restructuring**: Coverage must not decrease; add tests for any uncovered paths surfaced by the refactoring
+
+Tests must be committed alongside the refactoring change — never in a separate follow-up.
+
+After writing or updating tests, hand off to the QA Agent for test validation before marking work done:
+> **Handoff signal**: "Refactoring complete for `<component>`. Tests verified/updated in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+
 ## Workflow
 1. Run `python -m pytest tests/ -q` to establish a green baseline
 2. Use `grep_search` to find duplication patterns across files
 3. Identify the smallest safe refactoring unit
-4. Make change, run tests, confirm still green
-5. Commit logical unit before moving to next refactoring
+4. Write or update tests to cover any newly exposed paths **before or alongside** the change
+5. Make change, run tests, confirm still green
+6. Commit logical unit before moving to next refactoring
+7. Signal QA Agent for test review before closing the task
 
 ## Refactoring Patterns for This Codebase
 

@@ -48,8 +48,23 @@ You are the Backend Agent for the **Pigskin Fantasy Football Auction Draft Syste
 - Use composition over inheritance; strategy pattern for bidding algorithms
 - No hardcoded values — all parameters in `config/`
 
+## Definition of Done
+
+Every feature or bug fix is **not complete** until a corresponding test exists:
+
+1. **New feature**: Add or extend a test in `tests/` that covers the happy path and at least one edge case
+2. **Bug fix**: Add a regression test that would have caught the bug before the fix
+3. **Refactored code**: Confirm existing tests still pass; add tests for any newly exposed paths
+
+Tests must be committed alongside the implementation change — never in a separate follow-up.
+
+After writing tests, hand off to the QA Agent for test validation before marking work done:
+> **Handoff signal**: "Tests written for `<feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+
 ## Workflow
 1. Use `semantic_search` to locate relevant service and class files
 2. Read the target file fully before modifying
-3. Validate changes with `run_in_terminal`: `python -m pytest tests/ -x -q`
-4. Check `get_errors` after edits to catch type issues
+3. Write or update the corresponding test in `tests/` **before or alongside** the implementation
+4. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
+5. Check `get_errors` after edits to catch type issues
+6. Signal QA Agent for test review before closing the task

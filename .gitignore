@@ -232,3 +232,5 @@ local_*
 dev_*
 scratch.*
 test_scratch.*
+
+checkpoints/

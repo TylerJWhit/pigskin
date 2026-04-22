@@ -48,9 +48,25 @@ You are the Frontend Agent for the **Pigskin Fantasy Football Auction Draft Syst
 - Keep JavaScript minimal — prefer server-rendered HTML with targeted updates
 - Accessible markup (ARIA labels, keyboard navigation)
 
+## Definition of Done
+
+Every feature or bug fix is **not complete** until a corresponding test exists:
+
+1. **New UI flow or route**: Add or extend a test in `tests/` covering the route response and any template logic
+2. **Bug fix**: Add a regression test that would have caught the bug before the fix
+3. **WebSocket handler**: Add an integration test simulating the event and verifying the state change
+
+Tests must be committed alongside the implementation change — never in a separate follow-up.
+
+After writing tests, hand off to the QA Agent for test validation before marking work done:
+> **Handoff signal**: "Tests written for `<feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+
 ## Workflow
 1. Read `ui/` directory structure to understand existing components
 2. Check `launch_draft_ui.py` for server setup and route registration
 3. Review WebSocket event names and payloads in existing handlers
-4. Implement changes following existing patterns before introducing new dependencies
-5. Test UI changes with `python launch_draft_ui.py` and verify in browser
+4. Write or update the corresponding test in `tests/` **before or alongside** the implementation
+5. Implement changes following existing patterns before introducing new dependencies
+6. Test UI changes with `python launch_draft_ui.py` and verify in browser
+7. Validate automated tests pass: `python -m pytest tests/ -x -q`
+8. Signal QA Agent for test review before closing the task

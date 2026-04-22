@@ -87,3 +87,4 @@ def test_alphazero_fallback(mock_forward):
 3. Write failing test first (TDD), then implement or fix
 4. Ensure no test uses `time.sleep()` — use mocks for timing
 5. Keep test setup in fixtures, not in test bodies
+6. When writing tests on behalf of a development agent, follow the QA Agent review process — signal QA with the handoff format before marking complete

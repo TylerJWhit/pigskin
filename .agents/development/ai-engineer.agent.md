@@ -148,6 +148,27 @@ with torch.no_grad():
     policy_logits, value = model(features_tensor)
 ```
 
+## Definition of Done
+
+Every ML feature, architecture change, or bug fix is **not complete** until a corresponding test exists:
+
+1. **New feature/strategy**: Add or extend a test in `tests/` covering correct output types, bid range validity, and no-exception guarantees
+2. **Bug fix**: Add a regression test that would have caught the bug before the fix
+3. **Model architecture change**: Add a test verifying feature vector dimensions are exactly 20 and forward pass produces valid policy + value outputs
+
+Tests must be committed alongside the implementation change — never in a separate follow-up.
+
+After writing tests, hand off to the QA Agent for test validation before marking work done:
+> **Handoff signal**: "Tests written for `<ML feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+
+## Workflow
+1. Use `semantic_search` to locate relevant strategy and ML files
+2. Read the target file fully before modifying
+3. Write or update the corresponding test in `tests/` **before or alongside** the implementation
+4. Validate all tests pass: `python -m pytest tests/ -x -q`
+5. Check `get_errors` after edits to catch type issues
+6. Signal QA Agent for test review before closing the task
+
 ## Critical Rules
 - Never call `model.train()` during auction/tournament inference — only during explicit training runs
 - Always use `with torch.no_grad():` for inference calls

@@ -49,11 +49,26 @@ You are the Database Agent for the **Pigskin Fantasy Football Auction Draft Syst
   - `data/ema_kelly_state.json` — EMA-Kelly strategy state
   - `data/ml_service_registry.json` — ML service configuration
 
+## Definition of Done
+
+Every schema change, data loader update, or bug fix is **not complete** until a corresponding test exists:
+
+1. **Schema change**: Add or extend a test in `tests/test_data_api.py` validating load/save round-trips
+2. **Bug fix**: Add a regression test that would have caught the bug before the fix
+3. **New caching pattern**: Add a test confirming cache hits return correct values and cache misses populate correctly
+
+Tests must be committed alongside the implementation change — never in a separate follow-up.
+
+After writing tests, hand off to the QA Agent for test validation before marking work done:
+> **Handoff signal**: "Tests written for `<schema/loader change>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+
 ## Workflow
 1. Inspect `data/` directory structure before any schema changes
 2. Check `data/fantasypros_loader.py` for current data loading patterns
-3. Validate data integrity after migrations with relevant test cases in `tests/test_data_api.py`
-4. Document schema versions in a `data/SCHEMA_VERSIONS.md` file
+3. Write or update the corresponding test in `tests/` **before or alongside** the implementation
+4. Validate data integrity after migrations with: `python -m pytest tests/test_data_api.py -x -q`
+5. Document schema versions in a `data/SCHEMA_VERSIONS.md` file
+6. Signal QA Agent for test review before closing the task
 
 ## Caching Patterns
 ```python
