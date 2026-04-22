@@ -1,14 +1,7 @@
 """Test cases for data loading and API functionality."""
 
 import unittest
-import sys
-import os
 from unittest.mock import Mock, patch, mock_open
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from test_base import BaseTestCase
 

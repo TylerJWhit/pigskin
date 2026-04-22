@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Quick test to verify budget constraints work in actual auction."""
 
-import sys
-sys.path.append('.')
-
 from classes.draft import Draft
 from classes.team import Team
 from classes.owner import Owner

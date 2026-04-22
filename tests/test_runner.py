@@ -1,14 +1,7 @@
 """Test runner and test suite management."""
 
 import unittest
-import sys
-import os
 from io import StringIO
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 
 class TestRunner:

@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Test auction-level budget constraint enforcement."""
 
-import sys
-sys.path.append('.')
-
 from classes.draft import Draft
 from classes.team import Team
 from classes.owner import Owner
