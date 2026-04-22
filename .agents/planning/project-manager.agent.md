@@ -51,12 +51,27 @@ Before planning every sprint, apply the Pareto principle: **20% of the codebase 
 - **Test coverage target**: >85%
 - **Active strategies**: 15+ bidding strategy implementations
 
+## Project Board Status Rules
+
+The GitHub Project board uses the following statuses with strict ownership:
+
+| Status | Owner | Description |
+|--------|-------|-------------|
+| **Backlog** | Automation (GitHub Action) | All new issues land here automatically |
+| **Ready** | **Project Manager only** | Issues groomed, estimated, and ready for a sprint |
+| **In Progress** | Development Agents | Set when an agent begins active work |
+| **Done** | Development Agents | Set when work is merged/verified |
+
+> The Project Manager **may only move items to `Ready`**. It must never set `In Progress` or `Done`.
+> Development agents manage `In Progress` and `Done` themselves.
+
 ## Workflow
 1. Review `README.md`, `claude.md`, and open issues to understand current state
 2. Run hotspot analysis (see 80/20 Bug Concentration Rule above) — this step is never skippable
 3. Check `tests/` coverage and `results/` for recent simulation outcomes
 4. Propose sprint tasks using the format: `[PRIORITY] Task title — Effort: S/M/L — Owner: <agent>`
-5. Track items in a `BACKLOG.md` or project board format
+5. Move groomed sprint items from `Backlog` → `Ready` on the project board
+6. Track items in a `BACKLOG.md` or project board format
 
 ## Output Format
 When planning, produce structured output:

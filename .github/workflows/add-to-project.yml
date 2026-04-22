@@ -1,0 +1,90 @@
+name: Add Issues to Project Board
+
+# Automatically adds newly opened issues to the GitHub Project board
+# and sets their status to "Backlog".
+#
+# REQUIRED SECRET: ADD_TO_PROJECT_PAT
+#   Create a GitHub Personal Access Token (classic) with the `project` scope
+#   (and `repo` scope if this is a private repository), then add it as a
+#   repository secret named ADD_TO_PROJECT_PAT under:
+#   Settings → Secrets and variables → Actions → New repository secret
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-to-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue to project
+        id: add-to-project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          project-url: https://github.com/users/TylerJWhit/projects/2
+          github-token: ${{ secrets.ADD_TO_PROJECT_PAT }}
+
+      - name: Set status to Backlog
+        env:
+          GITHUB_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
+          ITEM_ID: ${{ steps.add-to-project.outputs.itemId }}
+        run: |
+          OWNER=TylerJWhit
+          PROJECT_NUMBER=2
+
+          # Query project ID, Status field ID, and Backlog option ID
+          PROJECT_DATA=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                  fields(first: 20) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options {
+                          id
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f owner="$OWNER" -F number=$PROJECT_NUMBER)
+
+          PROJECT_ID=$(echo "$PROJECT_DATA" | jq -r '.data.user.projectV2.id')
+
+          STATUS_FIELD_ID=$(echo "$PROJECT_DATA" | jq -r '
+            .data.user.projectV2.fields.nodes[]
+            | select(.name == "Status")
+            | .id')
+
+          BACKLOG_OPTION_ID=$(echo "$PROJECT_DATA" | jq -r '
+            .data.user.projectV2.fields.nodes[]
+            | select(.name == "Status")
+            | .options[]
+            | select(.name == "Backlog")
+            | .id')
+
+          # Update the item status to Backlog
+          gh api graphql -f query='
+            mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+              updateProjectV2ItemFieldValue(
+                input: {
+                  projectId: $projectId
+                  itemId: $itemId
+                  fieldId: $fieldId
+                  value: { singleSelectOptionId: $optionId }
+                }
+              ) {
+                projectV2Item {
+                  id
+                }
+              }
+            }' \
+            -f projectId="$PROJECT_ID" \
+            -f itemId="$ITEM_ID" \
+            -f fieldId="$STATUS_FIELD_ID" \
+            -f optionId="$BACKLOG_OPTION_ID"
