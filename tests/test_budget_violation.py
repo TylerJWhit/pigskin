@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Test to identify when teams violate budget constraints."""
 
-import sys
-sys.path.append('.')
-
 from classes.team import Team
 from classes.player import Player
 from strategies.value_based_strategy import ValueBasedStrategy

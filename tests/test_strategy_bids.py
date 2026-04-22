@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Test to verify all strategies return integer bids."""
 
-import sys
-sys.path.append('.')
-
 from classes.team import Team
 from classes.player import Player
 from classes.owner import Owner

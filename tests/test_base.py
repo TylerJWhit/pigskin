@@ -1,15 +1,9 @@
 """Base test utilities and fixtures for auction draft testing."""
 
-import sys
 import os
 from typing import List, Dict, Any
 import unittest
 from unittest.mock import Mock, patch
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from classes.player import Player
 from classes.team import Team

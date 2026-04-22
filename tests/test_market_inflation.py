@@ -4,14 +4,6 @@ Test script to demonstrate market inflation adjustment in VOR strategies.
 Shows how strategies adapt when league money is running low.
 """
 
-import sys
-import os
-
-# Add parent directory to path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
 from classes.player import Player
 from classes.team import Team
 from classes.owner import Owner

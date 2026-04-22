@@ -4,12 +4,6 @@ Test multi-level budget constraint enforcement.
 Tests that teams cannot bid amounts that would prevent roster completion.
 """
 
-import sys
-import os
-
-# Add project root to path
-sys.path.insert(0, '/home/tezell/Documents/code/pigskin')
-
 from classes.team import Team
 from classes.player import Player
 from strategies.value_based_strategy import ValueBasedStrategy
