@@ -5,9 +5,9 @@ from typing import List, TYPE_CHECKING
 from .base_strategy import Strategy
 
 if TYPE_CHECKING:
-    from ..classes.player import Player
-    from ..classes.team import Team
-    from ..classes.owner import Owner
+    from classes.player import Player
+    from classes.team import Team
+    from classes.owner import Owner
 
 
 class RefinedValueRandomStrategy(Strategy):
