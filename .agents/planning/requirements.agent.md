@@ -49,7 +49,8 @@ Structure each PRD with:
 - **Scoring formats**: Standard, PPR, Half-PPR
 
 ## Workflow
-1. Read existing `claude.md` files in relevant subsystems for current behavior
-2. Review `examples/` and `tests/` to understand expected interfaces
-3. Identify gaps between current implementation and desired behavior
-4. Produce requirements documents in `docs/requirements/` (create if needed)
+1. **Start with the Bug Hotspot List**: request the current 80/20 analysis from the Project Manager. Requirements work for bug-fix stories in hotspot modules takes precedence over new feature specs.
+2. Read existing `claude.md` files in relevant subsystems for current behavior
+3. Review `examples/` and `tests/` to understand expected interfaces
+4. Identify gaps between current implementation and desired behavior — for hotspot modules, treat every untested edge case as a requirement gap
+5. Produce requirements documents in `docs/requirements/` (create if needed)

@@ -46,6 +46,7 @@ Store ADRs in `docs/adr/`. Format:
 - **State Management**: `UnifiedAuctionState` is the canonical auction representation
 - **Budget System**: `BudgetConstraintManager` is the single source of truth for budget logic
 - **Separation of Concerns**: `classes/` (domain), `services/` (business logic), `strategies/` (AI)
+- **Defect Hotspot Identification**: Architectural analysis must flag modules that are both high-churn and high-defect. These are the 20% driving 80% of bugs. Structural issues (god classes, tight coupling, missing abstractions) in hotspot modules are architectural emergencies, not tech-debt backlog items.
 
 ## Current Architecture Overview
 ```
@@ -62,6 +63,7 @@ utils/        → Shared utilities and helpers
 
 ## Workflow
 1. Use `semantic_search` to understand current component relationships
-2. Identify architectural smells: circular deps, god classes, leaky abstractions
-3. Propose changes as ADRs before implementation
-4. Validate proposed designs against the project's `copilot-instructions.md` conventions
+2. **Run 80/20 hotspot analysis first**: cross-reference `git log` churn data with `pytest` failure counts to identify the top defect-dense modules — these drive structural review priority
+3. Identify architectural smells: circular deps, god classes, leaky abstractions — starting from hotspot modules
+4. Propose changes as ADRs before implementation
+5. Validate proposed designs against the project's `copilot-instructions.md` conventions
