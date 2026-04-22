@@ -5,10 +5,6 @@ Strategy Analysis Tool
 Analyzes strategies to identify issues preventing them from bidding effectively.
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from classes import create_strategy, AVAILABLE_STRATEGIES
 from classes.player import Player
 from classes.team import Team  

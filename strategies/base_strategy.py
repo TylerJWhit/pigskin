@@ -4,9 +4,9 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..classes.player import Player
-    from ..classes.team import Team
-    from ..classes.owner import Owner
+    from classes.player import Player
+    from classes.team import Team
+    from classes.owner import Owner
 
 
 class Strategy(ABC):

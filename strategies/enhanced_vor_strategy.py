@@ -6,14 +6,6 @@ This demonstrates how a VOR strategy could be enhanced to consider
 league-wide budget constraints and market inflation.
 """
 
-import sys
-import os
-
-# Add parent directory to path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
 from typing import List, TYPE_CHECKING
 from strategies.base_strategy import Strategy
 
