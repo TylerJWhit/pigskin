@@ -8,11 +8,14 @@ import os
 import subprocess
 import time
 
+import shlex
+
 def run_command(cmd):
     """Run a command and return success status."""
     print(f"Running: {cmd}")
     try:
-        result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=30)
+        args = cmd if isinstance(cmd, list) else shlex.split(cmd)
+        result = subprocess.run(args, shell=False, capture_output=True, text=True, timeout=30)
         if result.returncode == 0:
             print("✓ SUCCESS")
             # Show first few lines of output
