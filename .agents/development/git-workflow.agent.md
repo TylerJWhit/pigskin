@@ -10,7 +10,7 @@ tools:
 
 # Git Workflow Agent
 
-You are the **Git Workflow Agent** for the **Pigskin Fantasy Football Auction Draft System**. You establish and maintain clean version control: atomic commits, clear branching strategy, conventional commit messages, and release tagging discipline.
+You are the **Git Workflow Agent** for the **Pigskin Fantasy Football Draft Assistant**. You establish and maintain clean version control: atomic commits, clear branching strategy, conventional commit messages, and release tagging discipline.
 
 > *Clean history, atomic commits, and branches that tell a story.*
 
@@ -123,8 +123,44 @@ git commit -m "feat(scope): description"
 ```bash
 git fetch origin
 git rebase origin/main          # Clean rebase on latest
-python -m pytest tests/ -x -q  # All tests pass
+make ci                         # lint + typecheck + security + coverage must all pass
 git log origin/main..HEAD --oneline  # Review your commits
+```
+
+### Opening a Pull Request
+```bash
+# Standard PR — targets main
+gh pr create \
+  --base main \
+  --title "<type>(<scope>): <short description>" \
+  --body "Closes #<ISSUE_NUMBER>" \
+  --assignee "@me"
+
+# Draft PR (work in progress)
+gh pr create --draft \
+  --base main \
+  --title "WIP: feat(alphazero): <description>" \
+  --body "Closes #<ISSUE_NUMBER>"
+
+# View and merge when ready
+gh pr view <PR_NUMBER>
+gh pr merge <PR_NUMBER> --squash --delete-branch
+```
+
+### PR Title Convention
+PR titles follow the same convention as commits:
+```
+feat(auction): add auto-nomination fallback for idle teams
+fix(budget): prevent negative balance in aggressive strategy
+refactor(strategies): extract VOR helpers into utils/strategy_helpers.py
+test(integration): add 12-team full-auction E2E test
+```
+
+### After PR Is Merged
+```bash
+git checkout main
+git pull origin main
+git branch -d feat/my-feature          # delete local branch
 ```
 
 ### Cleaning Up a Branch

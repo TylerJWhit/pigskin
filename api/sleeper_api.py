@@ -24,6 +24,7 @@ class SleeperAPI:
             rate_limit_delay: Delay between API calls to respect rate limits
         """
         self.rate_limit_delay = rate_limit_delay
+        self.min_request_interval = rate_limit_delay  # alias for tests
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'PigskinAuctionDraft/1.0'
@@ -152,6 +153,10 @@ class SleeperAPI:
             return self._make_request(f"/players/{sport}") or {}
         except SleeperAPIError:
             return {}
+
+    def get_nfl_players(self, sport: str = "nfl") -> Dict[str, Dict]:
+        """Alias for get_all_players for backward-compatibility."""
+        return self.get_all_players(sport)
             
     def get_trending_players(self, sport: str = "nfl", type_: str = "add", 
                            hours: int = 24, limit: int = 25) -> List[Dict]:

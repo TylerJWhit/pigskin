@@ -28,7 +28,7 @@ class Auction:
         self.nomination_timer = nomination_timer
 
         # Thread safety lock for all shared-state mutations
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
 
         # Auction state
         self.is_active = False
@@ -96,17 +96,18 @@ class Auction:
             if found is None:
                 raise ValueError(f"Player '{player}' not found in available players")
             player = found
-        try:
-            self.draft.nominate_player(player, nominating_owner_id, initial_bid)
-            self.is_active = True
-            self._notify_player_nominated(player, nominating_owner_id, initial_bid)
-            # Only start background timer if bid_timer > 0; otherwise bids
-            # are placed manually and resolved via end_current_auction().
-            if self.bid_timer > 0:
-                self._start_bid_timer()
-            return True
-        except ValueError:
-            return False
+        with self._lock:
+            try:
+                self.draft.nominate_player(player, nominating_owner_id, initial_bid)
+                self.is_active = True
+                self._notify_player_nominated(player, nominating_owner_id, initial_bid)
+                # Only start background timer if bid_timer > 0; otherwise bids
+                # are placed manually and resolved via end_current_auction().
+                if self.bid_timer > 0:
+                    self._start_bid_timer()
+                return True
+            except ValueError:
+                return False
 
     def _resolve_mock_auction(self, player: 'Player') -> None:
         """Collect all strategy bids immediately and award player to highest bidder."""
@@ -128,14 +129,15 @@ class Auction:
         """Place a bid on the current player."""
         if bid_amount < 0:
             raise ValueError(f"Bid amount must be non-negative, got {bid_amount}")
-        if not self.is_active:
-            return False
+        with self._lock:
+            if not self.is_active:
+                return False
 
-        # CR-06: Prevent the current high bidder from bidding against themselves
-        if self.draft.current_high_bidder == bidder_id:
-            return False
+            # CR-06: Prevent the current high bidder from bidding against themselves
+            if self.draft.current_high_bidder == bidder_id:
+                return False
 
-        success = self.draft.place_bid(bidder_id, bid_amount)
+            success = self.draft.place_bid(bidder_id, bid_amount)
         if success:
             self._start_bid_timer()  # Reset timer
             self._notify_bid_placed(bidder_id, bid_amount)
@@ -425,8 +427,7 @@ class Auction:
             winner_team = self.draft._get_team_by_id(winner_id)
         if winner_team:
             winner_team.add_player(player, price)
-            player.is_drafted = True
-            player.draft_price = price
+            player.mark_as_drafted(price, winner_id)
         self._notify_auction_completed(player, winner_team, price)
 
     def _sort_players_by_value(self, players: List['Player']) -> List['Player']:

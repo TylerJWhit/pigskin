@@ -1,29 +1,37 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install test clean help run-tests format lint
+.PHONY: setup install test clean help run-tests format lint typecheck coverage security audit ci standup
 
 # Default target
 help:
 	@echo "Pigskin Auction Draft Tool - Available commands:"
 	@echo ""
 	@echo "Setup and Installation:"
-	@echo "  setup     - Run the full setup script"
-	@echo "  install   - Install Python dependencies only"
+	@echo "  setup       - Run the full setup script"
+	@echo "  install     - Install Python dependencies only"
 	@echo ""
 	@echo "Testing:"
-	@echo "  test      - Run all tests"
-	@echo "  test-unit - Run unit tests only"
+	@echo "  test        - Run all tests"
+	@echo "  test-unit   - Run unit tests only"
 	@echo "  test-integration - Run integration tests"
+	@echo "  coverage    - Run tests with coverage report (gate: 85%)"
 	@echo ""
-	@echo "Development:"
-	@echo "  format    - Format code with black"
-	@echo "  lint      - Run linting checks"
-	@echo "  clean     - Clean up cache and temporary files"
+	@echo "Code Quality:"
+	@echo "  format      - Format code with black"
+	@echo "  lint        - Run flake8 linting"
+	@echo "  typecheck   - Run mypy type checking"
+	@echo "  security    - Run bandit security scan"
+	@echo "  audit       - Run pip-audit CVE scan"
+	@echo "  ci          - Run all CI checks (lint + typecheck + security + coverage)"
+	@echo ""
+	@echo "Operations:"
+	@echo "  standup     - Print daily standup summary (git log + project board)"
+	@echo "  clean       - Clean up cache and temporary files"
 	@echo ""
 	@echo "Usage Examples:"
-	@echo "  bid       - Example bid recommendation"
-	@echo "  mock      - Example mock draft"
-	@echo "  tournament - Example tournament"
+	@echo "  bid         - Example bid recommendation"
+	@echo "  mock        - Example mock draft"
+	@echo "  tournament  - Example tournament"
 
 # Setup
 setup:
@@ -61,10 +69,65 @@ format:
 lint:
 	@echo "Running linting..."
 	@if command -v flake8 >/dev/null 2>&1; then \
-		flake8 --max-line-length=100 --ignore=E203,W503 .; \
+		flake8 --max-line-length=120 --exclude=venv,pigskin_auction_draft.egg-info --count --show-source --statistics .; \
 	else \
 		echo "Flake8 not installed. Run: pip install flake8"; \
 	fi
+
+typecheck:
+	@echo "Running type checks..."
+	@if command -v mypy >/dev/null 2>&1; then \
+		mypy . --ignore-missing-imports --exclude venv; \
+	else \
+		echo "mypy not installed. Run: pip install mypy"; \
+	fi
+
+coverage:
+	@echo "Running tests with coverage report..."
+	@if command -v pytest >/dev/null 2>&1; then \
+		pytest tests/ -q --timeout=60 --cov=. --cov-fail-under=85 \
+			--cov-report=term-missing --cov-omit="venv/*,tests/*,setup.py"; \
+	else \
+		echo "pytest not installed. Run: pip install pytest pytest-cov"; \
+	fi
+
+security:
+	@echo "Running security scan..."
+	@if command -v bandit >/dev/null 2>&1; then \
+		bandit -r . -ll --exclude ./venv,./tests,./pigskin_auction_draft.egg-info; \
+	else \
+		echo "bandit not installed. Run: pip install bandit"; \
+	fi
+
+audit:
+	@echo "Running dependency CVE audit..."
+	@if command -v pip-audit >/dev/null 2>&1; then \
+		pip-audit -r requirements.txt; \
+	else \
+		echo "pip-audit not installed. Run: pip install pip-audit"; \
+	fi
+
+ci: lint typecheck security coverage
+	@echo "All CI checks passed."
+
+standup:
+	@echo "=== Daily Standup — $$(date +%Y-%m-%d) ==="
+	@echo ""
+	@echo "--- Recent commits (last 24h) ---"
+	@git log --since="24 hours ago" --oneline --no-merges 2>/dev/null || echo "(none)"
+	@echo ""
+	@echo "--- In Progress issues ---"
+	@gh project item-list 2 --owner TylerJWhit --format json --limit 200 2>/dev/null \
+		| jq -r '.items[] | select(.status == "In Progress") | "  #\(.content.number) \(.content.title)"' \
+		|| echo "  (gh CLI not configured)"
+	@echo ""
+	@echo "--- In Review issues ---"
+	@gh project item-list 2 --owner TylerJWhit --format json --limit 200 2>/dev/null \
+		| jq -r '.items[] | select(.status == "In Review") | "  #\(.content.number) \(.content.title)"' \
+		|| echo "  (gh CLI not configured)"
+	@echo ""
+	@echo "--- Test status ---"
+	@pytest tests/ -q --timeout=60 2>&1 | tail -3 || echo "  (pytest not available)"
 
 clean:
 	@echo "Cleaning up..."

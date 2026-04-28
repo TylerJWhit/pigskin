@@ -116,12 +116,6 @@ class DraftLoadingService:
                 num_teams = int(config.num_teams)
             except (TypeError, ValueError):
                 num_teams = 12
-            # If config.teams is a list, prefer its length
-            try:
-                if isinstance(config.teams, list) and len(config.teams) > 0:
-                    num_teams = len(config.teams)
-            except Exception:
-                pass
             # Resolve data path — prefer config value but fall back to known location
             try:
                 data_path = str(config.data_path)

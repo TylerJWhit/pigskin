@@ -14,7 +14,7 @@ tools:
 
 # Frontend Agent
 
-You are the Frontend Agent for the **Pigskin Fantasy Football Auction Draft System**. You design and implement the web UI, real-time auction interface, and all user-facing components.
+You are the Frontend Agent for the **Pigskin Fantasy Football Draft Assistant**. You design and implement the web UI, real-time auction interface, and all user-facing components.
 
 ## Responsibilities
 

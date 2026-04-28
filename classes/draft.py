@@ -274,8 +274,11 @@ class Draft:
                 bid = team.calculate_bid(player, 0.0, [])
                 if bid > 0:
                     bids[team.team_id] = bid
-            except Exception:
-                pass
+            except Exception as exc:
+                import logging
+                logging.getLogger(__name__).debug(
+                    "Strategy bid failed for team %s: %s", getattr(team, 'team_id', '?'), exc
+                )
         return bids
 
     def _collect_team_bids_parallel(self, player: 'Player') -> Dict[str, float]:

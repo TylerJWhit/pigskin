@@ -196,18 +196,6 @@ class Strategy(ABC):
         max_bid = usable_budget * max_percentage
         
         return max(1, int(max_bid))
-    
-    def should_force_nominate_for_completion(self, player: 'Player', team: 'Team', remaining_budget: float) -> bool:
-        """Determine if we should force nominate this player to complete the roster."""
-        remaining_slots = self._get_remaining_roster_slots(team)
-        if remaining_slots < 3:
-            return False
-        position_priority = self._calculate_position_priority(player, team)
-        if remaining_budget <= remaining_slots * 2.0:
-            return position_priority >= 0.5 and remaining_budget >= 1.0
-        if position_priority >= 1.0:
-            return True
-        return False
 
     def _enforce_budget_constraint(self, proposed_bid: float, team: 'Team', remaining_budget: float) -> int:
         """Enforce budget constraint using the max bid calculation.

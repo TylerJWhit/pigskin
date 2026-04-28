@@ -9,7 +9,7 @@ from .improved_value_strategy import ImprovedValueStrategy
 from .adaptive_strategy import AdaptiveStrategy
 from .vor_strategy import VorStrategy
 from .random_strategy import RandomStrategy
-# from .smart_strategy import SmartStrategy  # Temporarily disabled
+from .smart_strategy import SmartStrategy
 
 # New imported strategies
 from .balanced_strategy import BalancedStrategy
@@ -29,7 +29,7 @@ AVAILABLE_STRATEGIES = {
     'adaptive': AdaptiveStrategy,
     'vor': VorStrategy,
     'random': RandomStrategy,
-    # 'smart': SmartStrategy  # Temporarily disabled
+    'smart': SmartStrategy,
     
     # New imported strategies
     'balanced': BalancedStrategy,

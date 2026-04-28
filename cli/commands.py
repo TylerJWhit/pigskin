@@ -898,7 +898,8 @@ class CommandProcessor:
             for i, team in enumerate(draft.teams):
                 strategy_name = strategies[i % len(strategies)]
                 strategy = create_strategy(strategy_name)
-                
+                if hasattr(strategy, 'enable_tournament_mode') and 'alphazero' in strategy_name.lower():
+                    strategy.enable_tournament_mode(True)
                 team.set_strategy(strategy)
                 auction.enable_auto_bid(team.owner_id, strategy)
                 team_strategies[team.team_name] = strategy_name
@@ -1110,7 +1111,8 @@ class CommandProcessor:
                 team_strategy = active_strategies[i % len(active_strategies)]
                 
             strategy_obj = create_strategy(team_strategy)
-            
+            if hasattr(strategy_obj, 'enable_tournament_mode') and 'alphazero' in team_strategy.lower():
+                strategy_obj.enable_tournament_mode(True)
             owner = Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=(i == 0))
             roster_config = getattr(config, 'roster_positions', None)
             team = Team(f"team_{i+1}", f"owner_{i+1}", f"Team {i+1}", 

@@ -29,7 +29,7 @@ Examples:
     python cli/main.py tournament 5        # 5 rounds per group, 10 teams per draft
     python cli/main.py tournament 10 12    # 10 rounds per group, 12 teams per draft
     python cli/main.py tournament 3 10 -v  # Verbose output
-    python cli.main.py ping
+    python cli/main.py ping
 """
 
 import sys

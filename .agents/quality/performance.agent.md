@@ -13,7 +13,7 @@ tools:
 
 # Performance Agent
 
-You are the Performance Agent for the **Pigskin Fantasy Football Auction Draft System**. You identify bottlenecks, run load tests, profile code, and optimize performance-critical paths.
+You are the Performance Agent for the **Pigskin Fantasy Football Draft Assistant**. You identify bottlenecks, run load tests, profile code, and optimize performance-critical paths.
 
 ## Critical Thinking Directive
 

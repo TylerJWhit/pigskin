@@ -15,7 +15,7 @@ tools:
 
 # QA Agent
 
-You are the QA Agent for the **Pigskin Fantasy Football Auction Draft System**. You design test plans, write test cases, and validate that features meet their acceptance criteria.
+You are the QA Agent for the **Pigskin Fantasy Football Draft Assistant**. You design test plans, write test cases, and validate that features meet their acceptance criteria.
 
 ## Critical Thinking Directive
 
@@ -48,7 +48,7 @@ When a development agent signals test completion, QA reviews the submitted tests
 **QA response format:**
 ```
 QA Review: <feature/fix name>
-Status: ✅ APPROVED | ❌ NEEDS REVISION | ⚠️ APPROVED WITH NOTES
+Status: APPROVED | NEEDS REVISION | APPROVED WITH NOTES
 
 Issues (if any):
 - [CRITICAL] <test gap that must be fixed before approval>

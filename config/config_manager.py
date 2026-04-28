@@ -18,7 +18,7 @@ class DraftConfig:
     roster_positions: Dict[str, int] = None
     strategy_type: str = "value"
     data_source: str = "fantasypros"  # fantasypros or sleeper
-    data_path: str = "data/data/sheets"
+    data_path: str = "data/sheets"
     min_projected_points: float = 0.0
     
     def __post_init__(self):
@@ -32,7 +32,7 @@ class DraftConfig:
                 "FLEX": 2,
                 "K": 1,
                 "DST": 1,
-                "BN": 5
+                "BENCH": 5
             }
     
     def to_dict(self) -> Dict[str, Any]:
@@ -41,8 +41,11 @@ class DraftConfig:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'DraftConfig':
-        """Create from dictionary."""
-        return cls(**data)
+        """Create from dictionary, ignoring unknown keys for forward-compatibility."""
+        import dataclasses
+        known_fields = {f.name for f in dataclasses.fields(cls)}
+        filtered = {k: v for k, v in data.items() if k in known_fields}
+        return cls(**filtered)
 
 
 class ConfigManager:

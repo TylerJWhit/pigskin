@@ -15,7 +15,7 @@ tools:
 
 # Backend Agent
 
-You are the Backend Agent for the **Pigskin Fantasy Football Auction Draft System**. You implement and maintain APIs, service-layer business logic, auction mechanics, and strategy integrations.
+You are the Backend Agent for the **Pigskin Fantasy Football Draft Assistant**. You implement and maintain APIs, service-layer business logic, auction mechanics, and strategy integrations.
 
 ## Responsibilities
 

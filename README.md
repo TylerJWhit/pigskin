@@ -1,13 +1,22 @@
-# Pigskin Auction Draft Tool
+# Pigskin Draft Assistant
 
-A comprehensive fantasy football auction draft tool with advanced bidding strategies, real-time player data integration, and tournament simulation capabilities.
+An intuitive fantasy football draft assistant that helps you make smarter draft decisions — whether you're in an auction, a snake/round-robin, a dynasty startup, or a rookie draft. Includes advanced strategy analysis and backtesting tools so you can find what works before draft day.
+
+## Goals
+
+1. **Easy-to-use draft assistant** — Provide clear, actionable recommendations that any drafter can act on without needing to understand the underlying math.
+2. **All draft formats** — Support auction drafts and normal snake/round-robin drafts equally well.
+3. **All league types** — Help with standard redrafts, dynasty startup drafts, and rookie drafts.
+4. **Strategy lab** — Side feature for testing and backtesting strategies to identify what actually works.
 
 ## Features
 
-- **16 Different Bidding Strategies**: From conservative value-based to aggressive elite-targeting approaches
+- **Multi-Format Draft Support**: Auction, snake/round-robin, dynasty startup, and rookie drafts
+- **Live Draft Recommendations**: Position-aware pick and bid suggestions during any live draft
+- **16 Bidding Strategies**: From conservative value-based to aggressive elite-targeting approaches
+- **Strategy Backtesting**: Test strategies against historical data and simulated drafts to validate performance
 - **Real-time Data Integration**: FantasyPros rankings and Sleeper API integration
-- **Bid Recommendations**: Smart bid calculations based on player value, team needs, and budget constraints
-- **Tournament Simulation**: Test strategies against each other in elimination tournaments
+- **Tournament Simulation**: Pit strategies against each other in elimination tournaments
 - **Mock Drafts**: Practice with different strategies and team sizes
 - **Sleeper Integration**: Direct integration with Sleeper fantasy leagues and drafts
 

@@ -10,12 +10,13 @@ class TestCompleteAuctionFlow(BaseTestCase):
     """Test complete auction draft workflow."""
     
     @patch('data.fantasypros_loader.load_fantasypros_players')
-    @patch('config.config_manager.ConfigManager')
+    @patch('services.draft_loading_service.ConfigManager')
     def test_full_draft_simulation(self, mock_config_manager, mock_load_players):
         """Test a complete draft from setup to completion."""
         # Mock configuration
         mock_config = Mock()
         mock_config.budget = 200
+        mock_config.num_teams = 2
         mock_config.roster_positions = {'QB': 1, 'RB': 2, 'WR': 2}
         mock_config.teams = [
             {'owner_name': 'Owner 1', 'team_name': 'Team 1', 'strategy': 'value'},

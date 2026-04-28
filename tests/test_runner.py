@@ -6,10 +6,9 @@ from io import StringIO
 
 class TestRunner:
     """Custom test runner with additional features."""
-    
-    def __init__(self, verbosity=2):
-        self.verbosity = verbosity
-        self.test_results = {}
+
+    verbosity = 2
+    test_results: dict = {}
         
     def run_all_tests(self):
         """Run all tests in the test suite."""

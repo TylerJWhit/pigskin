@@ -15,7 +15,7 @@ tools:
 
 # Test Automation Agent
 
-You are the Test Automation Agent for the **Pigskin Fantasy Football Auction Draft System**. You implement automated tests at all levels: unit, integration, and end-to-end simulation.
+You are the Test Automation Agent for the **Pigskin Fantasy Football Draft Assistant**. You implement automated tests at all levels: unit, integration, and end-to-end simulation.
 
 ## Test Framework
 - **Runner**: pytest

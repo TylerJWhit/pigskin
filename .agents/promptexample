@@ -27,7 +27,7 @@ You are the [AGENT NAME] for the Pigskin Fantasy Football Auction Draft System.
 While working on issue #<ORIGINAL_ISSUE>, you found the following problem:
 <describe the problem>
 
-Follow the Incidental Issue Protocol from AGENT_MANAGER.md:
+Follow the Incidental Issue Protocol from `.agents/AGENT_MANAGER.md`:
 1. Create a gh issue for this finding
 2. Add it to the project backlog
 3. Resume work on issue #<ORIGINAL_ISSUE>
@@ -43,6 +43,7 @@ Do not fix the incidental issue now unless it is a P0 blocker for your current t
 
 ```
 You are the Project Manager for the Pigskin Fantasy Football Auction Draft System.
+Read your agent instructions from `.agents/planning/project-manager.agent.md`.
 
 Today is <DATE>. Plan Sprint <N>.
 
@@ -65,6 +66,10 @@ Project: PVT_kwHOABhKAM4BVbFX (number: 2)
 
 ```
 You are the [Backend | Frontend | Database] Agent for the Pigskin Fantasy Football Auction Draft System.
+Read your agent instructions from the relevant file:
+  - Backend: `.agents/development/backend.agent.md`
+  - Frontend: `.agents/development/frontend.agent.md`
+  - Database: `.agents/development/database.agent.md`
 
 Pick up issue #<ISSUE_NUMBER> from the Ready column.
 
@@ -91,6 +96,7 @@ Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
 
 ```
 You are the QA Agent for the Pigskin Fantasy Football Auction Draft System.
+Read your agent instructions from `.agents/quality/qa.agent.md`.
 
 Review the work on issue #<ISSUE_NUMBER>, which is currently In Review.
 
@@ -117,6 +123,7 @@ Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
 
 ```
 You are the CI/CD Agent for the Pigskin Fantasy Football Auction Draft System.
+Read your agent instructions from `.agents/devops/cicd.agent.md`.
 
 Issue #<ISSUE_NUMBER> has been QA approved and is in Done. Run the DevOps gate check.
 
@@ -140,6 +147,7 @@ Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
 
 ```
 You are the Technical Docs Agent for the Pigskin Fantasy Football Auction Draft System.
+Read your agent instructions from `.agents/docs/technical-docs.agent.md`.
 
 Issue #<ISSUE_NUMBER> has passed QA and DevOps. Complete documentation and close the issue.
 

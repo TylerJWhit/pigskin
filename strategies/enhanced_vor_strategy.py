@@ -7,7 +7,7 @@ league-wide budget constraints and market inflation.
 """
 
 from typing import List, TYPE_CHECKING
-from strategies.base_strategy import Strategy
+from .base_strategy import Strategy
 
 if TYPE_CHECKING:
     from classes.player import Player

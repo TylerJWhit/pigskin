@@ -548,7 +548,11 @@ class TestAuctionPerformance:
     def test_bid_collection_performance(self, configured_draft, sample_players):
         """Test bid collection performance with many teams."""
         auction = Auction(configured_draft)
-        
+
+        # Ensure the 2 teams already in configured_draft also have calculate_bid mocked
+        for team in configured_draft.teams:
+            team.calculate_bid = Mock(return_value=5.0)
+
         # Add more teams for performance test
         for i in range(20):  # Total 22 teams
             team = Team(f"perf_team_{i}", f"perf_owner_{i}", f"Performance Team {i}")

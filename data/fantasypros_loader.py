@@ -328,8 +328,31 @@ class FantasyProsLoader:
 
 
 # Convenience functions for easy importing
+def _parse_csv_file(csv_content: str, position: str) -> List[Player]:
+    """Parse a CSV string for a given position and return a list of Player objects.
+
+    Rows with non-numeric projected_points or auction_value are silently skipped.
+    """
+    import io
+    loader = FantasyProsLoader()
+    players = []
+    reader = csv.DictReader(io.StringIO(csv_content))
+    for row in reader:
+        player_data = loader._parse_player_row(row, position)
+        if player_data:
+            players.append(Player(
+                player_id=player_data.get('player_id', ''),
+                name=player_data.get('name', ''),
+                position=player_data.get('position', position),
+                team=player_data.get('team', ''),
+                projected_points=float(player_data.get('projected_points', 0)),
+                auction_value=float(player_data.get('auction_value', 0)),
+            ))
+    return players
+
+
 def load_fantasypros_players(
-    data_path: str = "data/data/sheets",
+    data_path: str = "data/sheets",
     min_projected_points: float = 0.0
 ) -> List[Player]:
     """
@@ -350,7 +373,7 @@ def load_fantasypros_players(
 
 def get_position_rankings(
     position: str,
-    data_path: str = "data/data/sheets",
+    data_path: str = "data/sheets",
     top_n: int = 50
 ) -> List[Dict]:
     """

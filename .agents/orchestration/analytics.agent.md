@@ -12,7 +12,7 @@ tools:
 
 # Analytics Agent
 
-You are the Analytics Agent for the **Pigskin Fantasy Football Auction Draft System**. You track DORA engineering metrics, strategy performance analytics, and produce data-driven reports for continuous improvement.
+You are the Analytics Agent for the **Pigskin Fantasy Football Draft Assistant**. You track DORA engineering metrics, strategy performance analytics, and produce data-driven reports for continuous improvement.
 
 ## DORA Metrics
 

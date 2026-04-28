@@ -87,7 +87,7 @@ class TestSleeperAPI(BaseTestCase):
     def setUp(self):
         super().setUp()
         
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_get_nfl_players_success(self, mock_get):
         """Test successful NFL players retrieval."""
         from api.sleeper_api import SleeperAPI
@@ -111,14 +111,16 @@ class TestSleeperAPI(BaseTestCase):
         self.assertIsInstance(players, dict)
         self.assertIn('1', players)
         
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_get_nfl_players_failure(self, mock_get):
         """Test NFL players retrieval failure."""
         from api.sleeper_api import SleeperAPI
-        
+
         # Mock failed response
         mock_response = Mock()
         mock_response.status_code = 500
+        import requests as _requests
+        mock_response.raise_for_status.side_effect = _requests.exceptions.HTTPError("500 Server Error")
         mock_get.return_value = mock_response
         
         api = SleeperAPI()
@@ -126,7 +128,7 @@ class TestSleeperAPI(BaseTestCase):
         
         self.assertEqual(players, {})
         
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_get_user_success(self, mock_get):
         """Test successful user retrieval."""
         from api.sleeper_api import SleeperAPI
@@ -146,14 +148,16 @@ class TestSleeperAPI(BaseTestCase):
         self.assertIsInstance(user, dict)
         self.assertEqual(user['user_id'], 'test_user')
         
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_get_user_not_found(self, mock_get):
         """Test user not found."""
         from api.sleeper_api import SleeperAPI
-        
+
         # Mock not found response
         mock_response = Mock()
         mock_response.status_code = 404
+        import requests as _requests
+        mock_response.raise_for_status.side_effect = _requests.exceptions.HTTPError("404 Not Found")
         mock_get.return_value = mock_response
         
         api = SleeperAPI()
@@ -161,7 +165,7 @@ class TestSleeperAPI(BaseTestCase):
         
         self.assertIsNone(user)
         
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_get_leagues_success(self, mock_get):
         """Test successful leagues retrieval."""
         from api.sleeper_api import SleeperAPI
@@ -194,7 +198,7 @@ class TestSleeperAPI(BaseTestCase):
         self.assertTrue(hasattr(api, 'min_request_interval'))
         
     @patch('time.sleep')
-    @patch('requests.get')
+    @patch('requests.Session.get')
     def test_rate_limiting_delay(self, mock_get, mock_sleep):
         """Test that rate limiting adds appropriate delays."""
         from api.sleeper_api import SleeperAPI
