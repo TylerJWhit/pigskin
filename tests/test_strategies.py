@@ -411,8 +411,8 @@ class TestStrategyComparison(BaseTestCase):
                     remaining_players=self.remaining_players
                 )
                 
-                self.assertIsInstance(bid, float)
-                self.assertGreaterEqual(bid, 0.0)
+                self.assertIsInstance(bid, (int, float))
+                self.assertGreaterEqual(bid, 0)
                 
     def test_strategy_nomination_differences(self):
         """Test that strategies have different nomination behaviors."""

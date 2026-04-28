@@ -3,6 +3,8 @@
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import uuid
+import random
+import concurrent.futures
 from .player import Player
 from .team import Team
 from .owner import Owner
@@ -16,12 +18,15 @@ class Draft:
         draft_id: Optional[str] = None,
         name: str = "Auction Draft",
         budget_per_team: float = 200.0,
-        roster_size: int = 16
+        roster_size: int = 16,
+        num_teams: int = 12
     ):
         self.draft_id = draft_id or str(uuid.uuid4())
         self.name = name
         self.budget_per_team = budget_per_team
         self.roster_size = roster_size
+        self.max_roster_size = roster_size
+        self.num_teams = num_teams
         self.created_at = datetime.now()
         self.started_at: Optional[datetime] = None
         self.completed_at: Optional[datetime] = None
@@ -48,16 +53,25 @@ class Draft:
         self.bids: List[Dict] = []
         self.transactions: List[Dict] = []
         
-    def add_team(self, team: Team) -> None:
-        """Add a team to the draft."""
-        if len(self.teams) >= 12:  # Max teams
-            raise ValueError("Maximum number of teams (12) already reached")
-        self.teams.append(team)
+    def add_team(self, team: Team, owner=None) -> None:
+        """Add a team to the draft.
         
+        Args:
+            team: The team to add.
+            owner: Optional owner to associate with the team and register in the draft.
+        """
+        if len(self.teams) >= self.num_teams:
+            raise ValueError(f"Maximum number of teams ({self.num_teams}) already reached")
+        self.teams.append(team)
+
+        # Register the supplied owner if provided
+        if owner is not None:
+            self.add_owner(owner)
+
         # Link owner to team if owner exists
-        owner = self._get_owner_by_id(team.owner_id)
-        if owner:
-            owner.assign_team(team)
+        linked_owner = self._get_owner_by_id(team.owner_id)
+        if linked_owner:
+            linked_owner.assign_team(team)
         
     def add_owner(self, owner: Owner) -> None:
         """Add an owner to the draft."""
@@ -154,9 +168,17 @@ class Draft:
         
         # Award player to winning team
         winner_team = self._get_team_by_owner(winner_id)
-        if winner_team:
-            winner_team.add_player(player, final_price)
-            
+        if winner_team is None:
+            # No winner found — skip awarding but still clean up auction state
+            self.current_player = None
+            self.current_bid = 0.0
+            self.current_high_bidder = None
+            self._advance_nominator()
+            if not self._is_draft_complete():
+                self._start_new_nomination()
+            return
+        winner_team.add_player(player, final_price)
+
         # Remove from available players
         self.available_players.remove(player)
         self.drafted_players.append(player)
@@ -196,9 +218,13 @@ class Draft:
             self.status = "started"
             
     def _get_team_by_owner(self, owner_id: str) -> Optional[Team]:
-        """Get team by owner ID."""
+        """Get team by owner ID, team ID, or team name."""
         for team in self.teams:
             if team.owner_id == owner_id:
+                return team
+        # Fallback: match by team_id or team_name
+        for team in self.teams:
+            if getattr(team, 'team_id', None) == owner_id or getattr(team, 'team_name', None) == owner_id:
                 return team
         return None
         
@@ -217,14 +243,121 @@ class Draft:
             
     def _start_new_nomination(self) -> None:
         """Start a new nomination phase."""
-        # Reset timer for nomination
         self.time_remaining = self.bid_timer
+        nominator = self.get_current_nominator()
+        if nominator:
+            self._get_team_nomination(nominator)
+
+    def _get_team_nomination(self, team: 'Team') -> Optional['Player']:
+        """Get a player nomination from the given team."""
+        if not self.available_players:
+            return None
+        # Ask team strategy first
+        for player in self.available_players:
+            if hasattr(team, 'should_nominate_player') and team.should_nominate_player(player):
+                return player
+        # Fall back to random selection
+        return random.choice(self.available_players)
+
+    def _get_team_by_id(self, team_id: str) -> Optional['Team']:
+        """Get team by team ID."""
+        for team in self.teams:
+            if team.team_id == team_id:
+                return team
+        return None
+
+    def _collect_team_bids(self, player: 'Player') -> Dict[str, float]:
+        """Collect sealed bids from all teams for a player."""
+        bids = {}
+        for team in self.teams:
+            try:
+                bid = team.calculate_bid(player, 0.0, [])
+                if bid > 0:
+                    bids[team.team_id] = bid
+            except Exception:
+                pass
+        return bids
+
+    def _collect_team_bids_parallel(self, player: 'Player') -> Dict[str, float]:
+        """Collect sealed bids from all teams in parallel."""
+        bids = {}
+        with concurrent.futures.ThreadPoolExecutor() as executor:
+            future_to_team = {
+                executor.submit(team.calculate_bid, player): team
+                for team in self.teams
+            }
+            for future in concurrent.futures.as_completed(future_to_team):
+                team = future_to_team[future]
+                try:
+                    bid = future.result()
+                    if bid > 0:
+                        bids[team.team_id] = bid
+                except Exception:
+                    pass
+        return bids
+
+    def _determine_auction_winner(self, bids: Dict[str, float]) -> Tuple[Optional[str], float]:
+        """Determine auction winner using Vickrey (second-price) logic.
+
+        Returns the highest bidder paying second-highest + 1.
+        Ties resolved randomly; single bidder pays their bid.
+        """
+        if not bids:
+            return None, 0.0
+        sorted_bids = sorted(bids.items(), key=lambda x: x[1], reverse=True)
+        if len(sorted_bids) == 1:
+            winner_id, winning_bid = sorted_bids[0]
+            return winner_id, winning_bid
+        top_bid = sorted_bids[0][1]
+        second_bid = sorted_bids[1][1]
+        # Handle ties at the top
+        tied_winners = [team_id for team_id, bid in sorted_bids if bid == top_bid]
+        winner_id = random.choice(tied_winners)
+        if len(tied_winners) > 1:
+            # All tied — winner pays the tied amount
+            return winner_id, top_bid
+        # Normal case — winner pays second-highest + 1
+        return winner_id, second_bid + 1.0
+
+    def _award_player_to_team(self, player: 'Player', winner_id: str, price: float) -> None:
+        """Award a player to the winning team (lookup by team_id)."""
+        winner_team = self._get_team_by_id(winner_id)
+        if winner_team:
+            winner_team.add_player(player, price)
+        if player in self.available_players:
+            self.available_players.remove(player)
+        self.drafted_players.append(player)
+
+    def run_complete_draft(self) -> None:
+        """Run a complete automated sealed-bid draft until all rosters are full."""
+        while not self._is_draft_complete() and self.available_players:
+            nominator = self.get_current_nominator()
+            if nominator is None:
+                break
+            player = self._get_team_nomination(nominator)
+            if player is None:
+                break
+            bids = self._collect_team_bids(player)
+            winner_id, winning_bid = self._determine_auction_winner(bids)
+            if winner_id:
+                self._award_player_to_team(player, winner_id, winning_bid)
+            elif player in self.available_players:
+                # No bids — remove from pool to prevent infinite loop
+                self.available_players.remove(player)
+            self._advance_nominator()
+        self._complete_draft()
         
     def _is_draft_complete(self) -> bool:
         """Check if the draft is complete."""
-        # Draft is complete when all teams have full rosters or no more players available
+        if not self.available_players:
+            return True
         for team in self.teams:
-            if len(team.roster) < self.roster_size and self.available_players:
+            is_complete = (
+                team.is_roster_complete()
+                if hasattr(team, 'is_roster_complete') and callable(team.is_roster_complete)
+                else len(team.roster) >= self.roster_size
+            )
+            if not is_complete:
                 return False
         return True
         

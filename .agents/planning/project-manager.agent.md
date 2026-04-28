@@ -74,18 +74,29 @@ The GitHub Project board uses the following statuses with strict ownership:
 | **Backlog** | Automation (GitHub Action) | All new issues land here automatically |
 | **Ready** | **Project Manager only** | Issues groomed, estimated, and ready for a sprint |
 | **In Progress** | Development Agents | Set when an agent begins active work |
-| **Done** | Development Agents | Set when work is merged/verified |
+| **In Review** | Development Agents | Set when work is complete and handed to QA |
+| **Done** | QA Agent (pass) / DevOps (confirm) | QA approved and DevOps gates passed — ready for Docs |
+| **Closed** | Technical Docs Agent | Issue closed after documentation is complete |
 
-> The Project Manager **may only move items to `Ready`**. It must never set `In Progress` or `Done`.
-> Development agents manage `In Progress` and `Done` themselves.
+> The Project Manager **may only move items to `Ready`**. It must never set any other status.
+> Pipeline: Dev sets `In Progress` → `In Review`. QA sets `Done` (pass) or returns to `In Progress` (fail). DevOps confirms gates and hands to Docs. Docs closes the issue and sets `Closed`.
 
 ## Workflow
 1. Review `README.md`, `claude.md`, and open issues to understand current state
 2. Run hotspot analysis (see 80/20 Bug Concentration Rule above) — this step is never skippable
 3. Check `tests/` coverage and `results/` for recent simulation outcomes
 4. Propose sprint tasks using the format: `[PRIORITY] Task title — Effort: S/M/L — Owner: <agent>`
-5. Move groomed sprint items from `Backlog` → `Ready` on the project board
-6. Track items in a `BACKLOG.md` or project board format
+5. Move groomed sprint items from `Backlog` → `Ready` on the project board:
+   ```bash
+   # Get ITEM_ID: gh project item-list 2 --owner TylerJWhit --format json | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id'
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "<ITEM_ID>" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "faa0aeb8"
+   ```
+6. Comment on each newly Ready issue to signal the assigned agent:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Issue is Ready for pickup — assigned to <agent>. Sprint goal: <goal>."
+   ```
+7. Track items in a `BACKLOG.md` or project board format
 
 ## Output Format
 When planning, produce structured output:

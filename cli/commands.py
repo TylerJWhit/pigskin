@@ -33,7 +33,7 @@ class CommandProcessor:
                 sleeper_draft_id = getattr(config, 'sleeper_draft_id', None)
                 if sleeper_draft_id:
                     print(f"Using Sleeper draft ID from config: {sleeper_draft_id}")
-            except:
+            except Exception:
                 pass
         
         # Get the recommendation with optional Sleeper context

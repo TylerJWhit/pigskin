@@ -83,6 +83,46 @@ You are the **Agent Manager** for the **Pigskin Fantasy Football Auction Draft S
 
 ---
 
+## Global Agent Protocols
+
+These rules apply to **every agent** in the system, regardless of role.
+
+### Incidental Issue Protocol
+If any agent discovers a bug, gap, or improvement opportunity **while working on a different task**, it must not silently ignore it or just note it in a response. It must:
+
+1. Create a GitHub issue immediately:
+   ```bash
+   gh issue create --title "<Short title>" --body "<Description of the problem, where found, and why it matters>" --label "bug" --repo TylerJWhit/pigskin
+   ```
+2. Add it to the project backlog:
+   ```bash
+   # Get the new issue number from the output above, then get its project item ID
+   gh project item-add 2 --owner TylerJWhit --url "https://github.com/TylerJWhit/pigskin/issues/<ISSUE_NUMBER>"
+   # Item will land in Backlog automatically
+   ```
+3. Resume the original task. Do not context-switch to fix the incidental issue unless it is a P0 blocker.
+
+### Project Board ID Reference
+| Resource | Value |
+|----------|-------|
+| Project ID | `PVT_kwHOABhKAM4BVbFX` |
+| Project Number | `2` |
+| Status Field ID | `PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU` |
+| Backlog option | `0ed47968` |
+| Ready option | `faa0aeb8` |
+| In Progress option | `16cf461f` |
+| In Review option | `68c4a78a` |
+| Done option | `7fefbd66` |
+| Closed option | `a0358230` |
+
+```bash
+# Helper: look up the project item ID for a given issue number
+gh project item-list 2 --owner TylerJWhit --format json \
+  | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id'
+```
+
+---
+
 ## Agent Standards
 
 Every agent file must have:

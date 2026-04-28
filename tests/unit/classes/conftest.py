@@ -39,11 +39,14 @@ def sample_teams():
 
 @pytest.fixture
 def sample_owners():
-    """Three owners for testing."""
+    """Six owners for testing."""
     return [
         Owner("owner1", "Alice"),
         Owner("owner2", "Bob"),
         Owner("owner3", "Carol"),
+        Owner("owner4", "Dave"),
+        Owner("owner5", "Eve"),
+        Owner("owner6", "Frank"),
     ]
 
 

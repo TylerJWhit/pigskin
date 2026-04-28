@@ -406,8 +406,9 @@ class SleeperDraftPrinter:
         print("\n" + "="*80)
         print("SLEEPER DRAFT SUMMARY")
         print("="*80)
-        
-        draft_id = draft_info.get('draft_id', 'Unknown')
+
+        # Required key — raises KeyError for empty/invalid input
+        draft_id = draft_info['draft_id']
         league_id = draft_info.get('league_id', 'Unknown')
         status = draft_info.get('status', 'unknown')
         draft_type = draft_info.get('type', 'unknown')

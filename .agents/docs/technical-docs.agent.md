@@ -86,3 +86,11 @@ class MyStrategy(Strategy):
 3. Write docs close to the code (in-directory `README.md`)
 4. Validate code examples run correctly before publishing
 5. Link related docs to avoid duplication
+6. Close the GitHub issue and set the board item to **Closed** after documentation is complete:
+   ```bash
+   gh issue close <ISSUE_NUMBER> --comment "Documentation complete. Closing issue."
+   ITEM_ID=$(gh project item-list 2 --owner TylerJWhit --format json \
+     | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "a0358230"
+   ```

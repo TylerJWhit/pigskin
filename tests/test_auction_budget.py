@@ -47,7 +47,7 @@ def test_budget_constraint_in_auction():
     
     # Run a few rounds and check budgets
     for round_num in range(10):
-        auction._nominate_next_player()
+        auction._auto_nominate_player()
         auction._process_auto_bids()
         
         # Check team budgets every few rounds

@@ -77,4 +77,6 @@ class AggressiveStrategy(Strategy):
         """Nominate elite players we want."""
         if player.auction_value >= self.parameters['elite_threshold']:
             return True
+        if owner is None:
+            return False
         return owner.is_target_player(player.player_id)

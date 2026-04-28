@@ -141,9 +141,36 @@ class AuctionDraftCLI:
             return 1
     
     def handle_mock_command(self, args: List[str]) -> int:
-        """Handle mock draft command."""
-        strategy_arg = args[0] if args else 'value'
-        num_teams = int(args[1]) if len(args) > 1 else 10
+        """Handle mock draft command.
+        
+        Supports positional syntax:  mock <strategy> <num_teams>
+        And flag-based syntax:        mock -s <strategy> -n <num_teams>
+        """
+        # Parse optional -s / -n flags
+        strategy_arg = 'value'
+        num_teams = 10
+        i = 0
+        positional = []
+        while i < len(args):
+            if args[i] in ('-s', '--strategy') and i + 1 < len(args):
+                strategy_arg = args[i + 1]
+                i += 2
+            elif args[i] in ('-n', '--num-teams') and i + 1 < len(args):
+                try:
+                    num_teams = int(args[i + 1])
+                except ValueError:
+                    pass
+                i += 2
+            else:
+                positional.append(args[i])
+                i += 1
+        if positional:
+            strategy_arg = positional[0]
+        if len(positional) > 1:
+            try:
+                num_teams = int(positional[1])
+            except ValueError:
+                pass
         
         # Parse strategies - support comma-separated list
         if ',' in strategy_arg:
@@ -440,35 +467,45 @@ class AuctionDraftCLI:
         data_source = result.get('data_source', 'local')
         
         # Key player info
-        print(f"\n{result['player_name']} - {result['player_position']}, {result.get('player_team', 'N/A')}")
-        print(f"   Points: {result['projected_points']:.0f}")
-        
+        player_name = result.get('player_name', result.get('name', 'Unknown'))
+        player_pos = result.get('player_position', result.get('position', 'N/A'))
+        print(f"\n{player_name} - {player_pos}, {result.get('player_team', 'N/A')}")
+        if 'projected_points' in result:
+            print(f"   Points: {result['projected_points']:.0f}")
+
         # Current bid context
-        print(f"\nCurrent bid: ${result['current_bid']:.0f}")
-        print(f"   Action: {result['recommendation_level']} ({result['confidence']:.0%} confidence)")
-        
+        current_bid = result.get('current_bid', 0)
+        print(f"\nCurrent bid: ${current_bid:.0f}")
+        recommendation_level = result.get('recommendation_level', 'N/A')
+        confidence = result.get('confidence', 0)
+        print(f"   Action: {recommendation_level} ({confidence:.0%} confidence)" if confidence else f"   Action: {recommendation_level}")
+
         # Budget context
-        budget_pct = (result['recommended_bid'] / result['team_budget']) * 100 if result['team_budget'] > 0 else 0
-        print(f"   Budget: ${result['team_budget']:.0f} remaining ({budget_pct:.1f}% of budget)")
-        
+        team_budget = result.get('team_budget', 0)
+        recommended_bid = result.get('recommended_bid', 0)
+        if team_budget:
+            budget_pct = (recommended_bid / team_budget) * 100 if team_budget > 0 else 0
+            print(f"   Budget: ${team_budget:.0f} remaining ({budget_pct:.1f}% of budget)")
+
         # Team needs (if any)
-        if result['team_needs']:
-            needs_display = ', '.join(result['team_needs'][:3])  # Show first 3 needs
-            if len(result['team_needs']) > 3:
-                needs_display += f" +{len(result['team_needs'])-3} more"
+        team_needs = result.get('team_needs', [])
+        if team_needs:
+            needs_display = ', '.join(team_needs[:3])
+            if len(team_needs) > 3:
+                needs_display += f" +{len(team_needs)-3} more"
             print(f"   Needs: {needs_display}")
-        
+
         # Quick reasoning
         if data_source == 'sleeper':
             print(f"   Live Draft Context")
         else:
             print(f"   Mock Draft Projection")
-        
-        # Value right above recommended bid
-        print(f"\nValue: ${result['auction_value']:.0f}")
-        
-        # Main recommendation - prominently displayed at the end
-        print(f"RECOMMENDED BID: ${result['recommended_bid']:.0f}")
+
+        # Value and recommendation
+        if 'auction_value' in result:
+            print(f"\nValue: ${result['auction_value']:.0f}")
+        if recommended_bid:
+            print(f"RECOMMENDED BID: ${recommended_bid:.0f}")
         print()
     
     def _display_mock_results(self, result: Dict):
@@ -549,12 +586,40 @@ class AuctionDraftCLI:
         
         return player_name, current_bid, sleeper_draft_id
 
+    def handle_undervalued_command(self, args: List[str]) -> int:
+        """Handle undervalued players analysis command."""
+        try:
+            threshold = float(args[0]) if args else 15.0
+        except (ValueError, IndexError):
+            threshold = 15.0
+
+        result = self.command_processor.analyze_undervalued_players(threshold)
+
+        if result.get('success', False):
+            players = result.get('undervalued_players', [])
+            print(f"\nUndervalued players (threshold: {threshold}%):")
+            if players:
+                for p in players:
+                    name = p.get('name', p.get('player_name', 'Unknown'))
+                    pct = p.get('undervalued_pct', 0)
+                    print(f"  {name} ({pct:.1f}% undervalued)")
+            else:
+                print("  No undervalued players found.")
+            return 0
+        else:
+            print(f"ERROR: {result.get('error', 'Analysis failed')}")
+            return 1
+
+
 def main():
     """Main entry point for the CLI."""
     import sys
-    
-    cli = AuctionDraftCLI()
-    return cli.run(sys.argv[1:])
+
+    try:
+        cli = AuctionDraftCLI()
+        return cli.run(sys.argv[1:])
+    except BrokenPipeError:
+        return 0
 
 
 if __name__ == "__main__":

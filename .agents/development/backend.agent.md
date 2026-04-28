@@ -61,10 +61,32 @@ Tests must be committed alongside the implementation change — never in a separ
 After writing tests, hand off to the QA Agent for test validation before marking work done:
 > **Handoff signal**: "Tests written for `<feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
 
+## Project Board Commands
+```bash
+# Look up the project item ID for the issue you're working on
+ITEM_ID=$(gh project item-list 2 --owner TylerJWhit --format json \
+  | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+
+# Move to In Progress (do this when you start work)
+gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+  --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "16cf461f"
+
+# Move to In Review (do this when handing off to QA)
+gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+  --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "68c4a78a"
+```
+
 ## Workflow
 1. Use `semantic_search` to locate relevant service and class files
-2. Read the target file fully before modifying
-3. Write or update the corresponding test in `tests/` **before or alongside** the implementation
-4. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
-5. Check `get_errors` after edits to catch type issues
-6. Signal QA Agent for test review before closing the task
+2. Move the issue to **In Progress** on the project board (see commands above) and comment:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Starting work on this issue — moving to In Progress."
+   ```
+3. Read the target file fully before modifying
+4. Write or update the corresponding test in `tests/` **before or alongside** the implementation
+5. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
+6. Check `get_errors` after edits to catch type issues
+7. Move the issue to **In Review**, then signal QA Agent:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Moving to In Review — tests written in \`tests/<file>.py\`. Requesting QA review of test accuracy and coverage."
+   ```

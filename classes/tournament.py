@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import copy
 import statistics
+import threading
 import concurrent.futures
 from .draft import Draft
 from .auction import Auction
@@ -39,6 +40,7 @@ class Tournament:
         self.results: Dict[str, Dict] = {}
         self.is_running = False
         self.progress = 0
+        self._lock = threading.Lock()  # Protect shared state across parallel threads
         
     def add_players(self, players: List[Player]) -> None:
         """Add base player pool for simulations."""
@@ -99,11 +101,14 @@ class Tournament:
                 try:
                     draft = future.result()
                     if draft:
-                        self.completed_drafts.append(draft)
-                    self.progress += 1
+                        with self._lock:
+                            self.completed_drafts.append(draft)
+                    with self._lock:
+                        self.progress += 1
                 except Exception as e:
                     print(f"Simulation failed: {e}")
-                    self.progress += 1
+                    with self._lock:
+                        self.progress += 1
                     
     def _run_sequential_simulations(self) -> None:
         """Run simulations sequentially."""

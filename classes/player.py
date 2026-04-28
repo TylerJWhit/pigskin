@@ -16,6 +16,10 @@ class Player:
         auction_value: float = 0.0,
         bye_week: Optional[int] = None
     ):
+        if player_id is None:
+            raise ValueError("player_id cannot be None")
+        if not isinstance(projected_points, (int, float)):
+            raise TypeError(f"projected_points must be numeric, got {type(projected_points).__name__}")
         self.player_id = player_id
         self.name = name
         self.position = position
@@ -25,12 +29,14 @@ class Player:
         self.bye_week = bye_week
         self.is_drafted = False
         self.drafted_price: Optional[float] = None
+        self.draft_price: Optional[float] = None  # Alias for drafted_price
         self.drafted_by: Optional[str] = None
         
     def mark_as_drafted(self, price: float, owner_id: str) -> None:
         """Mark player as drafted with the given price and owner."""
         self.is_drafted = True
         self.drafted_price = price
+        self.draft_price = price  # Keep alias in sync
         self.drafted_by = owner_id
         
     def get_value_over_replacement(self, replacement_value: float) -> float:

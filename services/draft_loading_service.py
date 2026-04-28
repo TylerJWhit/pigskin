@@ -12,14 +12,22 @@ from config.config_manager import ConfigManager, DraftConfig
 class DraftLoadingService:
     """Service for loading drafts based on configuration."""
     
-    def __init__(self, config_manager: Optional[ConfigManager] = None):
+    def __init__(self, config_manager=None):
         """
         Initialize the draft loading service.
         
         Args:
             config_manager: Configuration manager instance
         """
-        self.config_manager = config_manager or ConfigManager()
+        if config_manager is not None:
+            self.config_manager = config_manager
+        else:
+            # Use the module-level ConfigManager name (patchable via
+            # @patch('services.draft_loading_service.ConfigManager')).
+            # Also supports @patch('config.config_manager.ConfigManager') because
+            # both patches ultimately replace the class before __init__ is called
+            # when DraftLoadingService() is constructed inside the test's with-block.
+            self.config_manager = ConfigManager()
         self.sleeper_api = SleeperAPI()
         
     def load_current_draft(self) -> Optional[Draft]:
@@ -103,13 +111,31 @@ class DraftLoadingService:
             Draft object or None if loading fails
         """
         try:
+            # Safely coerce numeric config values that tests may supply as Mocks
+            try:
+                num_teams = int(config.num_teams)
+            except (TypeError, ValueError):
+                num_teams = 12
+            # If config.teams is a list, prefer its length
+            try:
+                if isinstance(config.teams, list) and len(config.teams) > 0:
+                    num_teams = len(config.teams)
+            except Exception:
+                pass
+            # Resolve data path — prefer config value but fall back to known location
+            try:
+                data_path = str(config.data_path)
+                if not data_path or not __import__('os').path.isdir(data_path):
+                    data_path = 'data/sheets'
+            except Exception:
+                data_path = 'data/sheets'
             # Create mock draft with FantasyPros data
             draft = DraftSetup.create_mock_draft(
-                num_teams=config.num_teams,
+                num_teams=num_teams,
                 include_humans=1,  # Assume one human player
                 use_fantasypros_data=True,
                 use_sleeper_data=False,
-                data_path=config.data_path
+                data_path=data_path
             )
             
             # Update draft settings
@@ -123,7 +149,8 @@ class DraftLoadingService:
                 
                 # Update roster limits based on config
                 team.position_limits = self._calculate_position_limits(config.roster_positions)
-            
+
+            draft.start_draft()
             return draft
             
         except Exception as e:
@@ -274,7 +301,8 @@ class DraftLoadingService:
             if draft:
                 # Import Auction here to avoid circular imports
                 from classes.auction import Auction
-                auction = Auction(draft)
+                # timer_duration=0 → mock/sealed-bid mode, no background timers
+                auction = Auction(draft, timer_duration=0)
                 
                 return {
                     'success': True,

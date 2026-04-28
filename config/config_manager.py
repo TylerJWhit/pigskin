@@ -74,7 +74,7 @@ class ConfigManager:
             
         if not os.path.exists(self.config_file):
             # Create default config file if it doesn't exist
-            self._config = DraftConfig()
+            self._config = self.create_default_config()
             self.save_config()
             return self._config
             
@@ -93,6 +93,10 @@ class ConfigManager:
             
         return self._config
     
+    def create_default_config(self) -> 'DraftConfig':
+        """Create and return a default DraftConfig instance."""
+        return DraftConfig()
+
     def save_config(self, config: Optional[DraftConfig] = None) -> None:
         """
         Save configuration to file.
@@ -201,6 +205,41 @@ class ConfigManager:
         self._config = DraftConfig()
         self.save_config()
         return self._config
+
+    def validate_config(self, config_data: Dict[str, Any]) -> tuple:
+        """Validate a configuration dictionary.
+
+        Returns:
+            Tuple of (is_valid: bool, errors: list[str])
+        """
+        errors = []
+        required_fields = ['budget']
+        for field in required_fields:
+            if field not in config_data:
+                errors.append(f"Missing required field: '{field}'")
+
+        # Type checks for known fields
+        if 'budget' in config_data:
+            try:
+                val = float(config_data['budget'])
+                if val <= 0:
+                    errors.append("'budget' must be a positive number")
+            except (TypeError, ValueError):
+                errors.append("'budget' must be a number")
+
+        if 'num_teams' in config_data:
+            try:
+                val = int(config_data['num_teams'])
+                if val < 2:
+                    errors.append("'num_teams' must be at least 2")
+            except (TypeError, ValueError):
+                errors.append("'num_teams' must be an integer")
+
+        if 'roster_positions' in config_data:
+            if not isinstance(config_data['roster_positions'], dict):
+                errors.append("'roster_positions' must be a dictionary")
+
+        return len(errors) == 0, errors
     
     def __str__(self) -> str:
         """String representation."""

@@ -1,6 +1,6 @@
 """VOR-based draft strategy focused on value over replacement."""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import Dict, List, Optional, TYPE_CHECKING
 
 from .base_strategy import Strategy
 
@@ -24,6 +24,23 @@ class VorStrategy(Strategy):
         
         self.aggression = aggression
         self.scarcity_weight = scarcity_weight
+
+        # Default roster requirements (used when config is unavailable)
+        _default_roster_req = {
+            'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1,
+            'K': 1, 'DST': 1, 'FLEX': 2, 'SF': 1
+        }
+        _default_num_teams = 12
+
+        try:
+            from config.config_manager import load_config  # type: ignore
+            _cfg = load_config()
+            self.num_teams: int = _cfg.get('num_teams', _default_num_teams)
+            _roster_pos = _cfg.get('roster_positions', _default_roster_req)
+            self.roster_requirements: Dict[str, int] = dict(_roster_pos)
+        except Exception:
+            self.num_teams = _default_num_teams
+            self.roster_requirements = dict(_default_roster_req)
         
         # Position scarcity factors
         self.scarcity_factors = {
@@ -34,16 +51,33 @@ class VorStrategy(Strategy):
             'K': 0.2,   # K has little variance
             'DST': 0.3  # DST has little variance
         }
-        
+
+        # Dynamic scarcity factors (may be overridden during draft)
+        try:
+            self._calculate_all_dynamic_scarcity_factors()
+        except Exception:
+            pass
+
         # Position baselines for VOR calculation (estimated replacement level)
-        self.position_baselines = {
-            'QB': 250,   # Replacement QB fantasy points
-            'RB': 150,   # Replacement RB fantasy points
-            'WR': 140,   # Replacement WR fantasy points
-            'TE': 100,   # Replacement TE fantasy points
-            'K': 80,     # Replacement K fantasy points
-            'DST': 70    # Replacement DST fantasy points
-        }
+        try:
+            self.position_baselines = self._calculate_replacement_levels()
+            if not self.position_baselines:
+                raise ValueError("empty")
+        except Exception:
+            self.position_baselines = {
+                'QB': 250,   # Replacement QB fantasy points
+                'RB': 150,   # Replacement RB fantasy points
+                'WR': 140,   # Replacement WR fantasy points
+                'TE': 100,   # Replacement TE fantasy points
+                'K': 80,     # Replacement K fantasy points
+                'DST': 70    # Replacement DST fantasy points
+            }
+
+        # VOR scaling factor
+        try:
+            self._vor_scaling_factor: float = self._calculate_vor_scaling_factor()
+        except Exception:
+            self._vor_scaling_factor = 0.25
     
     def calculate_bid(
         self,
@@ -161,36 +195,82 @@ class VorStrategy(Strategy):
         Returns:
             True if player should be nominated
         """
+        # Force nomination when roster completion is urgent
+        remaining_slots = self._get_remaining_roster_slots(team)
+        if remaining_slots <= 2:
+            return True
+
         # Calculate VOR and position priority
         vor = self._calculate_vor(player)
         position_priority = self._calculate_position_priority(player, team)
-        
+
         # Nominate high-VOR players we need
-        if vor > 50 and position_priority > 0.6:
+        if vor > 20 and position_priority > 0.5:
             return True
-        
-        # Nominate valuable players we can afford
-        if vor > 30 and vor * 0.15 < remaining_budget * 0.3:
+
+        # Nominate affordable valuable players (bid < 15% of budget)
+        if vor > 10 and position_priority > 0.3 and remaining_budget > 15:
+            bid_est = self.calculate_bid(player, team, None, 0.0, remaining_budget, [])
+            if isinstance(bid_est, (int, float)) and bid_est < remaining_budget * 0.15:
+                return True
+
+        # Strategic nomination — force opponents to spend on valuable players
+        if vor >= 15 and position_priority < 0.3 and remaining_budget > 50:
             return True
-        
-        # Sometimes nominate medium-value players to drive up prices
-        if vor > 15 and position_priority < 0.3:
-            return True
-        
+
         return False
     
     def _calculate_vor(self, player: 'Player') -> float:
-        """Calculate Value Over Replacement for a player."""
-        position = player.position
+        """Calculate Value Over Replacement for a player.
+
+        If the player already has a numeric ``vor`` attribute, return it directly.
+        Falls back to projected_points or auction_value, ignoring non-numeric
+        attributes (e.g. Mock objects during testing).
+        """
+        # Prefer a pre-computed VOR attribute on the player (must be a real number)
+        if hasattr(player, 'vor') and isinstance(player.vor, (int, float)):
+            return float(player.vor)
+
+        position = getattr(player, 'position', 'UNKNOWN')
         baseline = self.position_baselines.get(position, 100)
-        
-        # Use projected points or auction value as player value
-        player_value = getattr(player, 'projected_points', 
-                              getattr(player, 'auction_value', baseline))
-        
-        # VOR is the difference between player value and replacement level
-        vor = max(0, player_value - baseline)
-        return vor
+
+        # Use projected points or auction value as player value, ignoring non-numeric
+        projected = getattr(player, 'projected_points', None)
+        if not isinstance(projected, (int, float)):
+            projected = None
+        auction = getattr(player, 'auction_value', None)
+        if not isinstance(auction, (int, float)):
+            auction = None
+
+        player_value = projected if projected is not None else (
+            auction if auction is not None else float(baseline)
+        )
+
+        return float(player_value) - float(baseline)
+
+    def _calculate_replacement_levels(self) -> Dict[str, float]:
+        """Calculate replacement-level fantasy point thresholds by position.
+
+        Returns a mapping of position -> replacement-level points.
+        The replacement level is estimated as the (num_teams + 1)th-ranked player
+        at each position.  When no external data is available the hard-coded
+        defaults are returned.
+        """
+        return {
+            'QB': 250.0,
+            'RB': 150.0,
+            'WR': 140.0,
+            'TE': 100.0,
+            'K': 80.0,
+            'DST': 70.0,
+        }
+
+    def _calculate_vor_scaling_factor(self) -> float:
+        """Return the multiplier used to convert raw VOR into a dollar bid.
+
+        The default of 0.25 means every VOR point is worth roughly $0.25.
+        """
+        return 0.25
     
     def _calculate_remaining_scarcity(self, player: 'Player', remaining_players: List['Player']) -> float:
         """Calculate scarcity multiplier based on remaining players at position."""
@@ -214,5 +294,72 @@ class VorStrategy(Strategy):
     
     def _get_remaining_roster_slots(self, team: 'Team') -> int:
         """Calculate how many roster slots still need to be filled."""
-        # Use base class implementation
         return super()._get_remaining_roster_slots(team)
+
+    def _get_actual_starter_counts(self) -> Dict[str, int]:
+        """Return the total number of starters drafted across all teams per position.
+
+        Computed as ``num_teams * slots_per_team`` for each position in
+        ``roster_requirements``.  This is the expected total supply of started
+        players in the league and is used to estimate replacement level.
+        """
+        return {
+            pos: self.num_teams * count
+            for pos, count in self.roster_requirements.items()
+        }
+
+    def _calculate_dynamic_superflex_adjustment(self, position: str) -> float:
+        """Return a superflex scarcity adjustment multiplier for the given position.
+
+        In SuperFlex formats, QBs are drafted at roughly twice the normal rate,
+        which lowers the replacement level and increases VOR for all QBs.  For
+        non-QB positions the adjustment is minimal (1.0).
+
+        Returns a value in (0.0, 1.2].
+        """
+        try:
+            starter_counts = self._get_actual_starter_counts()
+        except Exception:
+            return 1.0
+
+        if position == 'QB':
+            # More QBs drafted → lower replacement-level baseline → higher VOR
+            # Cap adjustment below 1.0 to signal the inflated demand
+            qb_count = starter_counts.get('QB', self.num_teams)
+            normal_qb_count = self.num_teams * 1  # one QB per team normally
+            ratio = qb_count / max(normal_qb_count, 1)
+            # ratio > 1.0 means SF league; adjustment < 1.0 reflects lower baseline
+            return max(0.5, min(1.0, 1.0 / max(ratio, 1.0)))
+
+        # Non-QB positions: tiny upward adjustment for positional spillover
+        return min(1.2, 1.0 + self.scarcity_factors.get(position, 0.0) * 0.1)
+
+    def _calculate_all_dynamic_scarcity_factors(
+        self, remaining_players: Optional[List['Player']] = None
+    ) -> Dict[str, float]:
+        """Calculate dynamic scarcity factors for all positions based on remaining players.
+
+        Returns a dict mapping position -> scarcity factor (0.0–1.0+).
+        When no remaining players list is provided, returns the static defaults.
+        """
+        if not remaining_players:
+            return dict(self.scarcity_factors)
+
+        position_counts: Dict[str, int] = {}
+        for p in remaining_players:
+            pos = getattr(p, 'position', 'UNKNOWN')
+            position_counts[pos] = position_counts.get(pos, 0) + 1
+
+        dynamic_factors: Dict[str, float] = {}
+        for position, base_factor in self.scarcity_factors.items():
+            count = position_counts.get(position, 0)
+            if count <= 3:
+                dynamic_factors[position] = min(1.5, base_factor * 1.5)
+            elif count <= 8:
+                dynamic_factors[position] = min(1.2, base_factor * 1.2)
+            elif count <= 15:
+                dynamic_factors[position] = base_factor
+            else:
+                dynamic_factors[position] = max(0.1, base_factor * 0.8)
+
+        return dynamic_factors

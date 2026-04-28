@@ -77,3 +77,28 @@ jobs:
 - `Makefile` — Build task automation
 - `setup.sh` — Environment setup script
 - `pytest.ini` — Test configuration
+
+## Workflow
+
+### Receiving a Handoff from QA
+When an issue moves to **Done**, the CI/CD Agent acts on it:
+
+1. Verify all release gates pass (run CI pipeline or check GitHub Actions status):
+   ```bash
+   source venv/bin/activate
+   python -m pytest tests/ -x -q --timeout=60
+   flake8 . --max-line-length=120 --exclude=venv
+   bandit -r . -ll --exclude ./venv,./tests
+   ```
+2. If **all gates pass**: tag a release if applicable, then hand off to Technical Docs Agent:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "DevOps verified. All release gates passed. Handing off to Technical Docs Agent for documentation and issue close."
+   ```
+3. If **any gate fails**: move the item back to **In Progress** and notify dev with specifics:
+   ```bash
+   ITEM_ID=$(gh project item-list 2 --owner TylerJWhit --format json \
+     | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "16cf461f"
+   gh issue comment <ISSUE_NUMBER> --body "DevOps gate failed — returning to In Progress. Failures: <describe failures>."
+   ```

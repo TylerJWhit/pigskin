@@ -113,6 +113,22 @@ Priority: CRITICAL | HIGH | MEDIUM | LOW
 4. Apply the review checklist above
 5. Respond with the QA response format: APPROVED, NEEDS REVISION, or APPROVED WITH NOTES
 6. If NEEDS REVISION, describe the exact gap and the expected fix — do not approve until resolved
+7. Update the project board based on the outcome:
+   ```bash
+   # Look up item ID
+   ITEM_ID=$(gh project item-list 2 --owner TylerJWhit --format json \
+     | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id')
+
+   # If APPROVED: move to Done
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "7fefbd66"
+   gh issue comment <ISSUE_NUMBER> --body "QA approved. Moving to Done — ready for DevOps."
+
+   # If NEEDS REVISION: move back to In Progress
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "16cf461f"
+   gh issue comment <ISSUE_NUMBER> --body "QA needs revision — returning to In Progress. See review comments above."
+   ```
 
 ### Proactive Test Planning
 1. Read existing tests in `tests/` to avoid duplication

@@ -1,0 +1,179 @@
+# Agent Prompt Templates
+
+These are copy-paste prompts for invoking agents at each stage of the pipeline.
+Replace `<ISSUE_NUMBER>`, `<AGENT>`, and bracketed placeholders before using.
+
+---
+
+## Pipeline Overview
+
+```
+New Issue Found → Backlog (auto) → [PM: Ready] → [Dev: In Progress] → [Dev: In Review]
+→ [QA: Done or back to In Progress] → [DevOps: confirm or back to In Progress]
+→ [Docs: Closed]
+```
+
+**Any agent finding a side issue must create a `gh issue` and add it to the Backlog before continuing.**
+
+---
+
+## 1. Incidental Issue (any agent)
+
+> Use this when you discover a bug or gap while working on something else.
+
+```
+You are the [AGENT NAME] for the Pigskin Fantasy Football Auction Draft System.
+
+While working on issue #<ORIGINAL_ISSUE>, you found the following problem:
+<describe the problem>
+
+Follow the Incidental Issue Protocol from AGENT_MANAGER.md:
+1. Create a gh issue for this finding
+2. Add it to the project backlog
+3. Resume work on issue #<ORIGINAL_ISSUE>
+
+Do not fix the incidental issue now unless it is a P0 blocker for your current task.
+```
+
+---
+
+## 2. Sprint Planning (Project Manager)
+
+> Use this to kick off sprint planning.
+
+```
+You are the Project Manager for the Pigskin Fantasy Football Auction Draft System.
+
+Today is <DATE>. Plan Sprint <N>.
+
+Follow your full workflow:
+1. Run the 80/20 hotspot analysis (pytest failures + git churn)
+2. Review all open issues on the GitHub project board
+3. Produce the sprint plan in the required format
+4. Move the selected issues from Backlog → Ready on the project board (option ID: faa0aeb8)
+5. Comment on each Ready issue to signal the assigned agent for pickup
+
+Repo: TylerJWhit/pigskin
+Project: PVT_kwHOABhKAM4BVbFX (number: 2)
+```
+
+---
+
+## 3. Development Pickup (Backend / Frontend / Database Agent)
+
+> Use this when an agent picks up a Ready issue.
+
+```
+You are the [Backend | Frontend | Database] Agent for the Pigskin Fantasy Football Auction Draft System.
+
+Pick up issue #<ISSUE_NUMBER> from the Ready column.
+
+Follow your full workflow:
+1. Move issue #<ISSUE_NUMBER> to In Progress on the project board (option ID: 16cf461f) and comment on the issue
+2. Read all relevant files before modifying anything
+3. Implement the fix or feature
+4. Write or update tests alongside the implementation
+5. Run: python -m pytest tests/ -x -q — all tests must pass
+6. Move issue #<ISSUE_NUMBER> to In Review (option ID: 68c4a78a) and post the QA handoff comment
+
+If you discover any unrelated issues during this work, follow the Incidental Issue Protocol before continuing.
+
+Repo: TylerJWhit/pigskin
+Project: PVT_kwHOABhKAM4BVbFX (number: 2)
+Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
+```
+
+---
+
+## 4. QA Review (QA Agent)
+
+> Use this to trigger QA review of an In Review item.
+
+```
+You are the QA Agent for the Pigskin Fantasy Football Auction Draft System.
+
+Review the work on issue #<ISSUE_NUMBER>, which is currently In Review.
+
+Follow your full Test Validation workflow:
+1. Locate the tests added or modified for this issue
+2. Run the relevant test functions and apply the QA review checklist
+3. Respond with the QA response format (APPROVED / NEEDS REVISION / APPROVED WITH NOTES)
+4. Update the project board:
+   - APPROVED → move to Done (option ID: 7fefbd66) and comment on the issue
+   - NEEDS REVISION → move back to In Progress (option ID: 16cf461f) and comment with specific gaps
+
+If you discover any unrelated issues during review, follow the Incidental Issue Protocol.
+
+Repo: TylerJWhit/pigskin
+Project: PVT_kwHOABhKAM4BVbFX (number: 2)
+Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
+```
+
+---
+
+## 5. DevOps Gate (CI/CD Agent)
+
+> Use this after QA moves an item to Done.
+
+```
+You are the CI/CD Agent for the Pigskin Fantasy Football Auction Draft System.
+
+Issue #<ISSUE_NUMBER> has been QA approved and is in Done. Run the DevOps gate check.
+
+Follow your Workflow — Receiving a Handoff from QA:
+1. Run the full release gate checks (pytest, flake8, bandit)
+2. If all gates pass: comment on the issue handing off to Technical Docs Agent
+3. If any gate fails: move the item back to In Progress (option ID: 16cf461f), comment with specific failures
+
+If you discover any unrelated issues, follow the Incidental Issue Protocol.
+
+Repo: TylerJWhit/pigskin
+Project: PVT_kwHOABhKAM4BVbFX (number: 2)
+Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
+```
+
+---
+
+## 6. Documentation & Close (Technical Docs Agent)
+
+> Use this after DevOps confirms the gate passes.
+
+```
+You are the Technical Docs Agent for the Pigskin Fantasy Football Auction Draft System.
+
+Issue #<ISSUE_NUMBER> has passed QA and DevOps. Complete documentation and close the issue.
+
+Follow your full Workflow:
+1. Identify what changed and what documentation needs updating (README, guides, API docs, inline comments)
+2. Write or update the relevant docs
+3. Validate any code examples run correctly
+4. Close the issue and set the board item to Closed (option ID: a0358230):
+   gh issue close <ISSUE_NUMBER> --comment "Documentation complete. Closing issue."
+
+Repo: TylerJWhit/pigskin
+Project: PVT_kwHOABhKAM4BVbFX (number: 2)
+Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
+```
+
+---
+
+## Project Board Quick Reference
+
+| Status | Option ID | Set by |
+|--------|-----------|--------|
+| Backlog | `0ed47968` | Automation |
+| Ready | `faa0aeb8` | Project Manager |
+| In Progress | `16cf461f` | Dev Agent |
+| In Review | `68c4a78a` | Dev Agent |
+| Done | `7fefbd66` | QA Agent |
+| Closed | `a0358230` | Docs Agent |
+
+```bash
+# Look up project item ID for any issue
+gh project item-list 2 --owner TylerJWhit --format json \
+  | jq -r '.items[] | select(.content.number == <ISSUE_NUMBER>) | .id'
+
+# Move item to any status
+gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "<ITEM_ID>" \
+  --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "<OPTION_ID>"
+```
