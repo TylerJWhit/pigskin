@@ -32,7 +32,7 @@ pigskin/                    ← repo root
 ├── config/                 ← ConfigManager, config.json
 ├── data/                   ← FantasyPros loader, VOR calculations
 ├── services/               ← business logic (bid_recommendation, draft_loading, sleeper_draft, tournament)
-├── strategies/             ← all strategies (15+), including alphazero/ skeleton
+├── strategies/             ← all strategies (15+), including gridiron_sage_strategy.py
 ├── tests/                  ← test suite
 ├── utils/                  ← shared utilities
 ├── docs/                   ← documentation
@@ -44,7 +44,7 @@ pigskin/                    ← repo root
 - Production app code and research experiment code live in the same namespace
 - Lab strategies pollute the production package
 - No enforced API boundary between UI and domain models
-- AlphaZero skeleton (`strategies/alphazero/`) mixed with stable production strategies
+- GridironSage strategy (`strategies/gridiron_sage_strategy.py`) mixed with stable production strategies
 - `setup.py` cannot express the three-package workspace relationship
 
 ---
@@ -71,7 +71,7 @@ pigskin/                        ← repo root
 ├── lab/                        ← pigskin-lab (research, never deployed)
 │   ├── pyproject.toml
 │   ├── strategies/             ← all experimental strategy variants
-│   ├── alphazero/              ← training, self-play, MCTS (from strategies/alphazero/)
+│   ├── gridiron_sage/          ← training, self-play, MCTS (from strategies/gridiron_sage_strategy.py)
 │   ├── simulation/             ← tournament runner, scenario generator
 │   ├── benchmarks/             ← strategy comparison harness
 │   ├── promotion/              ← gate evaluation + report generator

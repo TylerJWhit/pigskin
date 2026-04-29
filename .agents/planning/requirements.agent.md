@@ -59,7 +59,7 @@ Structure each PRD with:
 
 ## Project Context
 - **Domain**: Fantasy football draft assistant supporting auction, snake/round-robin, dynasty startup, and rookie drafts
-- **Key features**: Live draft recommendations, strategy backtesting, Sleeper API sync, VOR calculations, AlphaZero AI
+- **Key features**: Live draft recommendations, strategy backtesting, Sleeper API sync, VOR calculations, GridironSage AI
 - **Config-driven**: Strategy parameters live in `config/config.json`
 - **Scoring formats**: Standard, PPR, Half-PPR
 

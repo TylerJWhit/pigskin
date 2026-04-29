@@ -65,7 +65,7 @@ Store ADRs in `docs/adr/`. Format:
 ## Current Architecture Overview
 ```
 classes/      → Core domain models (Player, Team, Draft, Auction)
-strategies/   → Bidding algorithms (15+), AlphaZero in strategies/alphazero/
+strategies/   → Bidding algorithms (15+), GridironSage in strategies/gridiron_sage_strategy.py
 services/     → Business logic (tournament, draft loading, bid recommendation)
 api/          → Sleeper external API integration
 ui/           → Flask web application with WebSocket

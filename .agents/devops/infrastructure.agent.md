@@ -33,7 +33,7 @@ Typical resource set for this application:
 - **Compute**: App server for Flask + SocketIO (1-2 vCPUs, 2-4GB RAM minimum)
 - **Storage**: Persistent volume for `data/` directory (player data, ML models)
 - **Networking**: WebSocket-capable load balancer (sticky sessions required)
-- **Optional**: GPU instance for AlphaZero training workloads
+- **Optional**: GPU instance for GridironSage training workloads
 
 ## Environment Variables
 Critical environment variables to manage:

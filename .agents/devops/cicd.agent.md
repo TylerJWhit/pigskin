@@ -48,7 +48,7 @@ make install    # Install dependencies
    ```
 3. Or trigger manually from GitHub UI / CLI:
    ```bash
-   gh workflow run release.yml -f version=vX.Y.Z -f release_notes="feat: AlphaZero timeout guard"
+   gh workflow run release.yml -f version=vX.Y.Z -f release_notes="feat: GridironSage timeout guard"
    ```
 4. `release.yml` handles: gate verification → build → GitHub Release creation
 

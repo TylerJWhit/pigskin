@@ -76,7 +76,7 @@ python -m pytest tests/test_integration.py -q
 - Error rate increases >5% within 15 minutes of deploy
 - Any auction ending in corrupted state (negative budgets, over-roster)
 - WebSocket connections failing to establish
-- AlphaZero strategy causing unhandled exceptions in production
+- GridironSage strategy causing unhandled exceptions in production
 
 ## Blue-Green Deployment (Future)
 For zero-downtime deploys:

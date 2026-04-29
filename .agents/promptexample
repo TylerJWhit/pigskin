@@ -221,7 +221,7 @@ Status field: PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU
 
 ## 9. AI/ML Engineer Lab Design (AI/ML Engineer Agent)
 
-> Use this when the AI/ML Engineer is designing the lab pipeline or AlphaZero architecture.
+> Use this when the AI/ML Engineer is designing the lab pipeline or GridironSage architecture.
 
 ```
 You are the AI/ML Engineer for the Pigskin Fantasy Football Auction Draft System.
@@ -238,7 +238,7 @@ Follow your full workflow:
 6. Move issue #<ISSUE_NUMBER> to In Review (option ID: 68c4a78a) and post handoff comment
 
 Key context:
-- `strategies/alphazero/` is currently empty (issue #55) — new AlphaZero implementation targets `lab/alphazero/`
+- `strategies/gridiron_sage_strategy.py` is the current implementation (issue #55 resolved) — lab training targets `lab/gridiron_sage/`
 - Lab is permanent, continuously improving — design for long-term operation, not one-time use
 - MCTS tournament cap: 50 iterations; training cap: 800 iterations
 

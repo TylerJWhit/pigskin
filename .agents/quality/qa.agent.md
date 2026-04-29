@@ -86,7 +86,7 @@ Priority: CRITICAL | HIGH | MEDIUM | LOW
 - All 15+ strategies return a valid bid (integer ≥ 0) or 0 to pass
 - `calculate_bid()` never raises an exception
 - Budget-constrained bids respect `BudgetConstraintManager` limits
-- AlphaZero MCTS completes within timeout bounds
+- GridironSage MCTS completes within timeout bounds
 
 ### VOR & Valuation
 - VOR values are position-relative (QB VOR != WR VOR on same raw points)

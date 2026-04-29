@@ -36,7 +36,7 @@ You are the **Agent Manager** for the **Pigskin Fantasy Football Draft Assistant
 | `database.agent.md` | Database Agent | Schemas, migrations, caching | ✅ Active |
 | `code-review.agent.md` | Code Review Agent | PR reviews, standards | ✅ Active |
 | `refactoring.agent.md` | Refactoring Agent | Tech debt, clean code | ✅ Active |
-| `ai-engineer.agent.md` | AI/ML Engineer | AlphaZero, MCTS, PyTorch, MLOps | ✅ Active |
+| `ai-engineer.agent.md` | AI/ML Engineer | GridironSage, MCTS, PyTorch, MLOps | ✅ Active |
 | `git-workflow.agent.md` | Git Workflow Agent | Branching, commits, version control | ✅ Active |
 
 ### Quality (`quality/`)

@@ -48,7 +48,7 @@ Test interactions between components:
 Full auction simulations validating system behavior:
 - 12-team auction completes with all roster spots filled
 - Budget is never overspent by any team
-- AlphaZero strategy produces non-trivial bids (not always 0 or max)
+- GridironSage strategy produces non-trivial bids (not always 0 or max)
 - Tournament runs in <30 seconds for 12-team config
 
 ## Mock Patterns
@@ -63,8 +63,8 @@ def test_draft_loading(mock_get_players):
 
 ### Mock PyTorch Model
 ```python
-@patch.object(AlphaZeroNet, 'forward')
-def test_alphazero_fallback(mock_forward):
+@patch.object(GridironSageNetwork, 'forward')
+def test_gridiron_sage_fallback(mock_forward):
     mock_forward.side_effect = RuntimeError("CUDA unavailable")
     # Should fall back to heuristic bidding
     bid = strategy.calculate_bid(player, auction_state)

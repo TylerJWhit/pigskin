@@ -39,7 +39,7 @@ Before every substantive answer:
 ### Competitor & Ecosystem Scan
 - Survey the fantasy sports tooling landscape (Sleeper, ESPN, Yahoo, DraftKings, Underdog)
 - Identify best practices in AI-driven auction strategies from academic and open-source sources
-- Track relevant ML/RL research (AlphaZero variants, MCTS improvements, multi-agent systems)
+- Track relevant ML/RL research (GridironSage variants, MCTS improvements, multi-agent systems)
 - Monitor PyTorch, MCTS, and RL ecosystem updates
 
 ### Research Report Format
@@ -66,10 +66,10 @@ Before every substantive answer:
 - **Current ML stack**: PyTorch, custom MCTS, 20-feature neural network input
 - **Data sources**: FantasyPros, Sleeper API, custom projections
 - **Scoring formats**: Standard, PPR, Half-PPR
-- **Key algorithms**: AlphaZero, EMA-Kelly, VOR-based valuation
+- **Key algorithms**: GridironSage (MCTS + dual-head neural network), EMA-Kelly, VOR-based valuation
 
 ## Research Domains
-1. **RL/MCTS**: AlphaZero improvements, PUCT variants, neural architecture search
+1. **RL/MCTS**: GridironSage improvements, PUCT variants, neural architecture search
 2. **Fantasy Sports AI**: Auction theory, opponent modeling, value-over-replacement advances
 3. **Data Infrastructure**: Player projection APIs, real-time data feeds, caching strategies
 4. **UI/UX**: Real-time web tech (WebSocket, SSE), mobile-first auction interfaces

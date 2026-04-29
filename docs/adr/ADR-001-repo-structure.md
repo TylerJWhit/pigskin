@@ -17,7 +17,7 @@ The current repository is a single flat project mixing:
 - A simulation/tournament engine (`services/tournament_service.py`, `classes/tournament.py`)
 - An external API integration (`api/sleeper_api.py`)
 - An unimplemented web UI (referenced in issues but absent from workspace)
-- An empty AlphaZero skeleton (`strategies/alphazero/` — issue #55)
+- A GridironSage AI strategy skeleton (originally `strategies/alphazero/` — issue #55, now replaced)
 
 Two product goals have been identified:
 1. **Production App** (`pigskin-app`): An end-user tool providing live draft tracking and bid recommendations via a documented REST API and web UI.
@@ -57,7 +57,7 @@ pigskin/                        ← existing repo root
 │
 └── lab/                        ← pigskin-lab (research, never deployed to users)
     ├── strategies/             ← all experimental strategy variants
-    ├── alphazero/              ← training, self-play, MCTS (migrated from strategies/alphazero/)
+    ├── gridiron_sage/          ← training, self-play, MCTS (GridironSage AI strategy)
     ├── simulation/             ← tournament runner, scenario generator
     ├── benchmarks/             ← strategy comparison harness
     ├── promotion/              ← gate evaluation + report generator
@@ -107,7 +107,7 @@ Each package has its own `pyproject.toml` and is installable independently. The 
 - **Import path churn**: Every `from classes.auction import Auction` becomes `from pigskin_core.classes.auction import Auction`. This touches every test file and service. Recommend a `rope`-assisted refactor or `sed` batch rename, not manual edits.
 - **Bootstrap production strategy gap**: On the first day of migration, `app/strategies/` is empty. Define a bootstrap strategy (recommend: copy of `EliteHybridStrategy` or `EnhancedVORStrategy` as the initial production winner, bypassing the gate for the first promotion only, with explicit team sign-off).
 - **Python version floor**: The `pyproject.toml` workspace approach requires Python ≥ 3.8 (editable installs via PEP 660). The current `setup.py` must be migrated. Confirm minimum Python version in CI.
-- **AlphaZero migration**: `strategies/alphazero/` moves to `lab/alphazero/` (issue #55). This is correctly noted in the layout. Ensure the migration issue (#55) explicitly references ADR-001 as the structural authority.
+- **GridironSage migration**: `strategies/gridiron_sage_strategy.py` moves to `lab/gridiron_sage/` (issue #55). This is correctly noted in the layout. Ensure the migration issue (#55) explicitly references ADR-001 as the structural authority.
 
 ### Alternative Considered and Rejected
 

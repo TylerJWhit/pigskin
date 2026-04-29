@@ -234,3 +234,4 @@ scratch.*
 test_scratch.*
 
 checkpoints/
+results/

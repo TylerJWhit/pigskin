@@ -74,7 +74,7 @@ python -m pytest tests/ -x -q            # Verify nothing broke
 ## Critical Dependencies
 | Package | Purpose | Update Risk |
 |---------|---------|------------|
-| `torch` / `torchvision` | AlphaZero neural networks | HIGH — API changes frequently |
+| `torch` / `torchvision` | GridironSage neural networks | HIGH — API changes frequently |
 | `flask` | Web server | MEDIUM — check breaking changes |
 | `flask-socketio` | WebSocket support | MEDIUM — check SocketIO protocol version |
 | `numpy` | Numerical calculations | MEDIUM — array API changes |

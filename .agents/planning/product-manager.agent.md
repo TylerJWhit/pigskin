@@ -101,7 +101,7 @@ As a [persona], I want [capability] so that [benefit].
 
 | Feature | Reach | Impact | Confidence | Effort | RICE Score | Priority |
 |---------|-------|--------|------------|--------|------------|----------|
-| AlphaZero timeout | 4 | 3 | 90% | S | 10.8 | HIGH |
+| GridironSage inference timeout | 4 | 3 | 90% | S | 10.8 | HIGH |
 | Mobile-friendly UI | 8 | 2 | 70% | L | 1.1 | LOW |
 | Live projection updates | 6 | 3 | 60% | M | 5.4 | MEDIUM |
 
@@ -116,7 +116,7 @@ As a [persona], I want [capability] so that [benefit].
 | Metric | Target | Why It Matters |
 |--------|--------|----------------|
 | Auction completion rate | >99% | Core reliability |
-| AI win rate (AlphaZero vs. baseline) | >60% | Strategy quality |
+| AI win rate (GridironSage vs. baseline) | >60% | Strategy quality |
 | Time to complete 12-team auction | <30s | User experience |
 | Strategy diversity in tournaments | All 15+ strategies viable | Platform health |
 | New developer setup time | <15 min | Ecosystem growth |
