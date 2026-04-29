@@ -1,6 +1,6 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install test clean help run-tests format lint typecheck coverage security audit ci standup
+.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate
 
 # Default target
 help:
@@ -9,6 +9,7 @@ help:
 	@echo "Setup and Installation:"
 	@echo "  setup       - Run the full setup script"
 	@echo "  install     - Install Python dependencies only"
+	@echo "  dev-install - Install all three packages (core/app/lab) in editable mode (Sprint 5+)"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test        - Run all tests"
@@ -28,6 +29,10 @@ help:
 	@echo "  standup     - Print daily standup summary (git log + project board)"
 	@echo "  clean       - Clean up cache and temporary files"
 	@echo ""
+	@echo "Lab (pigskin-lab — ADR-001/Sprint 5 migration required):"
+	@echo "  lab-bench   - Run simulation benchmark batch (STRATEGY=all or STRATEGY=<name>)"
+	@echo "  lab-gate    - Run promotion gate evaluation (STRATEGY=<name> required)"
+	@echo ""
 	@echo "Usage Examples:"
 	@echo "  bid         - Example bid recommendation"
 	@echo "  mock        - Example mock draft"
@@ -42,6 +47,20 @@ setup:
 install:
 	@echo "Installing dependencies..."
 	python3 -m pip install -r requirements.txt
+
+# Install all three mono-repo packages in editable mode (ADR-001 Sprint 5 migration required)
+# Requires core/, app/, lab/ directories to each contain a valid pyproject.toml.
+# Until the Sprint 5 migration is complete, use `make install` instead.
+dev-install:
+	@echo "Installing all packages in editable (dev) mode..."
+	@if [ -f "core/pyproject.toml" ] && [ -f "app/pyproject.toml" ] && [ -f "lab/pyproject.toml" ]; then \
+		pip install -e core/ -e app/ -e lab/; \
+		echo "dev-install complete. pigskin-core, pigskin-app, pigskin-lab are active."; \
+	else \
+		echo "dev-install requires the ADR-001 Sprint 5 mono-repo migration to be complete."; \
+		echo "Expected: core/pyproject.toml, app/pyproject.toml, lab/pyproject.toml"; \
+		exit 1; \
+	fi
 
 # Testing
 test:
@@ -109,6 +128,44 @@ audit:
 
 ci: lint typecheck security coverage
 	@echo "All CI checks passed."
+
+# Lab targets (pigskin-lab — requires ADR-001 Sprint 5 migration: lab/ directory must exist)
+# Usage:
+#   make lab-bench                    # benchmark all candidate strategies
+#   make lab-bench STRATEGY=enhanced_vor_v3  # benchmark a specific strategy
+#   make lab-gate STRATEGY=enhanced_vor_v3   # run promotion gate for a strategy
+
+STRATEGY ?= all
+EXPERIMENT_ID ?=
+
+lab-bench:
+	@echo "Running lab simulation benchmark (strategy=$(STRATEGY))..."
+	@if [ -f "lab/simulation/runner.py" ]; then \
+		python lab/simulation/runner.py \
+			--strategy "$(STRATEGY)" \
+			$(if $(EXPERIMENT_ID),--experiment "$(EXPERIMENT_ID)",); \
+	else \
+		echo "lab/simulation/runner.py not found."; \
+		echo "The lab/ structure requires the ADR-001 Sprint 5 migration to be complete."; \
+		exit 1; \
+	fi
+
+lab-gate:
+	@if [ -z "$(STRATEGY)" ] || [ "$(STRATEGY)" = "all" ]; then \
+		echo "Error: STRATEGY is required for lab-gate."; \
+		echo "Usage: make lab-gate STRATEGY=<strategy_name>"; \
+		exit 1; \
+	fi
+	@echo "Running promotion gate evaluation for strategy: $(STRATEGY)..."
+	@if [ -f "lab/promotion/gate.py" ]; then \
+		python lab/promotion/gate.py \
+			--strategy "$(STRATEGY)" \
+			$(if $(EXPERIMENT_ID),--experiment "$(EXPERIMENT_ID)",); \
+	else \
+		echo "lab/promotion/gate.py not found."; \
+		echo "The lab/ structure requires the ADR-001 Sprint 5 migration to be complete."; \
+		exit 1; \
+	fi
 
 standup:
 	@echo "=== Daily Standup — $$(date +%Y-%m-%d) ==="
