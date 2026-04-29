@@ -15,7 +15,7 @@ if parent_dir not in sys.path:
 
 def run_specific_tests():
     """Run specific test modules that are known to work."""
-    print("Running Auction Draft Tool Tests")
+    print("Running Strategy Tests (subset — use pytest for full suite)")
     print("=" * 50)
     
     # Test individual components

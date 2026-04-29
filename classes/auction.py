@@ -1,5 +1,6 @@
 """Auction class for auction draft tool."""
 
+import logging
 from typing import Dict, List, Optional, Callable, Tuple
 from datetime import datetime, timedelta
 import threading
@@ -9,6 +10,9 @@ from .player import Player
 from .team import Team
 from .owner import Owner
 from .strategy import Strategy
+
+
+logger = logging.getLogger(__name__)
 
 
 class Auction:
@@ -535,14 +539,14 @@ class Auction:
                         max_allowable_bid = team.strategy.calculate_max_bid(team, team.budget)
                         constrained_bid = min(max_bid, max_allowable_bid)
                         if constrained_bid < max_bid:
-                            print(f"🚫 AUCTION CONSTRAINT: {team.team_name} bid ${max_bid} → ${constrained_bid} (max allowed: ${max_allowable_bid})")
+                            logger.warning("AUCTION CONSTRAINT: %s bid $%s -> $%s (max allowed: $%s)", team.team_name, max_bid, constrained_bid, max_allowable_bid)
                     elif owner_id in self.strategies:
                         strategy = self.strategies[owner_id]
                         if hasattr(strategy, 'calculate_max_bid'):
                             max_allowable_bid = strategy.calculate_max_bid(team, team.budget)
                             constrained_bid = min(max_bid, max_allowable_bid)
                             if constrained_bid < max_bid:
-                                print(f"🚫 AUCTION CONSTRAINT: {team.team_name} bid ${max_bid} → ${constrained_bid} (max allowed: ${max_allowable_bid})")
+                                logger.warning("AUCTION CONSTRAINT: %s bid $%s -> $%s (max allowed: $%s)", team.team_name, max_bid, constrained_bid, max_allowable_bid)
                         else:
                             constrained_bid = max_bid
                     else:

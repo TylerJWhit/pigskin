@@ -1,9 +1,12 @@
 """Configuration management for the auction draft tool."""
 
 import json
+import logging
 import os
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, asdict
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -90,8 +93,8 @@ class ConfigManager:
             self._config = DraftConfig.from_dict(config_data)
             
         except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
-            print(f"Error loading config: {e}")
-            print("Using default configuration")
+            logger.error("Error loading config: %s", e)
+            logger.info("Using default configuration")
             self._config = DraftConfig()
             
         return self._config
@@ -120,7 +123,8 @@ class ConfigManager:
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 json.dump(self._config.to_dict(), f, indent=4)
         except Exception as e:
-            print(f"Error saving config: {e}")
+            logger.error("Error saving config: %s", e)
+            raise
     
     def update_config(self, **kwargs) -> DraftConfig:
         """
@@ -139,7 +143,7 @@ class ConfigManager:
             if hasattr(config, key):
                 setattr(config, key, value)
             else:
-                print(f"Warning: Unknown config field '{key}'")
+                logger.warning("Unknown config field '%s'", key)
                 
         self.save_config(config)
         return config

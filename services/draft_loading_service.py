@@ -1,5 +1,6 @@
 """Draft loading service for the auction draft tool."""
 
+import logging
 import os
 from typing import Optional, Dict, Any, List
 
@@ -7,6 +8,8 @@ from classes import Draft, DraftSetup, Player
 from api.sleeper_api import SleeperAPI
 from data.fantasypros_loader import load_fantasypros_players
 from config.config_manager import ConfigManager, DraftConfig
+
+logger = logging.getLogger(__name__)
 
 
 class DraftLoadingService:
@@ -48,7 +51,7 @@ class DraftLoadingService:
                 return self._load_fantasypros_draft(config)
                 
         except Exception as e:
-            print(f"Error loading draft: {e}")
+            logger.error("Error loading draft: %s", e)
             return None
     
     def _load_sleeper_draft(self, config: DraftConfig) -> Optional[Draft]:
@@ -97,7 +100,7 @@ class DraftLoadingService:
             return draft
             
         except Exception as e:
-            print(f"Error loading Sleeper draft: {e}")
+            logger.error("Error loading Sleeper draft: %s", e)
             return None
     
     def _load_fantasypros_draft(self, config: DraftConfig) -> Optional[Draft]:
@@ -148,7 +151,7 @@ class DraftLoadingService:
             return draft
             
         except Exception as e:
-            print(f"Error loading FantasyPros draft: {e}")
+            logger.error("Error loading FantasyPros draft: %s", e)
             return None
     
     def _add_sleeper_participants(self, draft: Draft, users: List[Dict], config: DraftConfig) -> None:
@@ -193,7 +196,7 @@ class DraftLoadingService:
             return players
             
         except Exception as e:
-            print(f"Error loading Sleeper players: {e}")
+            logger.error("Error loading Sleeper players: %s", e)
             return []
     
     def _calculate_position_limits(self, roster_positions: Dict[str, int]) -> Dict[str, int]:

@@ -1,7 +1,10 @@
 """Team class for auction draft tool."""
 
+import logging
 from typing import Dict, List, Optional, TYPE_CHECKING
 from .player import Player
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .strategy import Strategy
@@ -73,7 +76,8 @@ class Team:
         
         # Only warn when budget gets critically low
         if remaining_slots > 0 and self.budget < remaining_slots:
-            print(f"⚠️  {self.team_name}: Budget (${self.budget}) < remaining slots ({remaining_slots}) after paying ${int(price)} for {player.name}")
+            logger.warning("%s: Budget ($%d) < remaining slots (%d) after paying $%d for %s",
+                          self.team_name, self.budget, remaining_slots, int(price), player.name)
         
         return True
         

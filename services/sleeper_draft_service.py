@@ -5,11 +5,14 @@ This service handles fetching and displaying current Sleeper draft data
 including draft order, picks, and league information.
 """
 
+import logging
 from typing import Dict, List, Optional, Any
 
 from api.sleeper_api import SleeperAPI
 from utils.print_module import print_sleeper_draft, print_sleeper_league
 from utils.sleeper_cache import get_sleeper_players
+
+logger = logging.getLogger(__name__)
 
 
 class SleeperDraftService:
@@ -195,9 +198,7 @@ class SleeperDraftService:
                 }
             
             # Print leagues information
-            print(f"\n{'='*80}")
-            print(f"LEAGUES FOR {username.upper()} ({season})")
-            print(f"{'='*80}")
+            logger.info("LEAGUES FOR %s (%s)", username.upper(), season)
             
             for i, league in enumerate(leagues, 1):
                 league_id = league['league_id']
@@ -206,18 +207,16 @@ class SleeperDraftService:
                 status = league.get('status', 'unknown')
                 scoring_type = league.get('scoring_settings', {}).get('type', 'unknown')
                 
-                print(f"{i:2d}. {league_name}")
-                print(f"    League ID: {league_id}")
-                print(f"    Teams: {total_rosters}")
-                print(f"    Status: {status.title()}")
-                print(f"    Scoring: {scoring_type.title()}")
+                logger.info("%2d. %s", i, league_name)
+                logger.info("    League ID: %s", league_id)
+                logger.info("    Teams: %s", total_rosters)
+                logger.info("    Status: %s", status.title())
+                logger.info("    Scoring: %s", scoring_type.title())
                 
                 # Show draft info if available
                 draft_id = league.get('draft_id')
                 if draft_id:
-                    print(f"    Draft ID: {draft_id}")
-                
-                print()
+                    logger.info("    Draft ID: %s", draft_id)
             
             return {
                 'success': True,
@@ -260,40 +259,37 @@ class SleeperDraftService:
                 elif status == 'complete':
                     completed_drafts.append(draft)
             
-            print(f"\n{'='*80}")
-            print(f"DRAFT STATUS FOR {username.upper()} ({season})")
-            print(f"{'='*80}")
+            logger.info("DRAFT STATUS FOR %s (%s)", username.upper(), season)
             
             if active_drafts:
-                print(f"\nACTIVE/UPCOMING DRAFTS ({len(active_drafts)}):")
+                logger.info("ACTIVE/UPCOMING DRAFTS (%d):", len(active_drafts))
                 for draft in active_drafts:
                     draft_id = draft['draft_id']
                     league_name = draft.get('league_name', 'Unknown League')
                     status = draft.get('status', 'unknown')
                     draft_type = draft.get('type', 'unknown')
                     
-                    print(f"  • {league_name}")
-                    print(f"    Draft ID: {draft_id}")
-                    print(f"    Status: {status.title()}")
-                    print(f"    Type: {draft_type.title()}")
+                    logger.info("  * %s", league_name)
+                    logger.info("    Draft ID: %s", draft_id)
+                    logger.info("    Status: %s", status.title())
+                    logger.info("    Type: %s", draft_type.title())
                     
                     settings = draft.get('settings', {})
                     if settings:
                         rounds = settings.get('rounds', 'Unknown')
                         pick_timer = settings.get('pick_timer', 'Unknown')
-                        print(f"    Rounds: {rounds}")
-                        print(f"    Pick Timer: {pick_timer}s")
-                    print()
+                        logger.info("    Rounds: %s", rounds)
+                        logger.info("    Pick Timer: %ss", pick_timer)
             
             if completed_drafts:
-                print(f"\nCOMPLETED DRAFTS ({len(completed_drafts)}):")
+                logger.info("COMPLETED DRAFTS (%d):", len(completed_drafts))
                 for draft in completed_drafts:
                     draft_id = draft['draft_id']
                     league_name = draft.get('league_name', 'Unknown League')
-                    print(f"  • {league_name} (ID: {draft_id})")
+                    logger.info("  * %s (ID: %s)", league_name, draft_id)
             
             if not active_drafts and not completed_drafts:
-                print("\nNo drafts found for this user.")
+                logger.info("No drafts found for this user.")
             
             return {
                 'success': True,

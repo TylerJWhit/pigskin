@@ -1,5 +1,6 @@
 """Tournament service for testing auction draft strategies."""
 
+import logging
 import os
 from typing import Optional, Dict, Any, List, Tuple
 import json
@@ -9,6 +10,8 @@ from classes import Tournament, DraftSetup, create_strategy, AVAILABLE_STRATEGIE
 from config.config_manager import ConfigManager
 from data.fantasypros_loader import load_fantasypros_players
 from utils.print_module import print_tournament
+
+logger = logging.getLogger(__name__)
 
 
 class TournamentService:
@@ -86,9 +89,9 @@ class TournamentService:
                 )
             
             # Run tournament
-            print(f"Running tournament with {num_simulations} simulations...")
-            print(f"Testing strategies: {', '.join(strategies_to_test)}")
-            print(f"Teams per strategy: {teams_per_strategy}")
+            logger.info("Running tournament with %d simulations...", num_simulations)
+            logger.info("Testing strategies: %s", ', '.join(strategies_to_test))
+            logger.info("Teams per strategy: %d", teams_per_strategy)
             
             results = self.current_tournament.run_tournament(parallel=True)
             
@@ -294,13 +297,13 @@ class TournamentService:
                 return players
             elif config.data_source == "sleeper":
                 # Could implement Sleeper loading here
-                print("Sleeper data source not yet implemented for tournaments")
+                logger.warning("Sleeper data source not yet implemented for tournaments")
                 return []
             else:
-                print(f"Unknown data source: {config.data_source}")
+                logger.warning("Unknown data source: %s", config.data_source)
                 return []
         except Exception as e:
-            print(f"Error loading players: {e}")
+            logger.error("Error loading players: %s", e)
             return []
     
     def _generate_strategy_variants(
@@ -446,10 +449,10 @@ class TournamentService:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(results, f, indent=2, default=str)
             
-            print(f"Tournament results saved to {filepath}")
+            logger.info("Tournament results saved to %s", filepath)
             
         except Exception as e:
-            print(f"Error saving tournament results: {e}")
+            logger.error("Error saving tournament results: %s", e)
 
 
 # Convenience functions

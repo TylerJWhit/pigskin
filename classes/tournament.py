@@ -1,5 +1,6 @@
 """Tournament class for auction draft tool."""
 
+import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import copy
@@ -12,6 +13,8 @@ from .player import Player
 from .team import Team
 from .owner import Owner
 from .strategy import Strategy, create_strategy, AVAILABLE_STRATEGIES
+
+logger = logging.getLogger(__name__)
 
 
 class Tournament:
@@ -106,7 +109,7 @@ class Tournament:
                     with self._lock:
                         self.progress += 1
                 except Exception as e:
-                    print(f"Simulation failed: {e}")
+                    logger.error("Simulation failed: %s", e)
                     with self._lock:
                         self.progress += 1
                     
@@ -118,7 +121,7 @@ class Tournament:
                 if draft:
                     self.completed_drafts.append(draft)
             except Exception as e:
-                print(f"Simulation {i} failed: {e}")
+                logger.error("Simulation %d failed: %s", i, e)
             finally:
                 self.progress += 1
                 

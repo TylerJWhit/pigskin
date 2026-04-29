@@ -163,7 +163,64 @@ git pull origin main
 git branch -d feat/my-feature          # delete local branch
 ```
 
-### Cleaning Up a Branch
+### Sprint End — Tag the Release Checkpoint
+At the close of every sprint, tag the HEAD of `main` (or the integration branch) so the sprint baseline is permanently traceable:
+```bash
+# After all sprint PRs are merged and CI is green
+git tag -a sprint-<N>-baseline -m "Sprint <N> complete — <brief goal>
+All committed issues closed. See checkpoints/sprint-<N>-plan-<date>.md."
+git push origin sprint-<N>-baseline
+```
+
+Sprint tags use the format `sprint-N-baseline` (e.g. `sprint-3-baseline`).
+Do NOT use a `v` prefix for sprint checkpoints — semantic version tags (`v1.2.3`) are reserved for production releases.
+
+## Milestone & Issue Linking
+
+### Associating a PR with a Milestone
+GitHub does not link PRs directly to milestones in the same way as issues. The standard pattern for this project is:
+
+1. Every PR must close at least one issue via `Closes #<ISSUE_NUMBER>` in the PR body.
+2. That issue must already be assigned to the correct sprint milestone.
+3. When the PR merges, GitHub automatically closes the issue and the milestone progress updates.
+
+```bash
+# PR body template
+gh pr create \
+  --base main \
+  --title "fix(budget): enforce minimum reserve in BudgetConstraintManager" \
+  --body "Closes #65
+
+## What changed
+- Added `_lock` acquisition to `place_bid()` and `nominate_player()` in `classes/auction.py`
+- Added regression test for concurrent bid scenario
+
+## Testing
+- pytest tests/unit/classes/test_auction.py — all passing
+- Full suite: 420/420"
+```
+
+### Assigning an Issue to a Milestone
+```bash
+# Get milestone number
+gh api repos/TylerJWhit/pigskin/milestones | python3 -c \
+  "import json,sys; [print(f'#{m[\"number\"]} {m[\"title\"]}') for m in json.load(sys.stdin)]"
+
+# Assign issue to milestone
+gh api repos/TylerJWhit/pigskin/issues/<ISSUE_NUMBER> \
+  --method PATCH --field milestone=<MILESTONE_NUMBER>
+```
+
+### Milestone Completion Check
+Before tagging a sprint baseline, confirm the milestone is complete:
+```bash
+gh api repos/TylerJWhit/pigskin/milestones/<MILESTONE_NUMBER> \
+  | python3 -c "import json,sys; m=json.load(sys.stdin); \
+    print(f'Open: {m[\"open_issues\"]}  Closed: {m[\"closed_issues\"]}  State: {m[\"state\"]}')"
+```
+`Open: 0` is required before running `git tag sprint-N-baseline`.
+
+
 ```bash
 # Squash/reword commits before merge
 git rebase -i origin/main

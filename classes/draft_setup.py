@@ -1,5 +1,6 @@
 """Utilities for setting up draft relationships and importing from Sleeper API."""
 
+import logging
 from typing import List, Dict, Optional
 
 from .player import Player
@@ -8,6 +9,8 @@ from .owner import Owner
 from .draft import Draft
 from .strategy import Strategy, create_strategy
 from api.sleeper_api import SleeperAPI
+
+logger = logging.getLogger(__name__)
 
 
 class DraftSetup:
@@ -151,7 +154,7 @@ class DraftSetup:
             return players
             
         except Exception as e:
-            print(f"Error importing players from Sleeper: {e}")
+            logger.error("Error importing players from Sleeper: %s", e)
             return []
     
     @staticmethod
@@ -188,7 +191,7 @@ class DraftSetup:
             return all_players
             
         except Exception as e:
-            print(f"Error importing players from FantasyPros: {e}")
+            logger.error("Error importing players from FantasyPros: %s", e)
             return []
     
     @staticmethod
@@ -287,7 +290,7 @@ class DraftSetup:
             if players:
                 draft.add_players(players)
                 players_added = True
-                print(f"Loaded {len(players)} players from FantasyPros CSV files")
+                logger.info("Loaded %d players from FantasyPros CSV files", len(players))
         
         if not players_added and use_sleeper_data:
             players = DraftSetup.import_players_from_sleeper()
@@ -295,13 +298,13 @@ class DraftSetup:
                 DraftSetup.calculate_auction_values(players)
                 draft.add_players(players)
                 players_added = True
-                print(f"Loaded {len(players)} players from Sleeper API")
+                logger.info("Loaded %d players from Sleeper API", len(players))
         
         if not players_added:
             # Fallback to mock players
             players = DraftSetup._create_mock_players()
             draft.add_players(players)
-            print(f"Using {len(players)} mock players")
+            logger.info("Using %d mock players", len(players))
             
         return draft
     

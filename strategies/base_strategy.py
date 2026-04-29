@@ -130,7 +130,16 @@ class Strategy(ABC):
         if isinstance(roster_config, dict):
             needed = roster_config.get(position, 1)
         else:
-            needed = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1}.get(position, 1)
+            # Try strategy config before falling back to hardcoded defaults
+            strategy_config = getattr(self, 'config', None)
+            config_positions = None
+            if strategy_config is not None:
+                config_positions = getattr(strategy_config, 'roster_positions', None)
+            if isinstance(config_positions, dict):
+                needed = config_positions.get(position, 1)
+            else:
+                needed = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1,
+                          'FLEX': 1, 'SF': 1}.get(position, 1)
         current = position_counts.get(position, 0)
         if current >= needed:
             return 0.1

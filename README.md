@@ -176,6 +176,17 @@ pigskin/
 └── requirements.txt     # Python dependencies
 ```
 
+## Architecture Decisions
+
+Key architectural decisions are documented as ADRs in [`docs/adr/`](docs/adr/):
+
+| ADR | Title | Status |
+|-----|-------|--------|
+| [ADR-001](docs/adr/ADR-001-repo-structure.md) | Mono-Repo Package Structure (core / app / lab) | Accepted |
+| [ADR-002](docs/adr/ADR-002-api-design.md) | FastAPI REST + WebSocket API Design | Revised and Accepted |
+| [ADR-003](docs/adr/ADR-003-strategy-promotion-pipeline.md) | Strategy Promotion Pipeline | Revised and Accepted |
+| [ADR-004](docs/adr/ADR-004-lab-data-store.md) | Lab Data Store | Revised and Accepted |
+
 ## Requirements
 
 - Python 3.8+

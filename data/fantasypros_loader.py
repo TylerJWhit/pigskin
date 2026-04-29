@@ -1,16 +1,13 @@
 """FantasyPros data loader for auction draft tool."""
 
 import csv
+import logging
 import os
-import sys
 from typing import Dict, List, Optional, Tuple
 
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
 from classes.player import Player
+
+logger = logging.getLogger(__name__)
 
 
 class FantasyProsLoader:
@@ -69,7 +66,7 @@ class FantasyProsLoader:
                         players.append(player_data)
                         
         except Exception as e:
-            print(f"Error loading {position} data: {e}")
+            logger.error("Error loading %s data: %s", position, e)
             
         return players
         
@@ -114,7 +111,7 @@ class FantasyProsLoader:
             }
             
         except (ValueError, TypeError) as e:
-            print(f"Error parsing player row: {e}")
+            logger.error("Error parsing player row: %s", e)
             return None
             
     def _generate_player_id(self, name: str, team: str, position: str) -> str:
@@ -153,7 +150,7 @@ class FantasyProsLoader:
                         all_players.append(player)
                         
             except Exception as e:
-                print(f"Error loading {position} players: {e}")
+                logger.error("Error loading %s players: %s", position, e)
                 continue
         
         # Calculate auction values for all players
@@ -310,7 +307,7 @@ class FantasyProsLoader:
                     round(value_per_point, 3)
                 ])
                 
-        print(f"Player summary exported to {output_file}")
+        logger.info("Player summary exported to %s", output_file)
         
     def get_data_summary(self) -> Dict[str, int]:
         """Get summary statistics about the loaded data."""

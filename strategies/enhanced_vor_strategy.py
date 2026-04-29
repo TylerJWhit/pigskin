@@ -6,8 +6,11 @@ This demonstrates how a VOR strategy could be enhanced to consider
 league-wide budget constraints and market inflation.
 """
 
+import logging
 from typing import List, TYPE_CHECKING
 from .base_strategy import Strategy
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from classes.player import Player
@@ -188,8 +191,7 @@ class InflationAwareVorStrategy(Strategy):
 
 def test_inflation_aware_strategy():
     """Test the inflation-aware VOR strategy."""
-    print("Testing Inflation-Aware VOR Strategy")
-    print("=" * 50)
+    logger.info("Testing Inflation-Aware VOR Strategy")
     
     # This would show how the strategy responds to different market conditions
     # In practice, this would be integrated with the auction system

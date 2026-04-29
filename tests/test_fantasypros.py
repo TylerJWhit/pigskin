@@ -115,7 +115,7 @@ def test_fantasypros_loading():
                 players = loader.load_position_data(position)
                 jackson_players = [p for p in players if 'jackson' in p['name'].lower()]
                 found_players.extend(jackson_players)
-            except:
+            except Exception:
                 continue
                 
         for player in found_players[:5]:  # Show first 5

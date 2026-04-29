@@ -98,6 +98,76 @@ The GitHub Project board uses the following statuses with strict ownership:
    ```
 7. Track items in a `BACKLOG.md` or project board format
 
+## Sprint Closure & Archive Procedure
+
+Run this procedure at the **end of every sprint**, before beginning the next sprint plan.
+
+### Step 1 — Identify incomplete items
+```bash
+# List all issues still open under the ending sprint milestone
+MILESTONE_NUMBER=<N>   # e.g. 4 for Sprint 3
+gh api "repos/TylerJWhit/pigskin/issues?milestone=${MILESTONE_NUMBER}&state=open" \
+  | python3 -c "import json,sys; issues=json.load(sys.stdin); \
+    [print(f'#{i[\"number\"]} {i[\"title\"]}') for i in issues]"
+```
+
+### Step 2 — Reassign incomplete items to next sprint milestone
+For each open issue returned above, re-milestone it to the next sprint:
+```bash
+NEXT_MILESTONE=<M>   # milestone number for the new sprint
+gh api repos/TylerJWhit/pigskin/issues/<ISSUE_NUMBER> \
+  --method PATCH --field milestone=${NEXT_MILESTONE}
+```
+
+Include a rollover comment on each issue:
+```bash
+gh issue comment <ISSUE_NUMBER> --repo TylerJWhit/pigskin \
+  --body "Rolled over from Sprint N to Sprint N+1 — not completed in Sprint N."
+```
+
+### Step 3 — Close the ending sprint milestone
+```bash
+gh api repos/TylerJWhit/pigskin/milestones/<MILESTONE_NUMBER> \
+  --method PATCH --field state=closed
+```
+
+### Step 4 — Create the new sprint milestone
+```bash
+gh api repos/TylerJWhit/pigskin/milestones \
+  --method POST \
+  --field title="Sprint N+1 — <Goal summary>" \
+  --field description="<Sprint goal and scope>. Dates: YYYY-MM-DD → YYYY-MM-DD." \
+  --field due_on="YYYY-MM-DDT00:00:00Z"
+```
+
+### Step 5 — Archive the sprint checkpoint
+Save the completed sprint plan as a checkpoint file:
+```
+checkpoints/sprint-<N>-plan-<YYYY-MM-DD>.md
+```
+The file must exist before archiving. No new file should be created at closure — the plan doc from sprint kickoff serves as the archive.
+
+### Step 6 — Document rollover in the new sprint retrospective section
+In `checkpoints/sprint-<N+1>-plan-<date>.md`, the retrospective section must list:
+```
+### Rolled Over from Sprint N
+| Issue | Title | Reason deferred |
+|-------|-------|-----------------|
+| #<N>  | ...   | ...             |
+```
+
+## Milestone Lifecycle Rules
+
+| Event | Action |
+|-------|--------|
+| Sprint kickoff | Create milestone for sprint via `gh api ... --method POST` |
+| Issue added to sprint | Assign milestone: `gh api repos/.../issues/<N> --method PATCH --field milestone=<M>` |
+| Issue closed | GitHub automatically decrements open count — no manual step needed |
+| All sprint issues closed | Close milestone manually (Step 3 above) |
+| Sprint ends with open items | Roll items forward (Step 2) then close (Step 3) |
+
+> **Rule**: A sprint milestone must NEVER be closed while it has open issues. Always reassign open items first.
+
 ## Output Format
 When planning, produce structured output:
 ```

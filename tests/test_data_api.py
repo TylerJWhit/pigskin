@@ -266,7 +266,8 @@ class TestConfigManager(BaseTestCase):
         config_manager = ConfigManager()
         
         # Should create default config when file doesn't exist
-        with patch.object(config_manager, 'create_default_config') as mock_create:
+        with patch.object(config_manager, 'create_default_config') as mock_create, \
+             patch.object(config_manager, 'save_config'):
             config_manager.load_config()
             mock_create.assert_called_once()
             
@@ -274,14 +275,15 @@ class TestConfigManager(BaseTestCase):
     @patch('os.path.exists')
     def test_save_config(self, mock_exists, mock_file):
         """Test config saving."""
-        from config.config_manager import ConfigManager
+        from config.config_manager import ConfigManager, DraftConfig
         
         mock_exists.return_value = True
         
         config_manager = ConfigManager()
         
-        # Test saving
-        config_manager.save_config(self.test_config_data)
+        # Test saving with a proper DraftConfig object
+        draft_config = DraftConfig.from_dict(self.test_config_data)
+        config_manager.save_config(draft_config)
         
         # Should have written to file
         mock_file.assert_called()
