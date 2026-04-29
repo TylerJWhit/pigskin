@@ -189,7 +189,7 @@ class AuctionDraftCLI:
                 return 1
             strategy_display = strategy_arg
         
-        print(f"Starting mock draft simulation...")
+        print("Starting mock draft simulation...")
         print(f"Strategy: {strategy_display}")
         print(f"Teams: {num_teams}")
         
@@ -218,7 +218,7 @@ class AuctionDraftCLI:
         rounds = int(filtered_args[0]) if filtered_args else 10  # Number of drafts per group
         teams_per_draft = int(filtered_args[1]) if len(filtered_args) > 1 else 10  # Teams per draft
         
-        print(f"Starting elimination tournament...")
+        print("Starting elimination tournament...")
         print(f"Rounds (drafts per group): {rounds}")
         print(f"Teams per draft: {teams_per_draft}")
         print(f"Verbose mode: {'ON' if verbose else 'OFF'}")
@@ -497,9 +497,9 @@ class AuctionDraftCLI:
 
         # Quick reasoning
         if data_source == 'sleeper':
-            print(f"   Live Draft Context")
+            print("   Live Draft Context")
         else:
-            print(f"   Mock Draft Projection")
+            print("   Mock Draft Projection")
 
         # Value and recommendation
         if 'auction_value' in result:
@@ -523,7 +523,7 @@ class AuctionDraftCLI:
         winner = result.get('tournament_winner', 'Unknown')
         rounds = result.get('total_rounds', 'Unknown')
         
-        print(f"\n🏆 TOURNAMENT RESULTS")
+        print("\n\U0001f3c6 TOURNAMENT RESULTS")
         print("="*50)
         print(f"Champion: {winner}")
         print(f"Total rounds: {rounds}")
@@ -531,7 +531,7 @@ class AuctionDraftCLI:
     
     def _display_ping_results(self, result: Dict):
         """Display Sleeper API connectivity test results."""
-        print(f"\nCONNECTIVITY TEST RESULTS")
+        print("\nCONNECTIVITY TEST RESULTS")
         print("="*50)
         
         for test in result['tests']:

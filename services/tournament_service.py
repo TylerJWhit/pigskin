@@ -431,7 +431,7 @@ class TournamentService:
         elif results['points_std'] > 100:
             recommendation += "This strategy was volatile but had high upside. "
         
-        recommendation += f"Consider using this strategy for similar league conditions."
+        recommendation += "Consider using this strategy for similar league conditions."
         
         return recommendation
     

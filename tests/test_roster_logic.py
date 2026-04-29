@@ -47,7 +47,7 @@ for i, player in enumerate(players):
     print(f"Player {i+1} ({player.name} - {player.position}): {'✓' if success else '✗'}")
     print(f"  Current roster size: {len(team.roster)}")
     if not success:
-        print(f"  Failed to add - roster may be full or position limits reached")
+        print("  Failed to add - roster may be full or position limits reached")
 
 print(f"\nFinal roster size: {len(team.roster)}")
 print(f"Expected: {sum(roster_config.values())}")

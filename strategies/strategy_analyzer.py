@@ -67,7 +67,7 @@ def test_strategy_bidding():
             print(f"  ✓ Would nominate: {should_nominate}")
             
             if bid == 0:
-                print(f"  ⚠️  WARNING: Strategy bids $0 - may not participate in auctions")
+                print("  ⚠️  WARNING: Strategy bids $0 - may not participate in auctions")
             
         except Exception as e:
             print(f"  ❌ ERROR: {str(e)}")
@@ -104,7 +104,7 @@ def analyze_winning_strategies():
             if key_features:
                 print(f"  Key features: {', '.join(key_features)}")
             else:
-                print(f"  Key features: None identified")
+                print("  Key features: None identified")
                 
         except Exception as e:
             print(f"  ERROR: {str(e)}")

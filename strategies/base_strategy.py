@@ -308,9 +308,6 @@ class Strategy(ABC):
         
         return constrained_bid
     
-    def __str__(self) -> str:
-        return f"{self.name}: {self.description}"
-
     # ------------------------------------------------------------------
     # Market tracker integration helpers
     # ------------------------------------------------------------------

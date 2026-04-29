@@ -702,13 +702,13 @@ class SleeperDraftPrinter:
         
         # Add draft summary
         if picks:
-            print(f"\n📊 DRAFT SUMMARY")
+            print("\n📊 DRAFT SUMMARY")
             print(f"   Teams: {len(teams_rosters)}")
             print(f"   Total picks: {len(picks)}")
             print(f"   Total spent: ${total_spent:,}")
             
             # Show team spending
-            print(f"\n   Team spending:")
+            print("\n   Team spending:")
             for i, team_name in enumerate(team_names):
                 spent = teams_rosters[team_name]['total_spent']
                 team_display = f"Team {i+1}" if team_name == 'Unknown' else team_name

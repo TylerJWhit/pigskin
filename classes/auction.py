@@ -338,12 +338,6 @@ class Auction:
         current_roster_size = len(getattr(team, 'roster', []))
         return max(0, total_slots - current_roster_size)
     
-    def _sort_players_for_roster_completion(self, available_players, team):
-        """Sort players to prioritize roster completion for low budget teams."""
-        # For roster completion, prioritize cheap players first
-        # Sort by auction value (low to high) for teams needing to complete roster
-        return sorted(available_players, key=lambda player: player.auction_value)
-        
     def _complete_current_auction(self) -> None:
         """Complete the current player auction."""
         if self.draft.current_player:
@@ -463,10 +457,6 @@ class Auction:
             'auto_bid_enabled': self.auto_bid_enabled,
         }
 
-    def add_completion_listener(self, callback: Callable) -> None:
-        """Register a callback to be called when an auction completes."""
-        self.on_auction_completed.append(callback)
-                
     def _process_auto_bids(self) -> None:
         """Process auto-bids using simplified sealed bid auction logic."""
         if not self.draft.current_player:

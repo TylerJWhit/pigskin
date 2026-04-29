@@ -58,7 +58,7 @@ def test_fantasypros_loading():
     print("4. Testing QB rankings:")
     try:
         qb_rankings = get_position_rankings('QB', top_n=10)
-        print(f"   Top 10 QBs:")
+        print("   Top 10 QBs:")
         for i, qb in enumerate(qb_rankings, 1):
             print(f"      {i}. {qb['name']} ({qb['team']}) - {qb['projected_points']} pts")
     except Exception as e:

@@ -48,7 +48,7 @@ def test_budget_constraint_violation():
             team.add_player(player, price)
             print(f"✅ Purchase allowed - budget now ${team.budget}")
         else:
-            print(f"❌ Purchase blocked by budget constraint")
+            print("❌ Purchase blocked by budget constraint")
             break
     
     # Show final state
@@ -56,7 +56,7 @@ def test_budget_constraint_violation():
     total_slots = sum(team.roster_config.values())
     remaining_slots = total_slots - current_roster_size
     
-    print(f"\n=== Final State ===")
+    print("\n=== Final State ===")
     print(f"Roster: {current_roster_size}/{total_slots}")
     print(f"Budget: ${team.budget}")
     print(f"Remaining slots: {remaining_slots}")

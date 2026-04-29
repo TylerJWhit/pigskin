@@ -56,9 +56,9 @@ def test_auction_budget_enforcement():
             if team.budget < remaining:
                 print(f"  ❌ Cannot complete roster! Need ${remaining - team.budget} more")
             else:
-                print(f"  ✅ Can complete roster")
+                print("  ✅ Can complete roster")
         else:
-            print(f"  ✅ Roster complete!")
+            print("  ✅ Roster complete!")
 
 if __name__ == "__main__":
     test_auction_budget_enforcement()

@@ -70,7 +70,7 @@ def test_budget_constraint_in_auction():
                     max_bid = team.strategy.calculate_max_bid(team, team.budget)
                     print(f"  Max bid allowed: ${max_bid}")
     
-    print(f"\n=== Final Results ===")
+        print("\n=== Final Results ===")
     for team in teams:
         roster_size = len(team.roster)
         total_slots = sum(team.roster_config.values())
