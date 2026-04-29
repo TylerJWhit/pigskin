@@ -281,3 +281,109 @@ class TestNetworkFallback:
         bid = strategy_no_mcts.calculate_bid(player_rb, team, owner, 0, 200.0, remaining_players)
         assert isinstance(bid, int)
         assert bid >= 0
+
+
+# ---------------------------------------------------------------------------
+# Regression tests — Team.get_remaining_roster_slots() type mismatch (issue #84)
+#
+# get_remaining_roster_slots() returns int (total remaining slots).
+# Previously the strategy called .get() / .values() on that int, which silently
+# failed inside try/except blocks, leaving features 9-14 frozen at 0.0 and the
+# budget guard / should_nominate reserve check completely inoperative.
+# ---------------------------------------------------------------------------
+
+
+class TestRosterSlotsTypeMismatch:
+    """Regression tests for the get_remaining_roster_slots() int vs dict bug."""
+
+    def test_position_need_features_nonzero_for_empty_roster(self, player_rb, remaining_players):
+        """Features 9-12 must be > 0 for an empty team that needs all positions.
+
+        Before the fix these were always 0.0 because slots.get() was called on an int.
+        """
+        team = Team("t_reg", "o1", "Regression Team", 200)
+        features = _extract_features(player_rb, team, 10.0, 190.0, remaining_players)
+        # RB need (feature 10) must be > 0 since the roster is empty
+        assert features[10] > 0.0, (
+            "Feature 10 (RB need fraction) should be non-zero for an empty team; "
+            "likely still calling .get() on an int return from get_remaining_roster_slots()"
+        )
+
+    def test_position_need_features_zero_when_position_full(self, remaining_players):
+        """Feature for a filled position must be 0.0."""
+        team = Team("t_full", "o1", "Full QB Team", 200)
+        # Fill both QB slots
+        for i in range(2):
+            qb = Player(f"qb{i}", f"QB {i}", "QB", "NE", projected_points=250.0, auction_value=20.0)
+            team.add_player(qb, 10)
+        features = _extract_features(
+            Player("rb_test", "Test RB", "RB", "KC", projected_points=200.0, auction_value=30.0),
+            team,
+            0.0,
+            180.0,
+            remaining_players,
+        )
+        # QB need (feature 9) must be 0 since QB slots are full
+        assert features[9] == 0.0, (
+            "Feature 9 (QB need fraction) should be 0.0 when all QB slots are filled"
+        )
+
+    def test_feature_14_nonzero_for_incomplete_roster(self, player_rb, remaining_players):
+        """Feature 14 (min budget to fill / remaining budget) must be > 0 for an empty team."""
+        team = Team("t_f14", "o1", "Budget Test Team", 200)
+        features = _extract_features(player_rb, team, 0.0, 200.0, remaining_players)
+        assert features[14] > 0.0, (
+            "Feature 14 (budget headroom ratio) should be > 0 for an empty roster; "
+            "likely still calling .values() on the int returned by get_remaining_roster_slots()"
+        )
+
+    def test_budget_guard_passes_when_budget_just_enough(self, player_rb, owner, remaining_players):
+        """calculate_bid must return 0 (pass) when remaining budget == remaining roster slots.
+
+        This exercises the budget guard that previously silently failed due to the
+        type mismatch — the guard was never applied so the team could overbid.
+        """
+        strategy = GridironSageStrategy(use_mcts=False)
+        team = Team("t_guard", "o1", "Guard Test Team", 200)
+        # Default roster_config has 18 total slots (QB:2, RB:6, WR:6, TE:2, K:1, DST:1)
+        total_slots = sum(team.roster_config.values())
+        # Remaining budget == total slots means every dollar is reserved → must pass
+        bid = strategy.calculate_bid(player_rb, team, owner, 1, float(total_slots), remaining_players)
+        assert bid == 0, (
+            "calculate_bid should return 0 when remaining_budget equals remaining roster slots; "
+            "budget guard was previously inoperative due to the type mismatch bug"
+        )
+
+    def test_min_budget_reserve_uses_integer_return(self):
+        """_min_budget_reserve must return the total slot count, not 1.0 (the fallback).
+
+        Before the fix, sum(get_slots().values()) raised AttributeError (int has no
+        .values()), which was silently caught, and the method returned the hardcoded
+        fallback of 1.0 instead of the actual slot count.
+        """
+        from strategies.gridiron_sage_strategy import _GridironSageMCTS, _GridironSageNetwork
+        team = Team("t_reserve", "o1", "Reserve Test Team", 200)
+        network = _GridironSageNetwork()
+        mcts = _GridironSageMCTS(network, iterations=5)
+        reserve = mcts._min_budget_reserve(team)
+        total_slots = sum(team.roster_config.values())
+        assert reserve == float(total_slots), (
+            f"_min_budget_reserve should return {total_slots} (total roster slots) "
+            f"but returned {reserve}; likely still calling .values() on an int"
+        )
+
+    def test_should_nominate_respects_budget_reserve(self, player_rb, owner):
+        """should_nominate must decline when remaining_budget <= remaining_slots + 2.
+
+        Before the fix the budget headroom check was silently skipped, so the
+        strategy would nominate even with a dangerously low budget.
+        """
+        strategy = GridironSageStrategy(use_mcts=False)
+        team = Team("t_nom", "o1", "Nominate Test Team", 200)
+        total_slots = sum(team.roster_config.values())
+        # Budget == slots + 1 is within the reserve window → should NOT nominate
+        result = strategy.should_nominate(player_rb, team, owner, float(total_slots) + 1)
+        assert result is False, (
+            "should_nominate should return False when budget is within the slot reserve; "
+            "budget headroom check was previously inoperative due to the type mismatch bug"
+        )

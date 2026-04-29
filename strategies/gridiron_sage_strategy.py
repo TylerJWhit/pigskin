@@ -126,28 +126,34 @@ def _extract_features(
         pass
 
     # 9–13 — per-position need fractions
+    # get_remaining_roster_slots() returns int (total); compute per-position needs
+    # from roster_config and get_position_count() instead.
     position_indices: Dict[str, int] = {"QB": 9, "RB": 10, "WR": 11, "TE": 12}
     try:
-        get_slots = getattr(team, "get_remaining_roster_slots", None)
-        if callable(get_slots):
-            slots: Dict[str, int] = get_slots()
-            max_per_pos: Dict[str, int] = getattr(team, "max_roster_size", {})
+        roster_config: Dict[str, int] = getattr(team, "roster_config", {}) or {}
+        get_pos_count = getattr(team, "get_position_count", None)
+        if roster_config and callable(get_pos_count):
             for p_pos, idx in position_indices.items():
-                needed = slots.get(p_pos, 0)
-                capacity = max_per_pos.get(p_pos, 1) or 1
+                capacity = roster_config.get(p_pos, 0) or 1
+                needed = max(0, roster_config.get(p_pos, 0) - get_pos_count(p_pos))
                 features[idx] = min(needed / capacity, 1.0)
-            # 13 — flex / bench need
-            flex_need = sum(slots.get(p, 0) for p in ("FLEX", "BENCH", "BN"))
+            # 13 — flex / bench: total remaining minus direct-position fill needs
+            get_remaining = getattr(team, "get_remaining_roster_slots", None)
+            total_remaining = int(get_remaining()) if callable(get_remaining) else 0
+            direct_needed = sum(
+                max(0, roster_config.get(p, 0) - get_pos_count(p)) for p in position_indices
+            )
+            flex_need = max(0, total_remaining - direct_needed)
             features[13] = min(flex_need / 5.0, 1.0)
     except Exception:
         pass
 
     # 14 — min budget to fill / remaining budget
+    # get_remaining_roster_slots() returns int (total remaining slots) — use directly.
     try:
         get_slots_2 = getattr(team, "get_remaining_roster_slots", None)
         if callable(get_slots_2):
-            total_needed = sum(get_slots_2().values())
-            min_needed = float(total_needed)  # $1 per slot minimum
+            min_needed = float(get_slots_2())  # $1 per slot minimum
             features[14] = min(min_needed / remaining_budget, 2.0) if remaining_budget > 0 else 1.0
     except Exception:
         pass
@@ -422,7 +428,7 @@ class _GridironSageMCTS:
         try:
             get_slots = getattr(team, "get_remaining_roster_slots", None)
             if callable(get_slots):
-                return float(sum(get_slots().values()))
+                return float(get_slots())  # returns int: total remaining slots
         except Exception:
             pass
         return 1.0
@@ -543,7 +549,7 @@ class GridironSageStrategy(Strategy):
         try:
             get_slots = getattr(team, "get_remaining_roster_slots", None)
             if callable(get_slots):
-                min_reserve = float(sum(get_slots().values()))
+                min_reserve = float(get_slots())  # returns int: total remaining slots
                 if remaining_budget - current_bid <= min_reserve:
                     return 0
         except Exception:
@@ -598,7 +604,7 @@ class GridironSageStrategy(Strategy):
         try:
             get_slots = getattr(team, "get_remaining_roster_slots", None)
             if callable(get_slots):
-                min_reserve = float(sum(get_slots().values()))
+                min_reserve = float(get_slots())  # returns int: total remaining slots
                 if remaining_budget <= min_reserve + 2:
                     return False
         except Exception:
