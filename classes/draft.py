@@ -5,9 +5,25 @@ from datetime import datetime
 import uuid
 import random
 import concurrent.futures
+from pydantic import BaseModel, Field
 from .player import Player
 from .team import Team
 from .owner import Owner
+
+
+class DraftState(BaseModel):
+    """Serializable snapshot of a Draft's current state."""
+
+    draft_id: str
+    name: str
+    status: str
+    current_round: int = Field(ge=0)
+    budget_per_team: float = Field(gt=0)
+    roster_size: int = Field(gt=0)
+    num_teams: int = Field(gt=0)
+    current_player_id: Optional[str] = None
+    current_bid: float = Field(ge=0.0, default=0.0)
+    team_ids: List[str] = Field(default_factory=list)
 
 
 class Draft:
@@ -429,3 +445,21 @@ class Draft:
             'summary': self.get_draft_summary(),
             'leaderboard': self.get_leaderboard()
         }
+
+    def get_state(self) -> "DraftState":
+        """Return a serializable Pydantic snapshot of the current draft state."""
+        current_player_id = (
+            self.current_player.player_id if self.current_player else None
+        )
+        return DraftState(
+            draft_id=self.draft_id,
+            name=self.name,
+            status=self.status,
+            current_round=self.current_round,
+            budget_per_team=self.budget_per_team,
+            roster_size=self.roster_size,
+            num_teams=self.num_teams,
+            current_player_id=current_player_id,
+            current_bid=self.current_bid,
+            team_ids=[t.team_id for t in self.teams],
+        )

@@ -1,0 +1,157 @@
+# lab-ci.yml — Nightly + lab-PR pipeline for the pigskin-lab research environment
+#
+# Triggers:
+#   - Nightly at 1:00 AM UTC (scheduled)
+#   - Pull requests touching lab/ paths
+#   - Manual dispatch (optional: target a specific strategy)
+#
+# Runs: migration check → simulation batch (≤ 60 min hard cap) → gate report
+#
+# KEY CONSTRAINTS (ADR-003 / lab-design.md):
+#   - Simulation batch MUST complete within 60 minutes (timeout-minutes: 60)
+#   - This pipeline benchmarks existing lab strategies ONLY — never triggers training
+#   - Training (800-iter MCTS) is launched exclusively via lab/alphazero/train.py
+#   - Gate evaluation here is REPORT-ONLY — no promotion PR is created
+#     (use promotion.yml for manual promotion)
+#
+# Idempotent: experiment_id deduplication in SQLite prevents duplicate writes.
+# Ubuntu-latest ships SQLite ≥ 3.38.0 (ADR-004 requirement satisfied).
+
+name: Lab CI
+
+on:
+  schedule:
+    # Nightly at 1:00 AM UTC
+    - cron: "0 1 * * *"
+
+  pull_request:
+    paths:
+      - "lab/**"
+
+  workflow_dispatch:
+    inputs:
+      strategy_name:
+        description: "Strategy to benchmark (leave blank to benchmark all candidates)"
+        required: false
+        type: string
+        default: ""
+
+jobs:
+  simulate:
+    name: Simulation Batch
+    runs-on: ubuntu-latest
+    # Hard cap: simulation batch must not exceed 60 minutes (ADR-003 / lab-design.md)
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Verify SQLite version (≥ 3.38.0 required per ADR-004)
+        run: |
+          python -c "
+          import sqlite3
+          v = sqlite3.sqlite_version_info
+          assert v >= (3, 38, 0), f'SQLite {v} < 3.38.0 — required per ADR-004'
+          print(f'SQLite {sqlite3.sqlite_version} OK')
+          "
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          # Install lab package in editable mode once lab/ exists (post ADR-001 Sprint 5 migration)
+          if [ -f "lab/pyproject.toml" ]; then
+            pip install -e lab/
+          else
+            echo "lab/ not yet migrated (ADR-001, Sprint 5) — skipping lab install"
+          fi
+
+      - name: Apply database migrations (Alembic)
+        run: |
+          if [ -f "lab/results_db/migrations/env.py" ]; then
+            cd lab && python -m alembic -c results_db/alembic.ini upgrade head
+          else
+            echo "No Alembic migrations found — lab/ not yet migrated (ADR-001, Sprint 5), skipping"
+          fi
+
+      - name: Run simulation batch
+        # Benchmarks lab/strategies/ against production strategy.
+        # Never runs AlphaZero training (800-iter MCTS) — benchmarks only (50-iter).
+        env:
+          STRATEGY: ${{ inputs.strategy_name }}
+        run: |
+          if [ -f "lab/simulation/runner.py" ]; then
+            python lab/simulation/runner.py \
+              ${STRATEGY:+--strategy "$STRATEGY"}
+          else
+            echo "lab/simulation/runner.py not found — lab/ not yet migrated (ADR-001, Sprint 5)"
+            echo "Scaffold verified. No simulation to run at this stage."
+          fi
+
+      - name: Upload simulation results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: simulation-results-${{ github.run_id }}
+          path: lab/results_db/
+          retention-days: 30
+          if-no-files-found: warn
+
+  benchmark:
+    name: Benchmark Report
+    runs-on: ubuntu-latest
+    needs: simulate
+    if: always() && needs.simulate.result == 'success'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          if [ -f "lab/pyproject.toml" ]; then
+            pip install -e lab/
+          else
+            echo "lab/ not yet migrated — skipping lab install"
+          fi
+
+      - name: Download simulation results
+        uses: actions/download-artifact@v4
+        with:
+          name: simulation-results-${{ github.run_id }}
+          path: lab/results_db/
+
+      - name: Run gate evaluation (report only — no promotion PR created here)
+        # Gate thresholds per ADR-003: win-rate improvement ≥ 5pp, p < 0.01
+        # PASS result: notification only. Use promotion.yml to create promotion PR.
+        env:
+          STRATEGY: ${{ inputs.strategy_name }}
+        run: |
+          if [ -f "lab/promotion/gate.py" ]; then
+            python lab/promotion/gate.py \
+              ${STRATEGY:+--strategy "$STRATEGY"} \
+              --output lab/results_db/gate_result.json
+            echo "--- Gate Result ---"
+            python -m json.tool lab/results_db/gate_result.json
+          else
+            echo "lab/promotion/gate.py not found — lab/ not yet migrated (ADR-001, Sprint 5)"
+            echo "Scaffold verified. No gate to evaluate at this stage."
+          fi
+
+      - name: Upload gate result
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-result-${{ github.run_id }}
+          path: lab/results_db/gate_result.json
+          retention-days: 30
+          if-no-files-found: warn

@@ -2,12 +2,24 @@
 
 import logging
 from typing import Dict, List, Optional, TYPE_CHECKING
+from pydantic import BaseModel, Field
 from .player import Player
 
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .strategy import Strategy
+
+
+class TeamState(BaseModel):
+    """Serializable snapshot of a Team's state."""
+
+    team_id: str
+    owner_id: str
+    team_name: str
+    budget: int = Field(ge=0)
+    initial_budget: int = Field(ge=0)
+    roster_player_ids: List[str] = Field(default_factory=list)
 
 
 class Team:
@@ -21,6 +33,8 @@ class Team:
         budget: int = 200,
         roster_config: Optional[dict] = None
     ):
+        if int(budget) < 0:
+            raise ValueError(f"budget cannot be negative, got {budget}")
         self.team_id = team_id
         self.owner_id = owner_id
         self.team_name = team_name
@@ -597,6 +611,17 @@ class Team:
             'is_complete': self.is_roster_complete(),
             'needs': self.get_needs()
         }
+
+    def get_state(self) -> "TeamState":
+        """Return a serializable Pydantic snapshot of the team's current state."""
+        return TeamState(
+            team_id=self.team_id,
+            owner_id=self.owner_id,
+            team_name=self.team_name,
+            budget=self.budget,
+            initial_budget=self.initial_budget,
+            roster_player_ids=[p.player_id for p in self.roster],
+        )
     
     def _get_position_caps(self) -> dict:
         """Get maximum allowed players per position based on roster structure."""

@@ -5,6 +5,8 @@ import logging
 import os
 from typing import Dict, List, Optional, Tuple
 
+from pydantic import ValidationError
+
 from classes.player import Player
 
 logger = logging.getLogger(__name__)
@@ -30,7 +32,7 @@ class FantasyProsLoader:
             'DST': 'DST.csv'
         }
         
-    def load_position_data(self, position: str) -> List[Dict]:
+    def load_position_data(self, position: str) -> List[Player]:
         """
         Load data for a specific position.
         
@@ -38,7 +40,7 @@ class FantasyProsLoader:
             position: Position to load (QB, RB, WR, TE, K, DST)
             
         Returns:
-            List of player dictionaries
+            List of validated Player objects
         """
         if position not in self.position_files:
             raise ValueError(f"Unknown position: {position}")
@@ -70,7 +72,7 @@ class FantasyProsLoader:
             
         return players
         
-    def _parse_player_row(self, row: Dict[str, str], position: str) -> Optional[Dict]:
+    def _parse_player_row(self, row: Dict[str, str], position: str) -> Optional[Player]:
         """
         Parse a single player row from CSV.
         
@@ -79,7 +81,7 @@ class FantasyProsLoader:
             position: Player position
             
         Returns:
-            Player data dictionary or None if invalid
+            Validated Player object or None if invalid
         """
         try:
             player_name = row.get('Player', '').strip()
@@ -98,20 +100,19 @@ class FantasyProsLoader:
                 
             # Generate a unique player ID
             player_id = self._generate_player_id(player_name, team, position)
+
+            return Player(
+                player_id=player_id,
+                name=player_name,
+                position=position,
+                team=team,
+                projected_points=projected_points,
+                auction_value=0.0,
+                bye_week=None,
+            )
             
-            return {
-                'player_id': player_id,
-                'name': player_name,
-                'position': position,
-                'team': team,
-                'projected_points': projected_points,
-                'auction_value': 0.0,  # Will be calculated later
-                'bye_week': None,  # Not in FantasyPros data
-                'raw_data': dict(row)  # Keep original data for reference
-            }
-            
-        except (ValueError, TypeError) as e:
-            logger.error("Error parsing player row: %s", e)
+        except (ValueError, TypeError, ValidationError) as e:
+            logger.warning("Skipping invalid player row: %s", e)
             return None
             
     def _generate_player_id(self, name: str, team: str, position: str) -> str:
@@ -136,17 +137,8 @@ class FantasyProsLoader:
             try:
                 position_data = self.load_position_data(position)
                 
-                for player_data in position_data:
-                    if player_data['projected_points'] >= min_projected_points:
-                        player = Player(
-                            player_id=player_data['player_id'],
-                            name=player_data['name'],
-                            position=player_data['position'],
-                            team=player_data['team'],
-                            projected_points=player_data['projected_points'],
-                            auction_value=player_data['auction_value'],
-                            bye_week=player_data['bye_week']
-                        )
+                for player in position_data:
+                    if player.projected_points >= min_projected_points:
                         all_players.append(player)
                         
             except Exception as e:
@@ -158,7 +150,7 @@ class FantasyProsLoader:
                 
         return all_players
         
-    def get_top_players(self, position: str, count: int = 50) -> List[Dict]:
+    def get_top_players(self, position: str, count: int = 50) -> List[Player]:
         """
         Get top players for a position by projected points.
         
@@ -167,14 +159,14 @@ class FantasyProsLoader:
             count: Number of top players to return
             
         Returns:
-            List of top player dictionaries
+            List of top Player objects
         """
         players = self.load_position_data(position)
         # Sort by projected points (descending)
-        players.sort(key=lambda p: p['projected_points'], reverse=True)
+        players.sort(key=lambda p: p.projected_points, reverse=True)
         return players[:count]
         
-    def get_player_by_name(self, name: str, position: Optional[str] = None) -> Optional[Dict]:
+    def get_player_by_name(self, name: str, position: Optional[str] = None) -> Optional[Player]:
         """
         Find a player by name, optionally filtered by position.
         
@@ -183,7 +175,7 @@ class FantasyProsLoader:
             position: Optional position filter
             
         Returns:
-            Player data dictionary or None if not found
+            Player object or None if not found
         """
         positions_to_search = [position] if position else list(self.position_files.keys())
         
@@ -191,7 +183,7 @@ class FantasyProsLoader:
             try:
                 players = self.load_position_data(pos)
                 for player in players:
-                    if player['name'].lower() == name.lower():
+                    if player.name.lower() == name.lower():
                         return player
             except Exception:
                 continue
@@ -335,16 +327,9 @@ def _parse_csv_file(csv_content: str, position: str) -> List[Player]:
     players = []
     reader = csv.DictReader(io.StringIO(csv_content))
     for row in reader:
-        player_data = loader._parse_player_row(row, position)
-        if player_data:
-            players.append(Player(
-                player_id=player_data.get('player_id', ''),
-                name=player_data.get('name', ''),
-                position=player_data.get('position', position),
-                team=player_data.get('team', ''),
-                projected_points=float(player_data.get('projected_points', 0)),
-                auction_value=float(player_data.get('auction_value', 0)),
-            ))
+        player = loader._parse_player_row(row, position)
+        if player:
+            players.append(player)
     return players
 
 
