@@ -178,10 +178,13 @@ class Tournament:
             for param, value in config['strategy_params'].items():
                 strategy.set_parameter(param, value)
                 
-            # Enable auto-bid for all teams of this strategy type
+            # Enable auto-bid for all teams of this strategy type and set strategy on team
             for i in range(config['num_teams']):
                 owner_id = f"{config['owner_name']}_{simulation_id}_{i}"
                 auction.enable_auto_bid(owner_id, strategy)
+                team_obj = draft._get_team_by_owner(owner_id)
+                if team_obj is not None:
+                    team_obj.set_strategy(strategy)
                 
         # Run the simulation
         auction.start_auction()

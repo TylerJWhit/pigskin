@@ -338,5 +338,56 @@ class TestTournament(BaseTestCase):
         self.assertEqual(len(tournament.base_players), 20)
 
 
+class TestTournamentStrategyRegistration(BaseTestCase):
+    """Regression tests for #109 — strategy set on team in _run_single_simulation."""
+
+    def test_simulation_teams_have_strategy_set(self):
+        """After _run_single_simulation, each team must have a non-None strategy."""
+        from classes.tournament import Tournament
+        from classes.player import Player
+
+        players = [
+            Player(f"p{i}", f"Player {i}", ["RB","WR","QB","TE"][i % 4], "XX",
+                   projected_points=float(200 - i), auction_value=float(50 - i))
+            for i in range(20)
+        ]
+        tournament = Tournament(name="Test", num_simulations=1, budget_per_team=200)
+        tournament.add_players(players)
+        tournament.add_strategy_config("basic", "Bot", num_teams=2)
+        draft = tournament._run_single_simulation(0)
+        self.assertIsNotNone(draft)
+        for team in draft.teams:
+            self.assertIsNotNone(
+                team.strategy,
+                f"team {team.team_id} has no strategy set — #109 regression"
+            )
+
+
+class TestBidRecommendationTeamBudget(BaseTestCase):
+    """Regression tests for #125 — Team constructor args misordered in bid_recommendation_service."""
+
+    def test_create_team_from_sleeper_context_uses_correct_budget(self):
+        """Team created from Sleeper context must have budget from user_budget, not default 200."""
+        from services.bid_recommendation_service import BidRecommendationService
+        service = BidRecommendationService.__new__(BidRecommendationService)
+        sleeper_context = {"user_budget": 143, "user_roster": []}
+        team = service._create_team_from_sleeper_context(sleeper_context, None)
+        self.assertEqual(
+            team.budget, 143,
+            f"Team budget should be 143 (from user_budget) but got {team.budget} — #125 regression"
+        )
+
+    def test_create_team_from_sleeper_context_team_name_is_string(self):
+        """Team name must be a string, not the integer budget value."""
+        from services.bid_recommendation_service import BidRecommendationService
+        service = BidRecommendationService.__new__(BidRecommendationService)
+        sleeper_context = {"user_budget": 180, "user_roster": []}
+        team = service._create_team_from_sleeper_context(sleeper_context, None)
+        self.assertIsInstance(
+            team.team_name, str,
+            f"team_name should be str but got {type(team.team_name)} — #125 regression"
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

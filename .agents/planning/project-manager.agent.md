@@ -67,19 +67,22 @@ Before planning every sprint, apply the Pareto principle: **20% of the codebase 
 
 ## Project Board Status Rules
 
-The GitHub Project board uses the following statuses with strict ownership:
+**The project board is the single source of truth.** Every issue must reflect its true state at all times. No work is started, blocked, or complete without the board reflecting it.
 
-| Status | Owner | Description |
-|--------|-------|-------------|
-| **Backlog** | Automation (GitHub Action) | All new issues land here automatically |
-| **Ready** | **Project Manager only** | Issues groomed, estimated, and ready for a sprint |
-| **In Progress** | Development Agents | Set when an agent begins active work |
-| **In Review** | Development Agents | Set when work is complete and handed to QA |
-| **Done** | QA Agent (pass) / DevOps (confirm) | QA approved and DevOps gates passed — ready for Docs |
-| **Closed** | Technical Docs Agent | Issue closed after documentation is complete |
+| Status | Owner | Who acts here | Meaning |
+|--------|-------|--------------|---------|
+| **Backlog** | Automation | PM | All new issues auto-land here. PM grooms and pulls sprint items to Ready. |
+| **Ready** | Planning + QA | Planning, QA, Dev (questions) | Sprint-designated items. Planning confirms AC; QA defines tests and applies `qa:tests-defined`. Dev returns items here if questions arise mid-work. |
+| **In Progress** | Dev Agents | Dev | Active coding. Requires `qa:tests-defined` label before pickup. |
+| **In Review** | QA + Planning | QA, Planning | Dev complete. QA Phase 2 + Planning verify implementation meets goals. |
+| **Done** | DevOps | DevOps, Docs (monitor) | DevOps merges to develop/main. Docs monitors for wiki opportunities. |
+| **Closed** | Technical Docs | Docs | Wiki written. Issue closed. |
 
-> The Project Manager **may only move items to `Ready`**. It must never set any other status.
-> Pipeline: Dev sets `In Progress` → `In Review`. QA sets `Done` (pass) or returns to `In Progress` (fail). DevOps confirms gates and hands to Docs. Docs closes the issue and sets `Closed`.
+> **PM Rule**: The PM **may only move items to `Ready`**. All other status transitions belong to their designated owners.
+
+> **Board-as-truth Rule**: If an item's status on the board doesn't match reality (e.g., work has started but it's still in Ready), the agent who notices it **must** correct the board immediately before continuing.
+
+> **Full pipeline**: PM → `Ready` → QA adds `qa:tests-defined` → Dev → `In Progress` → Dev → `In Review` → QA+Planning approve → `Done` → DevOps merges → `Closed` (Docs)
 
 ## Workflow
 1. Review `README.md`, `claude.md`, and open issues to understand current state
@@ -92,9 +95,9 @@ The GitHub Project board uses the following statuses with strict ownership:
    gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "<ITEM_ID>" \
      --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "faa0aeb8"
    ```
-6. Comment on each newly Ready issue to signal the assigned agent:
+6. Comment on each newly Ready issue to trigger QA Phase 1 test definition:
    ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Issue is Ready for pickup — assigned to <agent>. Sprint goal: <goal>."
+   gh issue comment <ISSUE_NUMBER> --body "Issue is Ready for pickup — assigned to <agent>. Sprint goal: <goal>. @QA Agent: please perform Phase 1 test definition and apply \`qa:tests-defined\` label when complete."
    ```
 7. Track items in a `BACKLOG.md` or project board format
 

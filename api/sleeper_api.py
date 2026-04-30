@@ -3,6 +3,12 @@
 import requests
 from typing import Dict, List, Optional, Any
 import time
+from urllib.parse import quote
+
+
+def _safe_path(value: str) -> str:
+    """URL-encode a path segment so user-supplied values cannot alter the URL structure."""
+    return quote(str(value), safe="")
 
 
 class SleeperAPIError(Exception):
@@ -61,86 +67,86 @@ class SleeperAPI:
     def get_user(self, username: str) -> Optional[Dict]:
         """Get user information by username."""
         try:
-            return self._make_request(f"/user/{username}")
+            return self._make_request(f"/user/{_safe_path(username)}")
         except SleeperAPIError:
             return None
-            
+
     def get_user_by_id(self, user_id: str) -> Optional[Dict]:
         """Get user information by user ID."""
         try:
-            return self._make_request(f"/user/{user_id}")
+            return self._make_request(f"/user/{_safe_path(user_id)}")
         except SleeperAPIError:
             return None
-            
+
     # League methods
     def get_user_leagues(self, user_id: str, season: str = "2024") -> List[Dict]:
         """Get leagues for a user in a specific season."""
         try:
-            return self._make_request(f"/user/{user_id}/leagues/nfl/{season}") or []
+            return self._make_request(f"/user/{_safe_path(user_id)}/leagues/nfl/{_safe_path(season)}") or []
         except SleeperAPIError:
             return []
-            
+
     def get_league(self, league_id: str) -> Optional[Dict]:
         """Get league information."""
         try:
-            return self._make_request(f"/league/{league_id}")
+            return self._make_request(f"/league/{_safe_path(league_id)}")
         except SleeperAPIError:
             return None
-            
+
     def get_league_rosters(self, league_id: str) -> List[Dict]:
         """Get all rosters in a league."""
         try:
-            return self._make_request(f"/league/{league_id}/rosters") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/rosters") or []
         except SleeperAPIError:
             return []
-            
+
     def get_league_users(self, league_id: str) -> List[Dict]:
         """Get all users in a league."""
         try:
-            return self._make_request(f"/league/{league_id}/users") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/users") or []
         except SleeperAPIError:
             return []
-            
+
     def get_league_matchups(self, league_id: str, week: int) -> List[Dict]:
         """Get matchups for a specific week."""
         try:
-            return self._make_request(f"/league/{league_id}/matchups/{week}") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/matchups/{_safe_path(week)}") or []
         except SleeperAPIError:
             return []
-            
+
     def get_league_transactions(self, league_id: str, week: int) -> List[Dict]:
         """Get transactions for a specific week."""
         try:
-            return self._make_request(f"/league/{league_id}/transactions/{week}") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/transactions/{_safe_path(week)}") or []
         except SleeperAPIError:
             return []
-            
+
     def get_traded_picks(self, league_id: str) -> List[Dict]:
         """Get traded draft picks for a league."""
         try:
-            return self._make_request(f"/league/{league_id}/traded_picks") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/traded_picks") or []
         except SleeperAPIError:
             return []
-            
+
     # Draft methods
     def get_league_drafts(self, league_id: str) -> List[Dict]:
         """Get all drafts for a league."""
         try:
-            return self._make_request(f"/league/{league_id}/drafts") or []
+            return self._make_request(f"/league/{_safe_path(league_id)}/drafts") or []
         except SleeperAPIError:
             return []
-            
+
     def get_draft(self, draft_id: str) -> Optional[Dict]:
         """Get draft information."""
         try:
-            return self._make_request(f"/draft/{draft_id}")
+            return self._make_request(f"/draft/{_safe_path(draft_id)}")
         except SleeperAPIError:
             return None
-            
+
     def get_draft_picks(self, draft_id: str) -> List[Dict]:
         """Get all picks for a draft."""
         try:
-            return self._make_request(f"/draft/{draft_id}/picks") or []
+            return self._make_request(f"/draft/{_safe_path(draft_id)}/picks") or []
         except SleeperAPIError:
             return []
             

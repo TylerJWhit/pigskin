@@ -159,6 +159,16 @@ class InflationAwareVorStrategy(Strategy):
         else:
             return 0.8  # Plenty available
     
+    def should_nominate(
+        self,
+        player: 'Player',
+        team: 'Team',
+        owner: 'Owner',
+        remaining_budget: float,
+    ) -> bool:
+        """Nominate players with positive VOR to force bidding on valuable targets."""
+        return (getattr(player, 'vor', 0.0) or 0.0) > 0
+
     def _get_remaining_roster_slots(self, team) -> int:
         """Calculate how many roster slots still need to be filled."""
         total_slots = 15

@@ -42,7 +42,7 @@ You are the **Agent Manager** for the **Pigskin Fantasy Football Draft Assistant
 ### Quality (`quality/`)
 | Agent File | Name | Purpose | Status |
 |-----------|------|---------|--------|
-| `qa.agent.md` | QA Agent | Test plans, test cases | ✅ Active |
+| `qa.agent.md` | QA Agent | **Phase 1**: pre-development test definition; **Phase 2**: post-development verification | ✅ Active |
 | `test-automation.agent.md` | Test Automation Agent | Unit, integration, E2E tests | ✅ Active |
 | `security.agent.md` | Security Agent | SAST, OWASP, CVE scanning | ✅ Active |
 | `performance.agent.md` | Performance Agent | Load tests, profiling | ✅ Active |
@@ -86,6 +86,51 @@ You are the **Agent Manager** for the **Pigskin Fantasy Football Draft Assistant
 ## Global Agent Protocols
 
 These rules apply to **every agent** in the system, regardless of role.
+
+### Development Lifecycle Protocol
+
+The **project board is the single source of truth** for all work in flight. Every issue must reflect its real state at all times. All code changes follow a **QA-First lifecycle**. This is non-negotiable and applies to every feature, bug fix, and refactor.
+
+```
+BACKLOG
+  All new issues auto-land here via GitHub Action.
+  PM grooms and pulls sprint items to Ready.
+    ↓
+READY  ←─────────────────────────────────────────────────┐
+  Owner: Planning + QA                                    │
+  • Planning confirms/refines acceptance criteria         │
+  • QA Agent Phase 1: writes failing tests, applies       │
+    label qa:tests-defined                                │
+  • Dev may return an In Progress item here at any time   │
+    with a question comment tagging Planning or QA.       │
+    ↓  (qa:tests-defined label required)                  │
+IN PROGRESS                                               │
+  Owner: Development Agents                               │
+  • Dev picks up only after qa:tests-defined is present   │
+  • If a question arises: move back to Ready →────────────┘
+  • When implementation complete: move to In Review
+    ↓
+IN REVIEW
+  Owner: QA + Planning
+  • QA Phase 2: verifies tests pass, behavior meets goals
+  • Planning confirms acceptance criteria satisfied
+  • APPROVED → move to Done
+  • NEEDS REVISION → return to In Progress
+    ↓
+DONE
+  Owner: DevOps
+  • DevOps merges to develop (or main if production-ready)
+  • Resolves any merge conflicts, verifies CI passes
+  • Docs monitors this column for wiki writing opportunities
+  • After merge confirmed: signal Docs and move to Closed
+    ↓
+CLOSED
+  Owner: Technical Docs Agent
+  • Docs writes or updates the GitHub wiki for this change
+  • Closes the issue after documentation is complete
+```
+
+**Label contract**: `qa:tests-defined` is the gate between Ready and In Progress. Only the QA Agent may apply this label. Development agents must check for it before starting any implementation work.
 
 ### Critical Thinking Directive
 

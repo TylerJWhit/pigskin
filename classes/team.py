@@ -119,6 +119,15 @@ class Team:
         total_slots = sum(self.roster_config.values()) if self.roster_config else 15
         return max(0, total_slots - len(self.roster))
 
+    def get_remaining_roster_slots_by_position(self) -> Dict[str, int]:
+        """Return unfilled slots per position keyed by position string."""
+        if not self.roster_config:
+            return {}
+        return {
+            pos: max(0, capacity - self.get_position_count(pos))
+            for pos, capacity in self.roster_config.items()
+        }
+
     def calculate_position_priority(self, position: str) -> float:
         """Return priority for filling a position (0.0 – 2.0)."""
         if not self.roster_config:

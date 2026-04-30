@@ -436,5 +436,45 @@ class TestStrategyComparison(BaseTestCase):
                 self.assertEqual(strategy.get_parameter('nonexistent_param', 'default'), 'default')
 
 
+class TestInflationAwareVorStrategy(BaseTestCase):
+    """Regression tests for #141 — InflationAwareVorStrategy missing should_nominate."""
+
+    def test_instantiation_does_not_raise(self):
+        """InflationAwareVorStrategy() must not raise TypeError (missing abstract method)."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()  # would raise TypeError before fix
+        self.assertIsNotNone(strategy)
+
+    def test_should_nominate_returns_bool(self):
+        """should_nominate must return a bool for any player."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        result = strategy.should_nominate(player, team, owner, 150.0)
+        self.assertIsInstance(result, bool)
+
+    def test_should_nominate_true_for_positive_vor(self):
+        """should_nominate returns True when player has positive VOR."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        player.vor = 25.0
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        self.assertTrue(strategy.should_nominate(player, team, owner, 150.0))
+
+    def test_should_nominate_false_for_zero_vor(self):
+        """should_nominate returns False when player VOR is zero."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        player.vor = 0.0
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        self.assertFalse(strategy.should_nominate(player, team, owner, 150.0))
+
+
 if __name__ == '__main__':
     unittest.main()

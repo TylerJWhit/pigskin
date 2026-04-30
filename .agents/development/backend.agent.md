@@ -50,16 +50,17 @@ You are the Backend Agent for the **Pigskin Fantasy Football Draft Assistant**. 
 
 ## Definition of Done
 
-Every feature or bug fix is **not complete** until a corresponding test exists:
+Every feature or bug fix is **not complete** until it passes QA-defined tests:
 
-1. **New feature**: Add or extend a test in `tests/` that covers the happy path and at least one edge case
-2. **Bug fix**: Add a regression test that would have caught the bug before the fix
-3. **Refactored code**: Confirm existing tests still pass; add tests for any newly exposed paths
+1. **Before starting**: The issue must have the `qa:tests-defined` label — QA has already written or spec'd the tests this code must pass. Do not begin implementation without it.
+2. **New feature**: Implement code that makes the QA-defined tests pass, plus any additional tests for internal paths QA couldn't anticipate
+3. **Bug fix**: Confirm the QA-defined regression test fails before your fix and passes after
+4. **Refactored code**: All QA-defined tests must still pass; add tests for newly exposed paths
 
 Tests must be committed alongside the implementation change — never in a separate follow-up.
 
-After writing tests, hand off to the QA Agent for test validation before marking work done:
-> **Handoff signal**: "Tests written for `<feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+After writing/confirming tests, hand off to the QA Agent for Phase 2 verification before marking work done:
+> **Handoff signal**: "Implementation complete for `<feature/fix>`. QA-defined tests pass in `tests/<file>.py`. Requesting QA Phase 2 verification."
 
 ## Project Board Commands
 ```bash
@@ -78,15 +79,33 @@ gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
 
 ## Workflow
 1. Use `semantic_search` to locate relevant service and class files
-2. Move the issue to **In Progress** on the project board (see commands above) and comment:
+2. **Verify the `qa:tests-defined` label is present** before starting:
    ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Starting work on this issue — moving to In Progress."
+   gh issue view <ISSUE_NUMBER> --json labels | jq '.labels[].name' | grep "qa:tests-defined"
    ```
-3. Read the target file fully before modifying
-4. Write or update the corresponding test in `tests/` **before or alongside** the implementation
-5. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
-6. Check `get_errors` after edits to catch type issues
-7. Move the issue to **In Review**, then signal QA Agent:
+   If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
+3. Move the issue to **In Progress** on the project board (see commands above) and comment:
    ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Moving to In Review — tests written in \`tests/<file>.py\`. Requesting QA review of test accuracy and coverage."
+   gh issue comment <ISSUE_NUMBER> --body "Starting implementation — QA tests are defined. Moving to In Progress."
    ```
+4. Read the QA test file(s) to understand exactly what behavior must be implemented
+5. Read the target implementation file fully before modifying
+6. Implement code to make the QA-defined failing tests pass
+7. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
+8. Check `get_errors` after edits to catch type issues
+9. Move the issue to **In Review**, then signal QA Agent:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. Moving to In Review for QA Phase 2 verification."
+   ```
+
+### Returning an Item to Ready (Questions / Blockers)
+If you encounter a question or blocker that requires Planning or QA input:
+1. Move the issue back to **Ready** immediately — do not leave it In Progress while waiting
+2. Leave a specific question comment tagging the right agent:
+   ```bash
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "faa0aeb8"
+   gh issue comment <ISSUE_NUMBER> --body "Returning to Ready — need clarification before continuing:\n\n**Question**: <your specific question>\n\n@QA Agent / @Requirements Agent: please clarify so dev can resume."
+   ```
+3. Pick up a different Ready item while waiting
+4. Once answered, re-check for `qa:tests-defined` label and move back to In Progress

@@ -308,5 +308,83 @@ class TestConfigManager(BaseTestCase):
         self.assertGreater(len(errors), 0)
 
 
+class TestSleeperAPIPathEncoding(BaseTestCase):
+    """Regression tests for #97 — URL path segments must be encoded to prevent SSRF."""
+
+    def test_safe_path_encodes_slash(self):
+        """_safe_path must URL-encode forward slashes (the traversal vector)."""
+        from api.sleeper_api import _safe_path
+        encoded = _safe_path("../../admin")
+        # Slashes must be percent-encoded; the segment cannot escape its path position
+        self.assertNotIn("/", encoded,
+            msg=f"Unencoded slash survived: {encoded}")
+        self.assertIn("%2F", encoded.upper(),
+            msg=f"Expected %2F encoding of slashes in: {encoded}")
+
+    def test_safe_path_plain_value_unchanged(self):
+        """_safe_path must not corrupt normal alphanumeric IDs."""
+        from api.sleeper_api import _safe_path
+        self.assertEqual(_safe_path("abc123"), "abc123")
+
+    def test_get_user_encodes_slashes_in_path(self):
+        """get_user must URL-encode the username so slashes cannot escape the path segment."""
+        from api.sleeper_api import SleeperAPI
+        from unittest.mock import patch
+        api = SleeperAPI()
+        with patch.object(api, '_make_request') as mock_req:
+            mock_req.return_value = {}
+            api.get_user("../../admin")
+            called_path = mock_req.call_args[0][0]
+            # The final URL segment must not contain a literal unencoded slash
+            # i.e. the attacker cannot inject "/admin" as a new path component
+            self.assertNotIn("/../", called_path,
+                msg=f"Traversal sequence survived URL construction: {called_path}")
+
+    def test_get_league_encodes_slashes_in_league_id(self):
+        """get_league must URL-encode the league_id."""
+        from api.sleeper_api import SleeperAPI
+        from unittest.mock import patch
+        api = SleeperAPI()
+        with patch.object(api, '_make_request') as mock_req:
+            mock_req.return_value = {}
+            api.get_league("../secret")
+            called_path = mock_req.call_args[0][0]
+            self.assertNotIn("/../", called_path)
+
+
+class TestPathUtilsTraversalGuard(BaseTestCase):
+    """Regression tests for #160 — path traversal must raise ValueError."""
+
+    def test_get_data_file_traversal_raises(self):
+        """get_data_file must raise ValueError for traversal sequences."""
+        from utils.path_utils import get_data_file
+        with self.assertRaises(ValueError):
+            get_data_file("../../../etc/passwd")
+
+    def test_get_data_file_double_dot_raises(self):
+        """get_data_file must raise ValueError for relative traversal."""
+        from utils.path_utils import get_data_file
+        with self.assertRaises(ValueError):
+            get_data_file("../config.json")
+
+    def test_safe_file_path_outside_root_raises(self):
+        """safe_file_path must raise ValueError for absolute paths outside the project."""
+        from utils.path_utils import safe_file_path
+        with self.assertRaises(ValueError):
+            safe_file_path("/etc/passwd")
+
+    def test_get_data_file_normal_path_ok(self):
+        """get_data_file must not raise for a benign filename."""
+        from utils.path_utils import get_data_file
+        result = get_data_file("players.csv")
+        self.assertIn("players.csv", str(result))
+
+    def test_safe_file_path_within_project_ok(self):
+        """safe_file_path must not raise for a path inside the project root."""
+        from utils.path_utils import safe_file_path, get_project_root
+        result = safe_file_path(get_project_root() / "data" / "sample.json")
+        self.assertIsNotNone(result)
+
+
 if __name__ == '__main__':
     unittest.main()

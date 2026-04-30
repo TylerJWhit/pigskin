@@ -102,11 +102,12 @@ For a complex workflow:
 > "Add a new bidding strategy"
 > 1. **Requirements Agent** — define strategy behavior and acceptance criteria
 > 2. **Architecture Agent** — confirm fits existing Strategy pattern
-> 3. **Backend Agent** — implement `strategies/new_strategy.py`
-> 4. **Test Automation Agent** — write unit and integration tests
-> 5. **Code Review Agent** — review implementation
-> 6. **Technical Docs Agent** — add to strategy docs
-> 7. **CI/CD Agent** — verify pipeline passes
+> 3. **QA Agent (Phase 1)** — define failing tests the new strategy must pass; apply `qa:tests-defined` label
+> 4. **Backend Agent** — implement `strategies/new_strategy.py` to make QA tests pass
+> 5. **QA Agent (Phase 2)** — verify tests pass and implementation meets planning goals
+> 6. **Code Review Agent** — review implementation
+> 7. **Technical Docs Agent** — add to strategy docs
+> 8. **CI/CD Agent** — verify pipeline passes
 
 ### Step 3: Track & Synthesize
 - Monitor delegated tasks for blockers
@@ -116,13 +117,13 @@ For a complex workflow:
 ## Common Workflows
 
 ### Bug Fix Flow
-`Bug Report → Bug Triage → [Backend|Frontend|Database] Agent → Test Automation → Code Review → CI/CD`
+`Bug Report → Bug Triage → QA Agent (Phase 1: define regression test) → [Backend|Frontend|Database] Agent (implement fix) → QA Agent (Phase 2: verify) → Code Review → CI/CD`
 
 ### Feature Development Flow
-`Requirements → Architecture → Backend/Frontend → Test Automation → Code Review → Technical Docs → CI/CD → Deployment`
+`Requirements → Architecture → QA Agent (Phase 1: define tests) → Backend/Frontend (implement to pass tests) → QA Agent (Phase 2: verify) → Code Review → Technical Docs → CI/CD → Deployment`
 
 ### Security Incident Flow
-`Security Agent → Bug Triage → Backend Agent (fix) → Test Automation → Code Review → Deployment (expedited)`
+`Security Agent → Bug Triage → QA Agent (Phase 1: define regression tests) → Backend Agent (fix) → QA Agent (Phase 2: verify) → Code Review → Deployment (expedited)`
 
 ### Release Flow
 `Project Manager (release scope) → CI/CD Agent → Deployment Agent → Monitoring Agent (post-deploy watch)`

@@ -37,11 +37,24 @@ def get_config_file() -> Path:
     return get_config_dir() / "config.json"
 
 def get_data_file(filename: str) -> Path:
-    """Get a data file path in the data directory."""
-    return get_data_dir() / "data" / filename
+    """Get a data file path in the data directory.
+
+    Raises ValueError if the resolved path escapes the data directory.
+    """
+    base = get_data_dir().resolve()
+    resolved = (get_data_dir() / filename).resolve()
+    if not str(resolved).startswith(str(base) + "/") and resolved != base:
+        raise ValueError(f"Path traversal detected: {filename!r}")
+    return resolved
 
 def safe_file_path(path: Union[str, Path]) -> Path:
-    """Convert to Path and ensure parent directories exist."""
-    path = Path(path)
-    ensure_dir_exists(path.parent)
-    return path
+    """Convert to Path, validate it stays within the project root, and ensure parent dirs exist.
+
+    Raises ValueError if the resolved path escapes the project root.
+    """
+    root = get_project_root().resolve()
+    resolved = Path(path).resolve()
+    if not str(resolved).startswith(str(root) + "/") and resolved != root:
+        raise ValueError(f"Path traversal detected: {path!r}")
+    ensure_dir_exists(resolved.parent)
+    return resolved

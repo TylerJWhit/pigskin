@@ -50,23 +50,44 @@ You are the Frontend Agent for the **Pigskin Fantasy Football Draft Assistant**.
 
 ## Definition of Done
 
-Every feature or bug fix is **not complete** until a corresponding test exists:
+Every feature or bug fix is **not complete** until it passes QA-defined tests:
 
-1. **New UI flow or route**: Add or extend a test in `tests/` covering the route response and any template logic
-2. **Bug fix**: Add a regression test that would have caught the bug before the fix
-3. **WebSocket handler**: Add an integration test simulating the event and verifying the state change
+1. **Before starting**: The issue must have the `qa:tests-defined` label — QA has already written or spec'd the tests this code must pass. Do not begin implementation without it.
+2. **New UI flow or route**: Implement code that makes the QA-defined tests pass, covering route response and template logic
+3. **Bug fix**: Confirm the QA-defined regression test fails before your fix and passes after
+4. **WebSocket handler**: The QA-defined integration test must pass after implementation
 
 Tests must be committed alongside the implementation change — never in a separate follow-up.
 
-After writing tests, hand off to the QA Agent for test validation before marking work done:
-> **Handoff signal**: "Tests written for `<feature/fix>` in `tests/<file>.py`. Requesting QA review of test accuracy and coverage."
+After implementation, hand off to the QA Agent for Phase 2 verification before marking work done:
+> **Handoff signal**: "Implementation complete for `<feature/fix>`. QA-defined tests pass in `tests/<file>.py`. Requesting QA Phase 2 verification."
 
 ## Workflow
 1. Read `ui/` directory structure to understand existing components
-2. Check `launch_draft_ui.py` for server setup and route registration
-3. Review WebSocket event names and payloads in existing handlers
-4. Write or update the corresponding test in `tests/` **before or alongside** the implementation
-5. Implement changes following existing patterns before introducing new dependencies
-6. Test UI changes with `python launch_draft_ui.py` and verify in browser
-7. Validate automated tests pass: `python -m pytest tests/ -x -q`
-8. Signal QA Agent for test review before closing the task
+2. **Verify the `qa:tests-defined` label is present** before starting:
+   ```bash
+   gh issue view <ISSUE_NUMBER> --json labels | jq '.labels[].name' | grep "qa:tests-defined"
+   ```
+   If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
+3. Check `launch_draft_ui.py` for server setup and route registration
+4. Read the QA-defined test file(s) to understand exactly what UI behavior must be implemented
+5. Review WebSocket event names and payloads in existing handlers
+6. Implement changes following existing patterns before introducing new dependencies
+7. Test UI changes with `python launch_draft_ui.py` and verify in browser
+8. Validate automated tests pass: `python -m pytest tests/ -x -q`
+9. Move the issue to **In Review**, then signal QA Agent:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. Moving to In Review for QA Phase 2 verification."
+   ```
+
+### Returning an Item to Ready (Questions / Blockers)
+If you encounter a question or blocker that requires Planning or QA input:
+1. Move the issue back to **Ready** immediately — do not leave it In Progress while waiting
+2. Leave a specific question comment tagging the right agent:
+   ```bash
+   gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
+     --field-id "PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU" --single-select-option-id "faa0aeb8"
+   gh issue comment <ISSUE_NUMBER> --body "Returning to Ready — need clarification before continuing:\n\n**Question**: <your specific question>\n\n@QA Agent / @Requirements Agent: please clarify so dev can resume."
+   ```
+3. Pick up a different Ready item while waiting
+4. Once answered, re-check for `qa:tests-defined` label and move back to In Progress

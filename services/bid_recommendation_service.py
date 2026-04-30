@@ -685,7 +685,12 @@ class BidRecommendationService:
             budget = team_context.get('budget', budget)
         
         # Create team
-        team = Team(team_name, "user_id", budget)
+        team = Team(
+            team_id="sleeper_user",
+            owner_id="user_id",
+            team_name=team_name,
+            budget=budget,
+        )
         
         # Add existing roster from Sleeper
         user_roster = sleeper_context.get('user_roster', [])

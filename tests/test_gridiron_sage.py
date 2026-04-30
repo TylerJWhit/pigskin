@@ -387,3 +387,21 @@ class TestRosterSlotsTypeMismatch:
             "should_nominate should return False when budget is within the slot reserve; "
             "budget headroom check was previously inoperative due to the type mismatch bug"
         )
+
+    def test_get_remaining_roster_slots_by_position_returns_dict(self):
+        """Team.get_remaining_roster_slots_by_position() must return Dict[str, int]."""
+        team = Team("t_dict", "o1", "Dict Test Team", 200)
+        result = team.get_remaining_roster_slots_by_position()
+        assert isinstance(result, dict), "Expected dict return from get_remaining_roster_slots_by_position"
+        assert all(isinstance(v, int) for v in result.values()), "All slot counts must be int"
+
+    def test_get_remaining_roster_slots_by_position_decrements_on_add(self):
+        """Slot count for a position must decrease when a player is added."""
+        team = Team("t_decr", "o1", "Decrement Test Team", 200)
+        before = team.get_remaining_roster_slots_by_position().get("RB", 0)
+        rb = Player("rb_test", "Test RB", "RB", "KC", projected_points=200.0, auction_value=30.0)
+        team.add_player(rb, 10)
+        after = team.get_remaining_roster_slots_by_position().get("RB", 0)
+        assert after == before - 1, (
+            f"RB slot count should decrease by 1 after adding an RB: got before={before}, after={after}"
+        )
