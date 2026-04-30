@@ -1,5 +1,6 @@
 """Sleeper API wrapper for fantasy football data."""
 
+import random
 import requests
 from typing import Dict, List, Optional, Any
 import time
@@ -20,15 +21,22 @@ class SleeperAPI:
     
     BASE_URL = "https://api.sleeper.app/v1"
     
-    def __init__(self, rate_limit_delay: float = 0.1):
+    def __init__(self, rate_limit_delay: float = 0.1, max_retries: int = 5,
+                 backoff_base: float = 2.0, backoff_jitter: float = 0.5):
         """
         Initialize Sleeper API wrapper.
-        
+
         Args:
-            rate_limit_delay: Delay between API calls to respect rate limits
+            rate_limit_delay: Minimum delay between API calls (seconds).
+            max_retries: Maximum number of retry attempts on 429 or transient errors.
+            backoff_base: Exponential backoff base multiplier (seconds).
+            backoff_jitter: Maximum random jitter added to each backoff delay (seconds).
         """
         self.rate_limit_delay = rate_limit_delay
         self.min_request_interval = rate_limit_delay  # alias for tests
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
+        self.backoff_jitter = backoff_jitter
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'PigskinAuctionDraft/1.0'
@@ -36,32 +44,39 @@ class SleeperAPI:
         self.last_request_time = 0
         
     def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Any:
-        """Make a request to the Sleeper API with rate limiting."""
+        """Make a request to the Sleeper API with rate limiting and exponential backoff.
+
+        Only HTTP 429 (rate-limited) responses trigger retries with exponential backoff.
+        All other non-200 responses raise SleeperAPIError immediately.
+        """
         # Rate limiting
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
         if time_since_last < self.rate_limit_delay:
             time.sleep(self.rate_limit_delay - time_since_last)
-            
+
         url = f"{self.BASE_URL}{endpoint}"
-        
-        try:
-            response = self.session.get(url, params=params)
-            self.last_request_time = time.time()
-            
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 429:
-                # Rate limited, wait and retry once
-                time.sleep(1)
+
+        for attempt in range(self.max_retries + 1):
+            try:
                 response = self.session.get(url, params=params)
+                self.last_request_time = time.time()
+
                 if response.status_code == 200:
                     return response.json()
-                    
-            response.raise_for_status()
-            
-        except requests.RequestException as e:
-            raise SleeperAPIError(f"API request failed: {e}")
+
+                if response.status_code == 429:
+                    if attempt < self.max_retries:
+                        delay = self.backoff_base * (2 ** attempt) + random.uniform(0, self.backoff_jitter)
+                        time.sleep(delay)
+                        continue
+                    raise SleeperAPIError(f"Rate limited after {self.max_retries} retries: {url}")
+
+                # Non-429 HTTP errors are not retried
+                response.raise_for_status()
+
+            except requests.RequestException as e:
+                raise SleeperAPIError(f"API request failed: {e}") from e
             
     # User methods
     def get_user(self, username: str) -> Optional[Dict]:

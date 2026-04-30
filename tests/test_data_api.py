@@ -197,27 +197,28 @@ class TestSleeperAPI(BaseTestCase):
         self.assertTrue(hasattr(api, 'last_request_time'))
         self.assertTrue(hasattr(api, 'min_request_interval'))
         
-    @patch('time.sleep')
+    @patch('api.sleeper_api.time')
     @patch('requests.Session.get')
-    def test_rate_limiting_delay(self, mock_get, mock_sleep):
+    def test_rate_limiting_delay(self, mock_get, mock_time):
         """Test that rate limiting adds appropriate delays."""
         from api.sleeper_api import SleeperAPI
-        import time
-        
+
         # Mock successful response
         mock_response = Mock()
         mock_response.status_code = 200
         mock_response.json.return_value = {}
         mock_get.return_value = mock_response
-        
-        api = SleeperAPI()
-        
-        # Simulate rapid requests
-        api.last_request_time = time.time()  # Recent request
+
+        # Make time.time() report a very recent last_request so the rate limit fires
+        mock_time.time.return_value = 1000.0
+
+        api = SleeperAPI(rate_limit_delay=1.0)
+        api.last_request_time = 999.95  # 0.05s ago → under 1.0s limit
+
         api.get_nfl_players()
-        
-        # Should have called sleep to enforce rate limit
-        mock_sleep.assert_called()
+
+        # sleep must have been called to enforce rate limit
+        mock_time.sleep.assert_called()
 
 
 class TestConfigManager(BaseTestCase):
@@ -384,6 +385,79 @@ class TestPathUtilsTraversalGuard(BaseTestCase):
         from utils.path_utils import safe_file_path, get_project_root
         result = safe_file_path(get_project_root() / "data" / "sample.json")
         self.assertIsNotNone(result)
+
+
+class TestSleeperAPIExponentialBackoff(BaseTestCase):
+    """Tests for #91 — exponential backoff on 429 responses."""
+
+    @patch('time.sleep')
+    @patch('requests.Session.get')
+    def test_429_retries_with_backoff(self, mock_get, mock_sleep):
+        """_make_request must retry on 429 with exponential backoff."""
+        from api.sleeper_api import SleeperAPI
+
+        rate_429 = Mock()
+        rate_429.status_code = 429
+
+        ok_resp = Mock()
+        ok_resp.status_code = 200
+        ok_resp.json.return_value = {"user_id": "abc"}
+
+        mock_get.side_effect = [rate_429, ok_resp]
+
+        api = SleeperAPI(rate_limit_delay=0, max_retries=5)
+        result = api._make_request("/user/testuser")
+
+        self.assertEqual(result, {"user_id": "abc"})
+        # sleep must have been called at least once for the backoff
+        mock_sleep.assert_called()
+
+    @patch('time.sleep')
+    @patch('requests.Session.get')
+    def test_429_exhausts_retries_raises(self, mock_get, mock_sleep):
+        """_make_request must raise SleeperAPIError after exhausting all retries."""
+        from api.sleeper_api import SleeperAPI, SleeperAPIError
+
+        rate_429 = Mock()
+        rate_429.status_code = 429
+
+        api = SleeperAPI(rate_limit_delay=0, max_retries=2)
+        mock_get.return_value = rate_429
+
+        with self.assertRaises(SleeperAPIError):
+            api._make_request("/user/testuser")
+
+        # We called sleep for each retry (max_retries=2 means 2 backoff sleeps)
+        self.assertEqual(mock_sleep.call_count, 2)
+
+    @patch('time.sleep')
+    @patch('requests.Session.get')
+    def test_backoff_delay_increases(self, mock_get, mock_sleep):
+        """Each retry backoff delay must be larger than the previous one (without jitter)."""
+        from api.sleeper_api import SleeperAPI, SleeperAPIError
+
+        rate_429 = Mock()
+        rate_429.status_code = 429
+
+        api = SleeperAPI(rate_limit_delay=0, max_retries=3, backoff_jitter=0)
+        mock_get.return_value = rate_429
+
+        with self.assertRaises(SleeperAPIError):
+            api._make_request("/user/testuser")
+
+        # Extract sleep durations (ignoring sub-second rate-limiting sleeps)
+        delays = [call.args[0] for call in mock_sleep.call_args_list]
+        backoff_delays = [d for d in delays if d >= 1.0]
+        # Each backoff delay should be >= the previous one
+        for i in range(1, len(backoff_delays)):
+            self.assertGreaterEqual(backoff_delays[i], backoff_delays[i - 1],
+                msg=f"Backoff delay did not increase: {backoff_delays}")
+
+    def test_default_max_retries(self):
+        """SleeperAPI default max_retries should be 5."""
+        from api.sleeper_api import SleeperAPI
+        api = SleeperAPI()
+        self.assertEqual(api.max_retries, 5)
 
 
 if __name__ == '__main__':

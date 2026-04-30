@@ -121,7 +121,8 @@ class TestSleeperAPIRequestHandling:
         
         assert result == {'retried': 'success'}
         assert mock_get.call_count == 2
-        mock_sleep.assert_called_with(1.0)  # Default retry delay
+        # Exponential backoff: first retry delay is backoff_base * 2^0 + jitter
+        assert mock_sleep.call_count >= 1
     
     @patch('requests.Session.get')
     def test_make_request_404_error(self, mock_get):
