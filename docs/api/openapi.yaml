@@ -1,0 +1,94 @@
+openapi: "3.1.0"
+info:
+  title: Pigskin Draft Assistant API
+  version: "0.1.0"
+  description: |
+    Fantasy football auction draft assistant.
+    All endpoints are versioned under /api/v1/ (planned).
+    Current scaffold uses root paths.
+  contact:
+    name: Pigskin Dev Team
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [meta]
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /strategies/:
+    get:
+      summary: List available bidding strategies
+      tags: [strategies]
+      responses:
+        "200":
+          description: List of strategy names
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /players/:
+    get:
+      summary: List players (not yet implemented)
+      tags: [players]
+      responses:
+        "200":
+          description: Placeholder
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /draft/:
+    get:
+      summary: Draft status (not yet implemented)
+      tags: [draft]
+      responses:
+        "200":
+          description: Placeholder
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /auction/:
+    get:
+      summary: Auction operations (not yet implemented)
+      tags: [auction]
+      responses:
+        "200":
+          description: Placeholder
+          content:
+            application/json:
+              schema:
+                type: object
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          example: ok
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security: []

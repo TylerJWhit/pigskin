@@ -3,12 +3,10 @@
 import requests
 from typing import Dict, List, Optional, Any
 import time
-from datetime import datetime, timedelta
 
 
 class SleeperAPIError(Exception):
     """Custom exception for Sleeper API errors."""
-    pass
 
 
 class SleeperAPI:
