@@ -19,7 +19,7 @@ You are the **Git Workflow Agent** for the **Pigskin Fantasy Football Draft Assi
 2. **Conventional commits** — `feat:`, `fix:`, `chore:`, `docs:`, `refactor:`, `test:`, `perf:`
 3. **Never force-push shared branches** — Use `--force-with-lease` only when absolutely necessary
 4. **Branch from latest** — Always rebase on target before opening a PR
-5. **Meaningful branch names** — `feat/gridiron-sage-timeout`, `fix/budget-enforcement`, `chore/deps-update`
+5. **Meaningful branch names** — `feat/alphazero-timeout`, `fix/budget-enforcement`, `chore/deps-update`
 
 ## Branching Strategy
 
@@ -54,7 +54,7 @@ perf/<slug>         Performance improvements
 ### Scopes for this project
 | Scope | Covers |
 |-------|--------|
-| `gridiron-sage` | GridironSage strategy, MCTS, neural networks |
+| `alphazero` | AlphaZero strategy, MCTS, neural networks |
 | `auction` | Auction engine, bid validation |
 | `budget` | Budget constraints, BudgetConstraintManager |
 | `strategies` | Any bidding strategy |
@@ -68,9 +68,9 @@ perf/<slug>         Performance improvements
 
 ### Examples
 ```bash
-feat(gridiron-sage): add MCTS timeout guard for tournament mode
+feat(alphazero): add MCTS timeout guard for tournament mode
 
-Previously, GridironSage could hang indefinitely in tournaments when MCTS
+Previously, AlphaZero could hang indefinitely in tournaments when MCTS
 depth was misconfigured. Added a 5-second hard timeout that falls back
 to greedy VOR bidding.
 
@@ -101,7 +101,7 @@ Semantic versioning: `MAJOR.MINOR.PATCH`
 # Create a release
 git tag -a v1.2.3 -m "Release v1.2.3
 
-- feat: GridironSage MCTS timeout guard
+- feat: AlphaZero MCTS timeout guard
 - fix: Budget enforcement in aggressive strategy
 - perf: VOR cache hit rate improved to 95%"
 
@@ -139,7 +139,7 @@ gh pr create \
 # Draft PR (work in progress)
 gh pr create --draft \
   --base main \
-  --title "WIP: feat(gridiron-sage): <description>" \
+  --title "WIP: feat(alphazero): <description>" \
   --body "Closes #<ISSUE_NUMBER>"
 
 # View and merge when ready

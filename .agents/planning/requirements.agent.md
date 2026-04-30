@@ -54,6 +54,17 @@ Structure each PRD with:
 4. **Out of Scope** — Explicit exclusions
 5. **Open Questions** — Unresolved decisions
 6. **Success Metrics** — How to measure completion
+7. **ADR Reference** — `docs/adr/ADR-NNN.md` if an ADR is required (see Architecture Agent criteria); otherwise omit this field
+
+### ADR Linkage Protocol
+When a feature spec touches a decision that meets the Architecture Agent's ADR trigger criteria:
+1. Add the **ADR Reference** field to the PRD and set it to `TBD — pending Architecture Agent review`
+2. Request an ADR from the Architecture Agent by commenting on the GitHub issue:
+   ```bash
+   gh issue comment <ISSUE_NUMBER> --body "Requirements spec complete. @Architecture Agent: an ADR is needed for this feature before it can enter sprint planning."
+   ```
+3. Once the ADR is `Accepted`, update the PRD's ADR Reference with the final path and confirm to the Project Manager that the feature is ADR-cleared
+4. Verify the ADR's `QA Acceptance Criteria` maps to at least one acceptance criterion in the user story
 
 ## Project Context
 - **Domain**: Fantasy football draft assistant supporting auction, snake/round-robin, dynasty startup, and rookie drafts
