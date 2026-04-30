@@ -28,7 +28,38 @@ class Auction:
         self.bid_timer = timer_duration if timer_duration is not None else bid_timer
         self.nomination_timer = nomination_timer
 
-        # Thread safety lock for all shared-state mutations
+        # Thread safety lock for all shared-state mutations.
+        #
+        # ASYNCIO MIGRATION AUDIT (#185) — 2026-04-30
+        # ──────────────────────────────────────────────────────────────────────
+        # Result: NO reentrant lock acquisition exists in the current code.
+        # RLock is used defensively but a plain Lock would suffice today.
+        #
+        # All `with self._lock:` blocks mapped:
+        #   1. nominate_player()         — line ~100  — acquires; no nested acquire
+        #   2. place_bid()               — line ~133  — acquires; releases BEFORE
+        #                                               calling _process_auto_bids()
+        #   3. _nomination_timer_tick()  — line ~209  — acquires to read time_remaining,
+        #                                               releases BEFORE calling
+        #                                               _auto_nominate_player() → nominate_player()
+        #   4. _bid_timer_tick() outer   — line ~228  — acquires to read time_remaining, releases
+        #   5. _bid_timer_tick() inner   — line ~235  — acquires; calls
+        #                                               _complete_current_auction() which
+        #                                               does NOT re-acquire self._lock
+        #
+        # Specifically audited: ADR-002 concern "nominate_player called from place_bid
+        # callback paths" — place_bid RELEASES the lock before any callback/auto-bid
+        # path that could reach nominate_player.  No cycle exists.
+        #
+        # asyncio migration notes (#12):
+        #   • Replace threading.RLock with asyncio.Lock (plain; reentrancy not needed)
+        #   • threading.Timer-based _start_bid_timer / _start_nomination_timer must
+        #     become asyncio.create_task(asyncio.sleep(n)) coroutines
+        #   • _bid_timer_tick lines ~228+235 can be collapsed into a single
+        #     `async with self._lock:` block
+        #   • _process_auto_bids must become a coroutine; any `await` inside must not
+        #     occur while the lock is held (asyncio.Lock is not reentrant)
+        # ──────────────────────────────────────────────────────────────────────
         self._lock = threading.RLock()
 
         # Auction state

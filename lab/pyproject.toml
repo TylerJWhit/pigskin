@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "pigskin-lab"
+version = "0.1.0"
+description = "Experimental research lab for pigskin auction strategies and backtesting"
+requires-python = ">=3.12"
+dependencies = [
+    "pigskin-auction-draft",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lab*"]
