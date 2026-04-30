@@ -10,7 +10,7 @@
 # KEY CONSTRAINTS (ADR-003 / lab-design.md):
 #   - Simulation batch MUST complete within 60 minutes (timeout-minutes: 60)
 #   - This pipeline benchmarks existing lab strategies ONLY — never triggers training
-#   - Training (800-iter MCTS) is launched exclusively via lab/alphazero/train.py
+#   - Training (800-iter MCTS) is launched exclusively via lab/gridiron_sage/train.py
 #   - Gate evaluation here is REPORT-ONLY — no promotion PR is created
 #     (use promotion.yml for manual promotion)
 #
@@ -80,7 +80,7 @@ jobs:
 
       - name: Run simulation batch
         # Benchmarks lab/strategies/ against production strategy.
-        # Never runs AlphaZero training (800-iter MCTS) — benchmarks only (50-iter).
+        # Never runs GridironSage training (800-iter MCTS) — benchmarks only (50-iter).
         env:
           STRATEGY: ${{ inputs.strategy_name }}
         run: |

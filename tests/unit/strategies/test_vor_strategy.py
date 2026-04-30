@@ -1,9 +1,7 @@
 """Tests for vor_strategy.py - VOR-based draft strategy focused on value over replacement."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from strategies.vor_strategy import VorStrategy
-from typing import List, Dict
 
 
 class TestVorStrategyInitialization:

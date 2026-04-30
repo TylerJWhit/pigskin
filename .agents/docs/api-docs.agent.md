@@ -87,7 +87,7 @@ Maintain `CHANGELOG.md` using Keep a Changelog format:
 
 ## [1.2.0] - YYYY-MM-DD
 ### Added
-- AlphaZero strategy available via API
+- GridironSage strategy available via API
 ### Changed
 - `/auction/simulate` now accepts `strategy` parameter
 ### Fixed

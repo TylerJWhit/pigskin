@@ -5,7 +5,7 @@ Tests validate the actual implementation rather than accommodation.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from cli.main import AuctionDraftCLI, main
 

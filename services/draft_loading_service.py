@@ -6,7 +6,7 @@ from typing import Optional, Dict, Any, List
 
 from classes import Draft, DraftSetup, Player
 from api.sleeper_api import SleeperAPI
-from data.fantasypros_loader import load_fantasypros_players
+from data.fantasypros_loader import load_fantasypros_players  # noqa: F401 — used as mock patch target in tests
 from config.config_manager import ConfigManager, DraftConfig
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,6 @@ class DraftLoadingService:
             if not league_id:
                 raise ValueError("No league ID found in draft")
                 
-            league_info = self.sleeper_api.get_league(league_id)
             league_users = self.sleeper_api.get_league_users(league_id)
             
             # Create draft

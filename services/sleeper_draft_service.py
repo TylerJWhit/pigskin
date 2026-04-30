@@ -6,7 +6,7 @@ including draft order, picks, and league information.
 """
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, Any
 
 from api.sleeper_api import SleeperAPI
 from utils.print_module import print_sleeper_draft, print_sleeper_league
@@ -54,7 +54,6 @@ class SleeperDraftService:
             # Get drafts for each league
             drafts = []
             for league in leagues:
-                league_id = league['league_id']
                 draft_id = league.get('draft_id')
                 
                 if draft_id:

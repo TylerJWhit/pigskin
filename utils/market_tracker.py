@@ -5,7 +5,7 @@ an auction draft. The tracker monitors inflation, budget consumption,
 and position scarcity in real time.
 """
 
-from typing import Dict, Optional
+from typing import Dict
 
 
 _market_tracker_instance = None

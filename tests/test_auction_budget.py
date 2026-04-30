@@ -4,7 +4,6 @@
 from classes.draft import Draft
 from classes.team import Team
 from classes.owner import Owner
-from classes.player import Player
 from classes.auction import Auction
 from strategies.value_based_strategy import ValueBasedStrategy
 from strategies.basic_strategy import BasicStrategy

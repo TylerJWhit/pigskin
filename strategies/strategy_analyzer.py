@@ -6,7 +6,6 @@ Analyzes strategies to identify issues preventing them from bidding effectively.
 """
 
 from classes import create_strategy, AVAILABLE_STRATEGIES
-from classes.player import Player
 from classes.team import Team  
 from classes.owner import Owner
 from data.fantasypros_loader import FantasyProsLoader

@@ -5,15 +5,13 @@ player nomination, winner determination, and sealed-bid logic.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typing import Dict, List, Optional
+from unittest.mock import Mock, patch
 import time
 import random
 
 from classes.auction import Auction
 from classes.draft import Draft
 from classes.team import Team
-from classes.owner import Owner
 from classes.player import Player
 
 
@@ -248,8 +246,7 @@ class TestPlayerAwarding:
         
         # Initial state
         initial_budget = configured_draft.teams[0].budget
-        initial_roster_size = len(configured_draft.teams[0].roster)
-        
+
         auction._award_player_to_team(player, winner_id, price)
         
         # Verify player was awarded directly to team

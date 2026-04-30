@@ -28,7 +28,7 @@ Priority directories needing good docs:
 - `strategies/` — How to implement a new strategy
 - `classes/` — Core domain model reference
 - `services/` — Business logic service catalog
-- `strategies/alphazero/` — AlphaZero and MCTS deep-dive
+- `strategies/gridiron_sage_strategy.py` — GridironSage AI strategy and MCTS deep-dive
 
 ### Developer Guides
 Maintain guides in `docs/guides/`:
@@ -54,7 +54,7 @@ Maintain guides in `docs/guides/`:
 graph TD
     A[CLI / Web UI] --> B[Auction Engine]
     B --> C[Strategy: calculate_bid]
-    C --> D[AlphaZero MCTS]
+    C --> D[GridironSage MCTS]
     C --> E[VOR Strategy]
     C --> F[15+ Other Strategies]
     B --> G[BudgetConstraintManager]

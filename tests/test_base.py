@@ -3,7 +3,6 @@
 import os
 from typing import List, Dict, Any
 import unittest
-from unittest.mock import Mock, patch
 
 from classes.player import Player
 from classes.team import Team

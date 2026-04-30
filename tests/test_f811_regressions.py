@@ -14,7 +14,7 @@ Issue #86 — strategies/base_strategy.py:
 import sys
 import os
 import unittest
-from unittest.mock import MagicMock, call
+from unittest.mock import MagicMock
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 

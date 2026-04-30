@@ -55,7 +55,7 @@ Determine:
 | Subsystem | Responsible Agent |
 |-----------|------------------|
 | `strategies/` | Backend Agent |
-| `strategies/alphazero/` | Backend Agent (ML) |
+| `strategies/gridiron_sage_strategy.py` | Backend Agent (ML) |
 | `classes/` | Backend Agent |
 | `services/tournament_service.py` | Backend Agent |
 | `ui/` | Frontend Agent |

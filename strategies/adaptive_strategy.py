@@ -1,6 +1,6 @@
 """Adaptive draft strategy that adjusts based on draft conditions."""
 
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 
 from .base_strategy import Strategy
 

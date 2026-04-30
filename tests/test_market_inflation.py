@@ -133,8 +133,7 @@ def simulate_league_inflation_scenario():
             vor = vor_strategy._calculate_vor(test_player)
             position_priority = vor_strategy._calculate_position_priority(test_player, team)
             scarcity_factor = vor_strategy._calculate_remaining_scarcity(test_player, remaining_players)
-            remaining_slots = vor_strategy._get_remaining_roster_slots(team)
-            
+
             # Calculate implied inflation (how much above auction value we're willing to pay)
             auction_value = test_player.auction_value
             inflation_factor = recommended_bid / auction_value if auction_value > 0 else 1.0

@@ -14,8 +14,7 @@ Target: 100% line coverage with comprehensive edge case testing.
 """
 
 import pytest
-from unittest.mock import Mock, patch
-from typing import List
+from unittest.mock import Mock
 
 from classes.team import Team
 from classes.player import Player
@@ -242,7 +241,6 @@ class TestBudgetAndCalculations:
         # Plus the FLEX position gets best remaining RB/WR/TE which would be WR3(200)
         # But since default config has no FLEX, this might sum all players or use different logic
         # Let's test what it actually returns
-        expected = 300 + 250 + 240 + 220 + 210 + 200 + 180 + 120 + 110  # 1830 + 100 = 1930
         assert starter_points == 1930.0
     
     def test_empty_team_calculations(self):

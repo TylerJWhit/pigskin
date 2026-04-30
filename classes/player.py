@@ -15,6 +15,7 @@ class Player(BaseModel):
     projected_points: float = Field(ge=0.0, default=0.0)
     auction_value: float = Field(ge=0.0, default=0.0)
     bye_week: Optional[int] = Field(ge=1, le=18, default=None)
+    vor: float = Field(default=0.0, description="Value Over Replacement — set by loader/strategy, 0.0 until computed")
     is_drafted: bool = False
     drafted_price: Optional[float] = None
     draft_price: Optional[float] = None  # backward-compat alias; synced with drafted_price

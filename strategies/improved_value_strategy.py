@@ -1,6 +1,6 @@
 """Improved Value-based draft strategy."""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 import random
 
 from .base_strategy import Strategy

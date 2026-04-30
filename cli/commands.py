@@ -4,10 +4,9 @@ Command implementations for the Auction Draft CLI.
 This module contains the core command logic separated from the main CLI interface.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 import time
 from classes import Draft, Team, Owner, create_strategy, AVAILABLE_STRATEGIES
-from services import get_bid_recommendation, run_strategy_tournament, find_optimal_strategy
 from data.fantasypros_loader import FantasyProsLoader
 from config.config_manager import ConfigManager
 from api.sleeper_api import SleeperAPI
@@ -941,9 +940,6 @@ class CommandProcessor:
                     'error': 'No teams in draft'
                 }
             
-            best_team = max(draft.teams, key=lambda t: t.get_projected_points())
-            winner_strategy = team_strategies.get(best_team.team_name, 'unknown')
-            
             # Compile results
             team_results = []
             for team in draft.teams:
@@ -1716,7 +1712,6 @@ class CommandProcessor:
             }
         
         # Process all draft results
-        total_drafts = len(all_results)
         for draft_result in all_results:
             # Extract team data from draft result
             teams = draft_result.get('draft_data', {}).get('teams', [])

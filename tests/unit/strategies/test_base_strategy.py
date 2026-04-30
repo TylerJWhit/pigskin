@@ -1,9 +1,7 @@
 """Tests for base_strategy.py - Abstract base class for auction draft strategies."""
 
-import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from strategies.base_strategy import Strategy
-from typing import List, Dict
 
 
 # Test implementation of abstract Strategy class

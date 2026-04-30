@@ -33,27 +33,17 @@ Examples:
 """
 
 import sys
-import os
-import argparse
-from typing import Optional, List, Dict
+from typing import List, Dict
 
 # Add parent directory to path for imports
 from utils.path_utils import setup_project_path
 setup_project_path()
 
-from services import (
-    get_bid_recommendation,
-    get_nomination_recommendation,
-    run_strategy_tournament,
-    find_optimal_strategy
-)
-from services.draft_loading_service import DraftLoadingService
 from api.sleeper_api import SleeperAPI
 from config.config_manager import ConfigManager
-from classes import Draft, create_strategy, AVAILABLE_STRATEGIES
-from data.fantasypros_loader import FantasyProsLoader
+from classes import AVAILABLE_STRATEGIES
 from cli.commands import CommandProcessor
-from utils.print_module import print_mock_draft, print_tournament
+from utils.print_module import print_mock_draft
 
 
 class AuctionDraftCLI:
@@ -623,5 +613,4 @@ def main():
 
 
 if __name__ == "__main__":
-    import sys
     sys.exit(main())

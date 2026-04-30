@@ -1,6 +1,6 @@
 """Cheatsheet parser utilities for fantasy football player auction value analysis."""
 
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 
 class CheatsheetParser:

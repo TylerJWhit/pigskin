@@ -25,7 +25,7 @@ Generate standup summaries in the format:
 - [Test Automation Agent] Added 12 new tests for auction mechanics
 
 ### Today
-- [Backend Agent] Implementing AlphaZero MCTS timeout guard
+- [Backend Agent] Implementing GridironSage MCTS timeout guard
 - [QA Agent] Writing test plan for new VOR calculation changes
 
 ### Blockers
@@ -70,7 +70,7 @@ Weekly project status for stakeholders:
 ## Release: Pigskin vX.Y.Z — <Date>
 
 ### What's New
-- **AlphaZero**: Improved MCTS depth (800 → 1200 iterations in training mode)
+- **GridironSage**: Improved MCTS depth (800 → 1200 iterations in training mode)
 - **UI**: Real-time budget bar per team in auction view
 - **Performance**: VOR cache hit rate improved from 60% to 95%
 

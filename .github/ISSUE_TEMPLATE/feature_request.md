@@ -29,7 +29,7 @@ assignees: ""
 
 - [ ] Auction engine
 - [ ] Strategy (`strategies/`)
-- [ ] AlphaZero / MCTS
+- [ ] GridironSage / MCTS
 - [ ] CLI
 - [ ] Web UI / WebSocket
 - [ ] Sleeper API integration

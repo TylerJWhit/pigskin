@@ -5,9 +5,7 @@ This module provides consistent table formatting for mock drafts, tournaments,
 and Sleeper draft information.
 """
 
-from typing import Dict, Optional, Any, Tuple, List
-from datetime import datetime
-import math
+from typing import Dict, Optional, List
 
 
 class TableFormatter:
@@ -152,7 +150,6 @@ class MockDraftPrinter:
             points = team.get_projected_points()
             spent = team.get_total_spent()
             remaining = team.budget
-            efficiency = points / spent if spent > 0 else 0
             strategy_name = team.get_strategy().name if team.get_strategy() else 'None'
             player_count = len(team.roster)
             
@@ -205,8 +202,7 @@ class MockDraftPrinter:
                 
                 for player in players:
                     cost = getattr(player, 'drafted_price', 0) or 0
-                    efficiency = player.projected_points / cost if cost > 0 else 0
-                    
+
                     rows.append([
                         player.name,
                         player.team,
@@ -314,8 +310,7 @@ class TournamentPrinter:
             wins = stats.get('wins', 0)
             simulations = stats.get('simulations', 0)
             avg_spent = stats.get('avg_spent', 0)
-            efficiency = avg_points / avg_spent if avg_spent > 0 else 0
-            
+
             rows.append([
                 str(i),
                 strategy_name.title(),
@@ -543,11 +538,7 @@ class SleeperDraftPrinter:
         
         # Create headers: Position + Team columns
         headers = ['Position'] + [f'Team {i+1}' for i, name in enumerate(team_names)]
-        
-        # Set column widths for better readability
-        position_width = 12
-        team_width = 20
-        
+
         # Create rows for each roster position
         rows = []
         position_counts = {}  # Track how many of each position we've used

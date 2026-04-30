@@ -78,7 +78,6 @@ class Team:
             return False
             
         # Track budget depletion only for teams that are running low
-        old_budget = self.budget
         self.roster.append(player)
         self.budget -= int(price)  # Ensure integer operation
         player.mark_as_drafted(int(price), self.owner_id)

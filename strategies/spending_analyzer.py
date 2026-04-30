@@ -5,12 +5,6 @@ Strategy Spending Analysis Tool
 Analyzes strategies to identify those that are underspending their budgets.
 """
 
-from classes import create_strategy, AVAILABLE_STRATEGIES
-from classes.player import Player
-from classes.team import Team  
-from classes.owner import Owner
-from data.fantasypros_loader import FantasyProsLoader
-from config.config_manager import ConfigManager
 
 def analyze_spending_patterns():
     """Analyze strategies based on the recent tournament data."""

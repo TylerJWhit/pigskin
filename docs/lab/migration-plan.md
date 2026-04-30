@@ -161,7 +161,7 @@ Record bootstrap promotion in `lab/results_db/promotions` with `promoted_by = 'b
 
 ---
 
-### Step 3 — Migrate `lab/` (all experimental strategies, alphazero, simulation)
+### Step 3 — Migrate `lab/` (all experimental strategies, gridiron_sage, simulation)
 
 **Branch:** `feat/mono-repo-lab`
 
@@ -169,7 +169,7 @@ Move these directories under `lab/`:
 
 ```
 strategies/      →  lab/strategies/     (all concrete strategies except base_strategy.py)
-strategies/alphazero/  →  lab/alphazero/
+strategies/gridiron_sage_strategy.py  →  lab/gridiron_sage/
 ```
 
 Stub out remaining lab directories (empty `__init__.py` + README):

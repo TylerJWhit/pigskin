@@ -12,7 +12,7 @@ from .auction import Auction
 from .player import Player
 from .team import Team
 from .owner import Owner
-from .strategy import Strategy, create_strategy, AVAILABLE_STRATEGIES
+from .strategy import create_strategy
 
 logger = logging.getLogger(__name__)
 

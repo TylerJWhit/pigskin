@@ -130,7 +130,7 @@ Write strategy → run 500 simulations → statistical gate → auto-PR if PASS 
 ### What Is the Cost of Not Solving It?
 - Strategy quality degrades over time as experiments accumulate without discipline
 - Developers lose confidence in which strategy is "best"
-- AlphaZero development (issue #55) will be completely unmeasurable without this pipeline
+- GridironSage development (issue #55) will be completely unmeasurable without this pipeline
 - When the app's `/api/v1/recommend/bid` endpoint is built, it will use *some* strategy — and without a gate, that strategy is arbitrary
 
 ### Problem Statement (One Sentence)

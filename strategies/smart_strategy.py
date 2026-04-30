@@ -13,4 +13,3 @@ class SmartStrategy(ValueBasedStrategy):
     A proper implementation should be developed in a future sprint. See
     GitHub issue #63 for context.
     """
-    pass

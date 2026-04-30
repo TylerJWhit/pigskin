@@ -1,6 +1,5 @@
 """Utility functions for path management across the application."""
 
-import os
 import sys
 from pathlib import Path
 from typing import Union

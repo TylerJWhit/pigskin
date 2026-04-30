@@ -83,10 +83,6 @@ class RandomStrategy(Strategy):
         if random.random() < 0.2:  # 20% chance to be extra conservative
             aggressive_bid *= 0.6
         
-        # Don't bid more than a random percentage of remaining budget
-        max_percentage = random.uniform(0.2, 0.5)  # Between 20% and 50%
-        max_percentage_bid = remaining_budget * max_percentage
-        
         # Calculate maximum possible bid using the budget constraint system
         max_bid = self.calculate_max_bid(team, remaining_budget)
         

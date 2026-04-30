@@ -1,7 +1,7 @@
 """Test cases for services (draft loading, bid recommendations, tournament)."""
 
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 from test_base import BaseTestCase, TestDataGenerator
 

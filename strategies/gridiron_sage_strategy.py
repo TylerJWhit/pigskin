@@ -220,6 +220,13 @@ class _GridironSageNetwork:
             state = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
             model.load_state_dict(state)
             model.eval()
+            # torch.compile (PyTorch 2.0+) reduces inference latency for repeated forward passes.
+            # Silently skipped on older torch versions that don't support compile.
+            if hasattr(torch, "compile"):
+                try:
+                    model = torch.compile(model)
+                except Exception:
+                    pass  # compile is best-effort; fall back to eager mode
             self._checkpoint_loaded = True
             return model
         except Exception:

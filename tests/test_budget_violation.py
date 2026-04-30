@@ -4,14 +4,12 @@
 from classes.team import Team
 from classes.player import Player
 from strategies.value_based_strategy import ValueBasedStrategy
-from config.config_manager import ConfigManager
 
 def test_budget_constraint_violation():
     """Simulate a scenario where a team should run out of budget."""
     print("=== Testing Budget Constraint Violation ===")
     
     # Create team with proper config
-    config = ConfigManager()
     roster_config = {
         "QB": 1, "RB": 2, "WR": 2, "TE": 1, 
         "FLEX": 2, "K": 1, "DST": 1, "BN": 5

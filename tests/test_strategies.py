@@ -6,12 +6,8 @@ from test_base import BaseTestCase, TestDataGenerator
 from strategies import (
     create_strategy, 
     list_available_strategies,
-    get_strategy_info,
-    AVAILABLE_STRATEGIES
+    get_strategy_info
 )
-from classes.player import Player
-from classes.team import Team
-from classes.owner import Owner
 
 
 class TestStrategies(BaseTestCase):

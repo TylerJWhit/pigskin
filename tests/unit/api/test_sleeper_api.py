@@ -7,10 +7,9 @@ and data conversion methods.
 """
 
 import pytest
-import time
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import requests
-from requests.exceptions import RequestException, ConnectionError, Timeout
+from requests.exceptions import ConnectionError, Timeout
 
 # Import the module under test
 from api.sleeper_api import SleeperAPI, SleeperAPIError

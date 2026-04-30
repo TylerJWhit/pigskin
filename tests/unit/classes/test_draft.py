@@ -5,9 +5,8 @@ draft lifecycle, auction mechanics, state management, and utility functions.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 from datetime import datetime
-from typing import Dict, List, Optional
 import uuid
 import time
 
@@ -632,7 +631,6 @@ class TestCompleteAuctionFlow:
             mock_winner.return_value = ("team1", 20.0)
             
             # Mock draft completion after 5 players
-            original_is_complete = draft._is_draft_complete
             draft._is_draft_complete = Mock(side_effect=[False] * 5 + [True])
             
             draft.run_complete_draft()

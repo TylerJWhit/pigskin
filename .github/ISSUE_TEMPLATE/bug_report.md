@@ -39,7 +39,7 @@ assignees: ""
 - [ ] Auction engine
 - [ ] Budget constraints / BudgetConstraintManager
 - [ ] Strategy (`strategies/`)
-- [ ] AlphaZero / MCTS
+- [ ] GridironSage / MCTS
 - [ ] CLI
 - [ ] Web UI / WebSocket
 - [ ] Sleeper API integration

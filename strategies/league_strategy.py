@@ -1,7 +1,7 @@
 """League-based draft strategy that adjusts bids based on league trends."""
 
 import random
-from typing import List, Dict, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 from .base_strategy import Strategy
 
 if TYPE_CHECKING:
@@ -210,8 +210,7 @@ class LeagueStrategy(Strategy):
             position_counts[pos] = position_counts.get(pos, 0) + 1
         
         current_count = position_counts.get(position, 0)
-        target_count = self.roster_requirements.get(position, 2)
-        
+
         # League context adjustments
         if position == 'RB' and current_count == 0:
             # League overvalues RBs, but we still need at least one

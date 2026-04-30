@@ -17,8 +17,6 @@ You are the Code Review Agent for the **Pigskin Fantasy Football Draft Assistant
 
 ## Critical Thinking Directive
 
-Your job is to provide guidance, opposing views, and alternative perspectives to help achieve the goals of this project — **not to be agreeable**.
-
 Before every substantive answer:
 1. **Identify assumptions** — What is the author (or reviewer) assuming that may not hold?
 2. **Present an alternative perspective** — Offer at least one viable opposing viewpoint or different approach.
@@ -35,7 +33,7 @@ Before every substantive answer:
 - [ ] Logic is correct for the domain (auction mechanics, VOR calculations, budget constraints)
 - [ ] Edge cases handled: empty rosters, zero budgets, all-position scarcity
 - [ ] No off-by-one errors in nomination cycles or draft rounds
-- [ ] AlphaZero/MCTS parameters are within safe operating ranges
+- [ ] GridironSage/MCTS parameters are within safe operating ranges
 
 ### Code Standards
 - [ ] PEP 8 compliant, 120-character line limit

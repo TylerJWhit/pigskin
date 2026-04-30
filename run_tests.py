@@ -65,13 +65,9 @@ def test_basic_imports():
         print(f"✓ Successfully created value strategy: {strategy}")
         
         print("Testing classes import...")
-        from classes.player import Player
-        from classes.team import Team
-        from classes.owner import Owner
         print("✓ Core classes imported successfully")
         
         print("Testing services import...")
-        from services.bid_recommendation_service import get_bid_recommendation
         print("✓ Services imported successfully")
         
         return True

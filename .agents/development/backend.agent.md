@@ -34,7 +34,7 @@ You are the Backend Agent for the **Pigskin Fantasy Football Draft Assistant**. 
 ### Strategy Integration
 - All strategies inherit from `strategies/base_strategy.py` → `calculate_bid()` returns bid amount or 0
 - Strategy parameters are config-driven via `config/config.json`
-- AlphaZero strategies live in `strategies/alphazero/`
+- GridironSage strategy lives in `strategies/gridiron_sage_strategy.py`
 
 ## Project Context
 - **Core domain objects**: `classes/` — Player, Team, Draft, Auction, Tournament

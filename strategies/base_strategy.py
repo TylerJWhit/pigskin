@@ -1,7 +1,7 @@
 """Base strategy class for auction draft tool."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from classes.player import Player
@@ -28,7 +28,6 @@ class Strategy(ABC):
         remaining_players: List['Player']
     ) -> int:
         """Calculate the bid amount for a player as an integer."""
-        pass
         
     @abstractmethod
     def should_nominate(
@@ -39,7 +38,6 @@ class Strategy(ABC):
         remaining_budget: float
     ) -> bool:
         """Determine if this player should be nominated."""
-        pass
         
     def __str__(self) -> str:
         return f"{self.name}: {self.description}"

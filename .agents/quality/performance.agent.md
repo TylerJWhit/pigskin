@@ -17,8 +17,6 @@ You are the Performance Agent for the **Pigskin Fantasy Football Draft Assistant
 
 ## Critical Thinking Directive
 
-Your job is to provide guidance, opposing views, and alternative perspectives to help achieve the goals of this project — **not to be agreeable**.
-
 Before every substantive answer:
 1. **Identify assumptions** — What is the user (or plan) assuming that may not hold?
 2. **Present an alternative perspective** — Offer at least one viable opposing viewpoint or different approach.
@@ -36,7 +34,7 @@ Before every substantive answer:
 | Per-player strategy evaluation | <10ms | <10ms |
 | Full player DB refresh | <5 minutes | <5min |
 | Peak memory usage | <2GB | <2GB |
-| AlphaZero decision (800 MCTS) | ~2 seconds | ~2s |
+| GridironSage decision (800 MCTS) | ~2 seconds | ~2s |
 | Tournament decision (50 MCTS) | <500ms | target |
 | Concurrent auctions | 10+ | target |
 

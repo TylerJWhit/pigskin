@@ -6,10 +6,9 @@ from typing import Optional, Dict, Any, List, Tuple
 import json
 from datetime import datetime
 
-from classes import Tournament, DraftSetup, create_strategy, AVAILABLE_STRATEGIES
+from classes import Tournament, AVAILABLE_STRATEGIES
 from config.config_manager import ConfigManager
 from data.fantasypros_loader import load_fantasypros_players
-from utils.print_module import print_tournament
 
 logger = logging.getLogger(__name__)
 

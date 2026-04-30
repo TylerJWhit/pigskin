@@ -48,8 +48,7 @@ def test_auction_budget_enforcement():
     print("\n=== Results ===")
     for team in draft.teams:
         remaining = 15 - len(team.roster)
-        can_complete = team.budget >= remaining
-        
+
         print(f"{team.team_name}: {len(team.roster)}/15 roster, ${team.budget} budget, {remaining} slots left")
         if remaining > 0:
             print(f"  Budget per remaining slot: ${team.budget / remaining:.2f}")

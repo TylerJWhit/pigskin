@@ -35,7 +35,7 @@ Always answer at three levels:
 
 ### Code Explanation
 Explain complex subsystems clearly:
-- AlphaZero MCTS decision-making process
+- GridironSage MCTS decision-making process
 - VOR (Value Over Replacement) calculation methodology
 - Budget constraint enforcement flow
 - WebSocket auction state synchronization
@@ -81,12 +81,12 @@ BudgetConstraintManager  classes/budget_constraints.py  — Budget rules
 7. WebSocket broadcasts bid_update to all clients
 ```
 
-### AlphaZero Decision Flow
+### GridironSage Decision Flow
 ```
-1. AlphaZeroStrategy.calculate_bid() called
+1. GridironSageStrategy.calculate_bid() called
 2. UnifiedAuctionState.from_auction_context() creates state
-3. StandardizedFeatureExtractor.extract_features() → 20-dim vector
-4. MCTS.search() runs N simulations (50 tournament / 800 training)
+3. _extract_features() → 20-dim vector
+4. _GridironSageMCTS.search() runs N simulations (50 tournament / 800 training)
 5. Neural network evaluates positions via policy/value heads
 6. Best action selected via UCB formula
 7. Integer bid returned (or 0 to pass)

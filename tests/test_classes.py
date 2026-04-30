@@ -221,8 +221,7 @@ class TestDraft(BaseTestCase):
         
         draft = Draft(name="Test Draft", budget_per_team=200, roster_size=9)
         team = self.create_mock_team()
-        owner = self.create_mock_owner()
-        
+
         draft.add_team(team)
         self.assertEqual(len(draft.teams), 1)
         self.assertIn(team, draft.teams)

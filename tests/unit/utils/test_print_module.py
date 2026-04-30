@@ -11,11 +11,8 @@ This tests the ACTUAL implementation as it exists, not hypothetical functions.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
-from typing import List, Dict, Any, Optional
+from unittest.mock import Mock, patch
 import io
-import sys
-from datetime import datetime
 
 # Import the module under test - only classes that actually exist
 from utils.print_module import (

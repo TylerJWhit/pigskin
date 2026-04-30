@@ -36,7 +36,7 @@ You are the Database Agent for the **Pigskin Fantasy Football Draft Assistant**.
 - Optimize VOR calculations with appropriate caching strategies
 
 ### ML Data Pipeline
-- Manage training data generation and storage for AlphaZero
+- Manage training data generation and storage for GridironSage
 - Maintain replay buffer schema (50K+ experience tuples)
 - Version ML model files with metadata (input dimensions, training date, iterations)
 

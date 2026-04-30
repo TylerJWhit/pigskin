@@ -195,7 +195,6 @@ def test_inflation_aware_strategy():
     
     # This would show how the strategy responds to different market conditions
     # In practice, this would be integrated with the auction system
-    pass
 
 
 if __name__ == "__main__":

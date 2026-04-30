@@ -3,7 +3,6 @@
 Test the ping command output formatting without network calls.
 """
 
-from cli.commands import CommandProcessor
 
 
 def test_ping_output_format():
