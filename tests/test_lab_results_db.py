@@ -23,9 +23,12 @@ import pytest
 from sqlalchemy import text
 
 from lab.results_db.models import (
+    AuctionCorpus,
     Base,
     BenchmarkRun,
     Promotion,
+    RealAuctionDraft,
+    RealAuctionPick,
     StrategyResult,
     make_engine,
     make_session_factory,
@@ -322,3 +325,119 @@ class TestPromotionTriggers:
 
         assert rows[0][1] == 1, "Updated promotion should be current"
         assert rows[1][1] == 0, "Other promotion should be cleared by trigger"
+
+
+# ---------------------------------------------------------------------------
+# Auction tables tests (#194)
+# ---------------------------------------------------------------------------
+
+class TestAuctionTablesCRUD:
+    """CRUD tests for real_auction_drafts, real_auction_picks, auction_corpus."""
+
+    def test_real_auction_drafts_insert(self, prepared_db):
+        engine, session_factory, db_path = prepared_db
+
+        async def _run():
+            async with session_factory() as session:
+                draft = RealAuctionDraft(
+                    sleeper_draft_id="sl-draft-001",
+                    sleeper_league_id="sl-league-001",
+                    season="2024",
+                    team_count=12,
+                    scoring_format="ppr",
+                    auction_budget=200,
+                )
+                session.add(draft)
+                await session.commit()
+                await session.refresh(draft)
+                return draft.id, draft.season
+
+        draft_id, season = asyncio.get_event_loop().run_until_complete(_run())
+        assert draft_id == 1
+        assert season == "2024"
+
+    def test_real_auction_picks_foreign_key(self, prepared_db):
+        engine, session_factory, _ = prepared_db
+
+        async def _run():
+            async with session_factory() as session:
+                draft = RealAuctionDraft(
+                    sleeper_draft_id="sl-draft-002",
+                    sleeper_league_id="sl-league-002",
+                    season="2024",
+                    team_count=10,
+                )
+                session.add(draft)
+                await session.flush()
+
+                pick = RealAuctionPick(
+                    draft_id=draft.id,
+                    sleeper_player_id="sp-001",
+                    player_name="Patrick Mahomes",
+                    position="QB",
+                    nfl_team="KC",
+                    winner_bid=55,
+                    pick_order=1,
+                )
+                session.add(pick)
+                await session.commit()
+                await session.refresh(pick)
+                return pick.id, pick.winner_bid, pick.draft_id
+
+        pick_id, bid, fk = asyncio.get_event_loop().run_until_complete(_run())
+        assert pick_id == 1
+        assert bid == 55
+        assert fk == 1
+
+    def test_auction_corpus_unique_draft(self, prepared_db):
+        """auction_corpus has a UNIQUE constraint on draft_id."""
+        engine, session_factory, db_path = prepared_db
+
+        async def _run():
+            async with session_factory() as session:
+                draft = RealAuctionDraft(
+                    sleeper_draft_id="sl-draft-003",
+                    sleeper_league_id="sl-league-003",
+                    season="2023",
+                    team_count=12,
+                )
+                session.add(draft)
+                await session.flush()
+
+                corpus = AuctionCorpus(
+                    draft_id=draft.id,
+                    quality_score=0.85,
+                    used_in_backtest=False,
+                )
+                session.add(corpus)
+                await session.commit()
+                await session.refresh(corpus)
+                return corpus.id, corpus.quality_score
+
+        corpus_id, score = asyncio.get_event_loop().run_until_complete(_run())
+        assert corpus_id == 1
+        assert score == pytest.approx(0.85)
+
+    def test_new_tables_present_in_schema(self, prepared_db):
+        """All three new tables must be visible in sqlite_master after create_all."""
+        _, _, db_path = prepared_db
+        conn = _sqlite_conn(db_path)
+        tables = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'"
+        )}
+        conn.close()
+        assert "real_auction_drafts" in tables
+        assert "real_auction_picks" in tables
+        assert "auction_corpus" in tables
+
+    def test_new_indexes_present_in_schema(self, prepared_db):
+        """Indexes defined on the new tables must be visible after create_all."""
+        _, _, db_path = prepared_db
+        conn = _sqlite_conn(db_path)
+        indexes = {row[0] for row in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='index'"
+        )}
+        conn.close()
+        assert "idx_rad_season" in indexes
+        assert "idx_rap_draft_id" in indexes
+        assert "idx_rap_player_id" in indexes
