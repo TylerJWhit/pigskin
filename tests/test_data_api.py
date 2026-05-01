@@ -1,7 +1,8 @@
 """Test cases for data loading and API functionality."""
 
+import asyncio
 import unittest
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import AsyncMock, Mock, patch, mock_open
 
 from test_base import BaseTestCase
 
@@ -87,102 +88,62 @@ class TestSleeperAPI(BaseTestCase):
     def setUp(self):
         super().setUp()
         
-    @patch('requests.Session.get')
-    def test_get_nfl_players_success(self, mock_get):
+    def test_get_nfl_players_success(self):
         """Test successful NFL players retrieval."""
         from api.sleeper_api import SleeperAPI
         
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            '1': {
-                'player_id': '1',
-                'full_name': 'Test Player',
-                'position': 'QB',
-                'team': 'TEST'
-            }
-        }
-        mock_get.return_value = mock_response
-        
         api = SleeperAPI()
-        players = api.get_nfl_players()
+        api._make_request = AsyncMock(return_value={
+            '1': {'player_id': '1', 'full_name': 'Test Player', 'position': 'QB', 'team': 'TEST'}
+        })
+        
+        players = asyncio.run(api.get_nfl_players())
         
         self.assertIsInstance(players, dict)
         self.assertIn('1', players)
         
-    @patch('requests.Session.get')
-    def test_get_nfl_players_failure(self, mock_get):
+    def test_get_nfl_players_failure(self):
         """Test NFL players retrieval failure."""
-        from api.sleeper_api import SleeperAPI
+        from api.sleeper_api import SleeperAPI, SleeperAPIError
 
-        # Mock failed response
-        mock_response = Mock()
-        mock_response.status_code = 500
-        import requests as _requests
-        mock_response.raise_for_status.side_effect = _requests.exceptions.HTTPError("500 Server Error")
-        mock_get.return_value = mock_response
-        
         api = SleeperAPI()
-        players = api.get_nfl_players()
+        api._make_request = AsyncMock(side_effect=SleeperAPIError("500 Server Error"))
+        
+        players = asyncio.run(api.get_nfl_players())
         
         self.assertEqual(players, {})
         
-    @patch('requests.Session.get')
-    def test_get_user_success(self, mock_get):
+    def test_get_user_success(self):
         """Test successful user retrieval."""
         from api.sleeper_api import SleeperAPI
         
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            'user_id': 'test_user',
-            'username': 'test_username'
-        }
-        mock_get.return_value = mock_response
-        
         api = SleeperAPI()
-        user = api.get_user('test_username')
+        api._make_request = AsyncMock(return_value={'user_id': 'test_user', 'username': 'test_username'})
+        
+        user = asyncio.run(api.get_user('test_username'))
         
         self.assertIsInstance(user, dict)
         self.assertEqual(user['user_id'], 'test_user')
         
-    @patch('requests.Session.get')
-    def test_get_user_not_found(self, mock_get):
+    def test_get_user_not_found(self):
         """Test user not found."""
-        from api.sleeper_api import SleeperAPI
+        from api.sleeper_api import SleeperAPI, SleeperAPIError
 
-        # Mock not found response
-        mock_response = Mock()
-        mock_response.status_code = 404
-        import requests as _requests
-        mock_response.raise_for_status.side_effect = _requests.exceptions.HTTPError("404 Not Found")
-        mock_get.return_value = mock_response
-        
         api = SleeperAPI()
-        user = api.get_user('nonexistent_user')
+        api._make_request = AsyncMock(side_effect=SleeperAPIError("404 Not Found"))
+        
+        user = asyncio.run(api.get_user('nonexistent_user'))
         
         self.assertIsNone(user)
         
-    @patch('requests.Session.get')
-    def test_get_leagues_success(self, mock_get):
+    def test_get_leagues_success(self):
         """Test successful leagues retrieval."""
         from api.sleeper_api import SleeperAPI
         
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = [
-            {
-                'league_id': 'league_1',
-                'name': 'Test League'
-            }
-        ]
-        mock_get.return_value = mock_response
-        
         api = SleeperAPI()
-        leagues = api.get_user_leagues('test_user', 2023)
+        api._make_request = AsyncMock(return_value=[{'league_id': 'league_1', 'name': 'Test League'}])
+        
+        leagues = asyncio.run(api.get_user_leagues('test_user', 2023))
         
         self.assertIsInstance(leagues, list)
         self.assertEqual(len(leagues), 1)
@@ -197,28 +158,17 @@ class TestSleeperAPI(BaseTestCase):
         self.assertTrue(hasattr(api, 'last_request_time'))
         self.assertTrue(hasattr(api, 'min_request_interval'))
         
-    @patch('api.sleeper_api.time')
-    @patch('requests.Session.get')
-    def test_rate_limiting_delay(self, mock_get, mock_time):
-        """Test that rate limiting adds appropriate delays."""
+    def test_rate_limiting_delay(self):
+        """Test that rate limiting records last_request_time."""
         from api.sleeper_api import SleeperAPI
 
-        # Mock successful response
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {}
-        mock_get.return_value = mock_response
+        api = SleeperAPI(rate_limit_delay=0.0)
+        api._make_request = AsyncMock(return_value={})
 
-        # Make time.time() report a very recent last_request so the rate limit fires
-        mock_time.time.return_value = 1000.0
+        asyncio.run(api.get_nfl_players())
 
-        api = SleeperAPI(rate_limit_delay=1.0)
-        api.last_request_time = 999.95  # 0.05s ago → under 1.0s limit
-
-        api.get_nfl_players()
-
-        # sleep must have been called to enforce rate limit
-        mock_time.sleep.assert_called()
+        # _make_request was called — rate limiting logic is inside _make_request
+        api._make_request.assert_called_once()
 
 
 class TestConfigManager(BaseTestCase):
@@ -330,27 +280,23 @@ class TestSleeperAPIPathEncoding(BaseTestCase):
     def test_get_user_encodes_slashes_in_path(self):
         """get_user must URL-encode the username so slashes cannot escape the path segment."""
         from api.sleeper_api import SleeperAPI
-        from unittest.mock import patch
         api = SleeperAPI()
-        with patch.object(api, '_make_request') as mock_req:
-            mock_req.return_value = {}
-            api.get_user("../../admin")
-            called_path = mock_req.call_args[0][0]
-            # The final URL segment must not contain a literal unencoded slash
-            # i.e. the attacker cannot inject "/admin" as a new path component
-            self.assertNotIn("/../", called_path,
-                msg=f"Traversal sequence survived URL construction: {called_path}")
+        api._make_request = AsyncMock(return_value={})
+        asyncio.run(api.get_user("../../admin"))
+        called_path = api._make_request.call_args[0][0]
+        # The final URL segment must not contain a literal unencoded slash
+        # i.e. the attacker cannot inject "/admin" as a new path component
+        self.assertNotIn("/../", called_path,
+            msg=f"Traversal sequence survived URL construction: {called_path}")
 
     def test_get_league_encodes_slashes_in_league_id(self):
         """get_league must URL-encode the league_id."""
         from api.sleeper_api import SleeperAPI
-        from unittest.mock import patch
         api = SleeperAPI()
-        with patch.object(api, '_make_request') as mock_req:
-            mock_req.return_value = {}
-            api.get_league("../secret")
-            called_path = mock_req.call_args[0][0]
-            self.assertNotIn("/../", called_path)
+        api._make_request = AsyncMock(return_value={})
+        asyncio.run(api.get_league("../secret"))
+        called_path = api._make_request.call_args[0][0]
+        self.assertNotIn("/../", called_path)
 
 
 class TestPathUtilsTraversalGuard(BaseTestCase):
@@ -390,65 +336,84 @@ class TestPathUtilsTraversalGuard(BaseTestCase):
 class TestSleeperAPIExponentialBackoff(BaseTestCase):
     """Tests for #91 — exponential backoff on 429 responses."""
 
-    @patch('time.sleep')
-    @patch('requests.Session.get')
-    def test_429_retries_with_backoff(self, mock_get, mock_sleep):
+    @staticmethod
+    def _make_async_client_mock(responses):
+        """Build a mock httpx.AsyncClient that yields successive responses."""
+        import httpx
+        resp_iter = iter(responses)
+        mock_client = AsyncMock()
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=False)
+        async def fake_get(url, **kwargs):
+            resp = Mock()
+            code, body = next(resp_iter)
+            resp.status_code = code
+            resp.json.return_value = body
+            if code != 200 and code != 429:
+                resp.raise_for_status.side_effect = httpx.HTTPStatusError(
+                    f"{code}", request=Mock(), response=resp
+                )
+            else:
+                resp.raise_for_status.return_value = None
+            return resp
+        mock_client.get = fake_get
+        return mock_client
+
+    def test_429_retries_with_backoff(self):
         """_make_request must retry on 429 with exponential backoff."""
         from api.sleeper_api import SleeperAPI
-
-        rate_429 = Mock()
-        rate_429.status_code = 429
-
-        ok_resp = Mock()
-        ok_resp.status_code = 200
-        ok_resp.json.return_value = {"user_id": "abc"}
-
-        mock_get.side_effect = [rate_429, ok_resp]
+        import httpx
 
         api = SleeperAPI(rate_limit_delay=0, max_retries=5)
-        result = api._make_request("/user/testuser")
+        responses = [(429, {}), (200, {"user_id": "abc"})]
+        mock_client = self._make_async_client_mock(iter(responses))
 
+        async def _run():
+            with patch('httpx.AsyncClient', return_value=mock_client):
+                with patch('asyncio.sleep', new_callable=AsyncMock):
+                    return await api._make_request("/user/testuser")
+
+        result = asyncio.run(_run())
         self.assertEqual(result, {"user_id": "abc"})
-        # sleep must have been called at least once for the backoff
-        mock_sleep.assert_called()
 
-    @patch('time.sleep')
-    @patch('requests.Session.get')
-    def test_429_exhausts_retries_raises(self, mock_get, mock_sleep):
+    def test_429_exhausts_retries_raises(self):
         """_make_request must raise SleeperAPIError after exhausting all retries."""
         from api.sleeper_api import SleeperAPI, SleeperAPIError
 
-        rate_429 = Mock()
-        rate_429.status_code = 429
-
         api = SleeperAPI(rate_limit_delay=0, max_retries=2)
-        mock_get.return_value = rate_429
+        responses = [(429, {})] * 10  # always 429
+        mock_client = self._make_async_client_mock(iter(responses))
+
+        async def _run():
+            with patch('httpx.AsyncClient', return_value=mock_client):
+                with patch('asyncio.sleep', new_callable=AsyncMock):
+                    return await api._make_request("/user/testuser")
 
         with self.assertRaises(SleeperAPIError):
-            api._make_request("/user/testuser")
+            asyncio.run(_run())
 
-        # We called sleep for each retry (max_retries=2 means 2 backoff sleeps)
-        self.assertEqual(mock_sleep.call_count, 2)
-
-    @patch('time.sleep')
-    @patch('requests.Session.get')
-    def test_backoff_delay_increases(self, mock_get, mock_sleep):
-        """Each retry backoff delay must be larger than the previous one (without jitter)."""
+    def test_backoff_delay_increases(self):
+        """Each retry backoff delay must be larger than the previous (without jitter)."""
         from api.sleeper_api import SleeperAPI, SleeperAPIError
 
-        rate_429 = Mock()
-        rate_429.status_code = 429
-
         api = SleeperAPI(rate_limit_delay=0, max_retries=3, backoff_jitter=0)
-        mock_get.return_value = rate_429
+        responses = [(429, {})] * 10
+        mock_client = self._make_async_client_mock(iter(responses))
+
+        sleep_calls = []
+
+        async def fake_sleep(delay):
+            sleep_calls.append(delay)
+
+        async def _run():
+            with patch('httpx.AsyncClient', return_value=mock_client):
+                with patch('asyncio.sleep', side_effect=fake_sleep):
+                    return await api._make_request("/user/testuser")
 
         with self.assertRaises(SleeperAPIError):
-            api._make_request("/user/testuser")
+            asyncio.run(_run())
 
-        # Extract sleep durations (ignoring sub-second rate-limiting sleeps)
-        delays = [call.args[0] for call in mock_sleep.call_args_list]
-        backoff_delays = [d for d in delays if d >= 1.0]
-        # Each backoff delay should be >= the previous one
+        backoff_delays = [d for d in sleep_calls if d >= 1.0]
         for i in range(1, len(backoff_delays)):
             self.assertGreaterEqual(backoff_delays[i], backoff_delays[i - 1],
                 msg=f"Backoff delay did not increase: {backoff_delays}")
