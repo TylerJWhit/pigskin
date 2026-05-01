@@ -189,7 +189,17 @@ class Draft:
             if not self._is_draft_complete():
                 self._start_new_nomination()
             return
-        winner_team.add_player(player, final_price)
+        if not winner_team.add_player(player, final_price):
+            # add_player rejected the player (budget exceeded or roster full).
+            # Do NOT remove the player from the available pool — the auction is
+            # voided; the player goes back up for nomination.
+            self.current_player = None
+            self.current_bid = 0.0
+            self.current_high_bidder = None
+            self._advance_nominator()
+            if not self._is_draft_complete():
+                self._start_new_nomination()
+            return
 
         # Remove from available players
         self.available_players.remove(player)
