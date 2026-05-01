@@ -43,7 +43,7 @@ class TestStrategies(BaseTestCase):
         expected_strategies = [
             'value', 'aggressive', 'conservative', 'sigmoid', 'improved_value',
             'adaptive', 'vor', 'random', 'balanced', 'basic', 'elite_hybrid',
-            'value_random', 'value_smart', 'hybrid_improved_value', 
+            'value_random', 'value_smart', 'inflation_vor',
             'league', 'refined_value_random'
         ]
         

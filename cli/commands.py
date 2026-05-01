@@ -176,7 +176,7 @@ class CommandProcessor:
         all_strategies = [
             'value', 'aggressive', 'conservative', 'sigmoid', 'improved_value',
             'adaptive', 'vor', 'random', 'balanced', 'basic', 'elite_hybrid',
-            'value_random', 'value_smart', 'hybrid_improved_value', 'league',
+            'value_random', 'value_smart', 'inflation_vor', 'league',
             'refined_value_random'
         ]
         
@@ -810,7 +810,7 @@ class CommandProcessor:
             'Elite Hybrid': 'elite_hybrid',
             'Value Random': 'value_random',
             'Value Smart': 'value_smart',
-            'Hybrid Improved Value': 'hybrid_improved_value',
+            'Inflation VOR': 'inflation_vor',
             'League': 'league',
             'Refined Value Random': 'refined_value_random'
         }

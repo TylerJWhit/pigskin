@@ -15,7 +15,8 @@ from .smart_strategy import SmartStrategy
 from .balanced_strategy import BalancedStrategy
 from .basic_strategy import BasicStrategy
 from .elite_hybrid_strategy import EliteHybridStrategy
-from .hybrid_strategies import ValueRandomStrategy, ValueSmartStrategy, ImprovedValueStrategy as HybridImprovedValueStrategy
+from .enhanced_vor_strategy import InflationAwareVorStrategy
+from .hybrid_strategies import ValueRandomStrategy, ValueSmartStrategy
 from .league_strategy import LeagueStrategy
 from .refined_value_random_strategy import RefinedValueRandomStrategy
 
@@ -35,9 +36,9 @@ AVAILABLE_STRATEGIES = {
     'balanced': BalancedStrategy,
     'basic': BasicStrategy,
     'elite_hybrid': EliteHybridStrategy,
+    'inflation_vor': InflationAwareVorStrategy,
     'value_random': ValueRandomStrategy,
     'value_smart': ValueSmartStrategy,
-    'hybrid_improved_value': HybridImprovedValueStrategy,
     'league': LeagueStrategy,
     'refined_value_random': RefinedValueRandomStrategy,
 }
