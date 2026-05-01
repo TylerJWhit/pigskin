@@ -382,11 +382,16 @@ class TournamentService:
                 'avg_points': rankings[-1][1]['results']['avg_points']
             }
             
-            # Most consistent (lowest std deviation)
-            most_consistent = min(rankings, key=lambda x: x[1]['results']['points_std'])
+            # Most consistent (lowest std deviation).
+            # Use .get() with float('inf') so strategies that lack points_std
+            # (e.g. completed only 1 simulation) don't raise KeyError (#132).
+            most_consistent = min(
+                rankings,
+                key=lambda x: x[1]['results'].get('points_std', float('inf'))
+            )
             analysis['most_consistent'] = {
                 'name': most_consistent[0],
-                'std_dev': most_consistent[1]['results']['points_std'],
+                'std_dev': most_consistent[1]['results'].get('points_std', 0.0),
                 'avg_points': most_consistent[1]['results']['avg_points']
             }
             
@@ -425,9 +430,10 @@ class TournamentService:
         recommendation = f"The {strategy_name} strategy performed best with a {results['win_rate']:.1%} win rate "
         recommendation += f"and {results['avg_points']:.1f} average points. "
         
-        if results['points_std'] < 50:
+        points_std = results.get('points_std', 0.0)
+        if points_std < 50:
             recommendation += "This strategy showed good consistency. "
-        elif results['points_std'] > 100:
+        elif points_std > 100:
             recommendation += "This strategy was volatile but had high upside. "
         
         recommendation += "Consider using this strategy for similar league conditions."
