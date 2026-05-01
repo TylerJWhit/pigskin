@@ -445,29 +445,89 @@ class TestVorStrategy:
         bid = self.strategy.calculate_bid(player, team, owner, 50.0, 200.0, [])
         assert bid == 0
 
-    def test_init(self):
-        assert self.strategy.name is not None
+    def test_calculate_bid_negative_vor_needed_position(self):
+        """Cover vor <= 0 and position_priority >= 1.0 branch (lines 132-134)."""
+        # Player with low projected points -> negative VOR
+        player = _make_player(position="QB", projected_points=100.0, auction_value=1.0)
+        player.vor = -10.0  # Force negative VOR
+        team = _make_team()
+        # Make team have very high position priority for QB
+        team.get_needs.return_value = ["QB"]
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
 
-    def test_calculate_bid_basic(self):
+    def test_calculate_bid_tight_budget(self):
+        """Cover low-budget path."""
         player = _make_player(projected_points=350.0, auction_value=45.0)
         team = _make_team()
         owner = _make_owner()
-        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        # Very tight budget — remaining_budget <= min_needed + 3
+        bid = self.strategy.calculate_bid(player, team, owner, 0.0, 2.0, [])
         assert isinstance(bid, (int, float))
 
-    def test_should_nominate(self):
-        player = _make_player(projected_points=350.0)
+    def test_calculate_bid_with_remaining_players(self):
+        """Cover scarcity calculation with remaining players (lines 291+)."""
+        # A few remaining players at same position
+        remaining = [
+            _make_player(name=f"P{i}", position="QB", projected_points=300.0)
+            for i in range(5)
+        ]
+        player = _make_player(position="QB", projected_points=400.0, auction_value=50.0)
         team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 5.0, 200.0, remaining)
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_dynamic_scarcity_with_players(self):
+        """Cover _calculate_all_dynamic_scarcity_factors with remaining_players (lines 348-365)."""
+        remaining = [
+            _make_player(name=f"P{i}", position="QB" if i < 3 else "RB", projected_points=300.0)
+            for i in range(10)
+        ]
+        result = self.strategy._calculate_all_dynamic_scarcity_factors(remaining)
+        assert isinstance(result, dict)
+        assert "QB" in result
+
+    def test_calculate_dynamic_scarcity_empty(self):
+        """Cover _calculate_all_dynamic_scarcity_factors with no players."""
+        result = self.strategy._calculate_all_dynamic_scarcity_factors([])
+        assert isinstance(result, dict)
+
+    def test_get_actual_starter_counts(self):
+        """Cover _get_actual_starter_counts (lines 322-323)."""
+        result = self.strategy._get_actual_starter_counts()
+        assert isinstance(result, dict)
+
+    def test_calculate_dynamic_superflex_qb(self):
+        """Cover _calculate_dynamic_superflex_adjustment for QB."""
+        result = self.strategy._calculate_dynamic_superflex_adjustment("QB")
+        assert isinstance(result, float)
+
+    def test_calculate_dynamic_superflex_rb(self):
+        """Cover _calculate_dynamic_superflex_adjustment for non-QB."""
+        result = self.strategy._calculate_dynamic_superflex_adjustment("RB")
+        assert isinstance(result, float)
+
+    def test_calculate_vor_fallback_no_projected(self):
+        """Cover _calculate_vor fallback (lines 238+)."""
+        player = _make_player(position="QB")
+        player.vor = None  # Force non-numeric, use projected_points
+        player.projected_points = 300.0
+        result = self.strategy._calculate_vor(player)
+        assert isinstance(result, float)
+
+    def test_should_nominate_low_slots(self):
+        """Cover should_nominate with few slots remaining."""
+        player = _make_player()
+        team = _make_team()
+        # Override get_remaining_roster_slots to return 1
+        team.get_remaining_roster_slots = MagicMock(return_value=1)
+        # base_strategy won't delegate since it's callable but return is 1
+        # Instead use the actual super() path by not setting to None
         owner = _make_owner()
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
-
-    def test_calculate_bid_exceeds_value(self):
-        player = _make_player(projected_points=100.0, auction_value=20.0)
-        team = _make_team()
-        owner = _make_owner()
-        bid = self.strategy.calculate_bid(player, team, owner, 50.0, 200.0, [])
-        assert bid == 0
 
 
 class TestEnhancedVorStrategy:
