@@ -19,6 +19,8 @@ from .enhanced_vor_strategy import InflationAwareVorStrategy
 from .hybrid_strategies import ValueRandomStrategy, ValueSmartStrategy
 from .league_strategy import LeagueStrategy
 from .refined_value_random_strategy import RefinedValueRandomStrategy
+from .strategy_config import StrategyConfig
+from .strategy_registry import StrategyRegistry
 
 # Strategy factory
 AVAILABLE_STRATEGIES = {
@@ -90,9 +92,11 @@ __all__ = [
     'EliteHybridStrategy',
     'ValueRandomStrategy',
     'ValueSmartStrategy',
-    'HybridImprovedValueStrategy',
+    'InflationAwareVorStrategy',
     'LeagueStrategy',
     'RefinedValueRandomStrategy',
+    'StrategyConfig',
+    'StrategyRegistry',
     
     'AVAILABLE_STRATEGIES',
     'create_strategy',

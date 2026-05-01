@@ -1,0 +1,8 @@
+name: vor
+display_name: Value Over Replacement
+description: Bids based on value over replacement player at each position.
+base_class: VorStrategy
+version: "1.0.0"
+tags:
+  - benchmark
+  - vor
