@@ -838,3 +838,93 @@ class TestDraftPerformance:
         summary = draft.get_draft_summary()
         assert summary['players_drafted'] == 3
         assert summary['players_available'] == len(sample_players) - 3
+
+
+class TestDraftAdditionalCoverage:
+    """Additional tests to cover uncovered lines."""
+
+    def _make_player(self, pid, position="QB", value=20.0):
+        return Player(
+            player_id=pid,
+            name=f"Player {pid}",
+            position=position,
+            auction_value=value,
+            projected_points=200.0,
+            bye_week=5,
+            nfl_team="KC"
+        )
+
+    def _configured_draft(self, num_teams=2, num_players=6):
+        from classes.draft import Draft
+        from classes.team import Team
+        from classes.owner import Owner
+
+        draft = Draft(budget_per_team=200, roster_size=2, num_teams=num_teams)
+        positions = ["QB", "RB", "WR", "TE", "K", "DST"]
+        for i in range(num_players):
+            draft.add_players([self._make_player(f"p{i}", positions[i % len(positions)])])
+
+        for i in range(num_teams):
+            owner = Owner(owner_id=f"o{i}", name=f"Owner {i}", is_human=False)
+            team = Team(
+                team_id=f"t{i}",
+                owner_id=f"o{i}",
+                team_name=f"Team {i}",
+                budget=200,
+                roster_config={"QB": 1, "RB": 1}
+            )
+            draft.add_owner(owner)
+            draft.add_team(team)
+
+        draft.start_draft()
+        return draft
+
+    def test_add_team_exceeds_max_raises(self):
+        from classes.draft import Draft
+        from classes.team import Team
+        from classes.owner import Owner
+        draft = Draft(num_teams=1, budget_per_team=200)
+        for i in range(3):
+            draft.add_players([self._make_player(f"p{i}")])
+        owner = Owner(owner_id="o0", name="O0")
+        team0 = Team(team_id="t0", owner_id="o0", team_name="T0", budget=200, roster_config={"QB": 1})
+        draft.add_owner(owner)
+        draft.add_team(team0)
+        # Add second team should raise
+        team1 = Team(team_id="t1", owner_id="o1", team_name="T1", budget=200, roster_config={"QB": 1})
+        with pytest.raises(ValueError, match="Maximum number"):
+            draft.add_team(team1)
+
+    def test_nominate_player_below_min_bid_raises(self):
+        draft = self._configured_draft()
+        owner = draft.owners[0]
+        player = draft.available_players[0]
+        with pytest.raises(ValueError, match="at least"):
+            draft.nominate_player(player, owner.owner_id, initial_bid=0.5)
+
+    def test_place_bid_insufficient_budget(self):
+        draft = self._configured_draft()
+        owner = draft.owners[0]
+        player = draft.current_player or draft.available_players[0]
+        if not draft.current_player:
+            draft.nominate_player(player, owner.owner_id, initial_bid=1.0)
+        # Try to bid more than budget
+        result = draft.place_bid(owner.owner_id, bid_amount=99999.0)
+        assert result is False
+
+    def test_complete_auction_winner_team_none(self):
+        """When winner team not found, complete_auction should clean up gracefully."""
+        draft = self._configured_draft()
+        owner = draft.owners[0]
+        player = draft.current_player or draft.available_players[0]
+        if not draft.current_player:
+            draft.nominate_player(player, owner.owner_id, initial_bid=1.0)
+        # Set invalid winner id so _get_team_by_owner returns None
+        draft.current_high_bidder = "nonexistent_owner"
+        draft.complete_auction()  # Should not raise
+
+    def test_get_state_returns_draft_state(self):
+        draft = self._configured_draft()
+        state = draft.get_state()
+        assert state.draft_id == draft.draft_id
+        assert hasattr(state, 'status')
