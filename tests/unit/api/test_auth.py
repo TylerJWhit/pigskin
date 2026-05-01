@@ -119,3 +119,28 @@ class TestKeyNotLeaked:
         body = resp.text
         assert "bad-key" not in body
         assert _VALID_KEY not in body
+
+
+# ---------------------------------------------------------------------------
+# Misc: get_app_settings and lifespan coverage
+# ---------------------------------------------------------------------------
+
+class TestDepsAndLifespan:
+    def test_get_app_settings_returns_settings(self):
+        from api.deps import get_app_settings
+        from config.settings import Settings
+        result = get_app_settings()
+        assert isinstance(result, Settings)
+
+    def test_lifespan_executes_on_startup_shutdown(self):
+        """Exercise the lifespan yield (covers main.py:15)."""
+        import asyncio
+        from api.main import lifespan
+        from fastapi import FastAPI
+
+        async def _run():
+            fake_app = FastAPI()
+            async with lifespan(fake_app):
+                pass  # startup → yield → shutdown
+
+        asyncio.run(_run())
