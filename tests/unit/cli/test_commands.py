@@ -1,6 +1,6 @@
 """Unit tests for CLI commands — cheatsheet_parser integration."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, AsyncMock, patch
 
 
 class TestAnalyzeUndervaluedPlayersCommands:
@@ -46,3 +46,515 @@ class TestAnalyzeUndervaluedPlayersCommands:
         assert parser.find_undervalued_players_simple() == []
         assert parser.find_undervalued_players() == []
         assert parser.get_all_players() == {}
+
+
+# ---------------------------------------------------------------------------
+# CommandProcessor targeted coverage tests
+# ---------------------------------------------------------------------------
+
+class TestCommandProcessorInit:
+    """Cover __init__ (lines 20-23)."""
+
+    def test_init_creates_dependencies(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            cp = CommandProcessor()
+            assert cp.config_manager is not None
+            assert cp.sleeper_api is not None
+            assert cp.sleeper_draft_service is not None
+
+
+class TestGetBidRecommendationDetailed:
+    """Cover lines 25-75: get_bid_recommendation_detailed."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_strong_buy_recommendation(self):
+        cp = self._make_cp()
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': 15.0,
+            'recommended_bid': 20.0,
+            'auction_value': 40.0,
+            'player_name': 'Josh Allen',
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Josh Allen', current_bid=5.0)
+        assert result['recommendation_level'] == 'STRONG BUY'
+        assert result['value_assessment'] == 'EXCELLENT VALUE'
+
+    def test_buy_recommendation(self):
+        cp = self._make_cp()
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': 7.0,
+            'recommended_bid': 20.0,
+            'auction_value': 26.0,  # 26/20 = 1.3 → GOOD VALUE
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Patrick Mahomes')
+        assert result['recommendation_level'] == 'BUY'
+        assert result['value_assessment'] == 'GOOD VALUE'
+
+    def test_weak_buy_recommendation(self):
+        cp = self._make_cp()
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': 3.0,
+            'recommended_bid': 20.0,
+            'auction_value': 21.0,  # 21/20 = 1.05 → FAIR VALUE
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('CMC')
+        assert result['recommendation_level'] == 'WEAK BUY'
+        assert result['value_assessment'] == 'FAIR VALUE'
+
+    def test_pass_overpriced(self):
+        cp = self._make_cp()
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': -5.0,
+            'recommended_bid': 10.0,
+            'auction_value': 8.0,   # 8/10 = 0.8 → OVERPRICED
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Backup K')
+        assert result['recommendation_level'] == 'PASS'
+        assert result['value_assessment'] == 'OVERPRICED'
+
+    def test_failure_returns_error(self):
+        cp = self._make_cp()
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': False,
+            'error': 'Player not found',
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Ghost Player')
+        assert result['success'] is False
+        assert 'error' in result
+
+    def test_uses_config_sleeper_draft_id(self):
+        """Cover the branch where sleeper_draft_id comes from config."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.sleeper_draft_id = 'config-draft-123'
+        cp.config_manager.load_config = MagicMock(return_value=mock_config)
+
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': 5.0,
+            'recommended_bid': 20.0,
+            'auction_value': 25.0,
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Josh Allen')
+        mock_service.recommend_bid.assert_called_once()
+
+
+class TestMapStrategyNameToKey:
+    """Cover lines 798-817: _map_strategy_name_to_key."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_known_names_map_correctly(self):
+        cp = self._make_cp()
+        assert cp._map_strategy_name_to_key('Value-Based') == 'value'
+        assert cp._map_strategy_name_to_key('Aggressive') == 'aggressive'
+        assert cp._map_strategy_name_to_key('Conservative') == 'conservative'
+        assert cp._map_strategy_name_to_key('Balanced') == 'balanced'
+        assert cp._map_strategy_name_to_key('Elite Hybrid') == 'elite_hybrid'
+        assert cp._map_strategy_name_to_key('Inflation VOR') == 'inflation_vor'
+
+    def test_unknown_name_lowercased(self):
+        cp = self._make_cp()
+        result = cp._map_strategy_name_to_key('My Custom Strategy')
+        assert result == 'my_custom_strategy'
+
+
+class TestCreateTournamentPools:
+    """Cover lines 819-858: _create_tournament_pools."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_few_strategies_creates_one_pool_with_duplicates(self):
+        cp = self._make_cp()
+        strategies = ['aggressive', 'balanced', 'conservative']
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        assert len(pools) == 1
+        assert len(pools[0]) == 10
+
+    def test_many_strategies_creates_multiple_pools(self):
+        cp = self._make_cp()
+        strategies = [f's{i}' for i in range(20)]
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        assert len(pools) == 2
+        for pool in pools:
+            assert len(pool) == 10
+
+    def test_strategies_with_remainder(self):
+        cp = self._make_cp()
+        strategies = [f's{i}' for i in range(13)]
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        # 13 strategies: first pool has 10, remaining 3 go to a second pool
+        assert len(pools) >= 1
+
+    def test_exact_match_strategies_and_teams(self):
+        cp = self._make_cp()
+        strategies = [f's{i}' for i in range(10)]
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        assert len(pools) == 1
+        assert len(pools[0]) == 10
+
+
+class TestCreateSinglePoolWithDuplicates:
+    """Cover lines 860-872: _create_single_pool_with_duplicates."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_fills_to_teams_per_draft(self):
+        cp = self._make_cp()
+        pool = cp._create_single_pool_with_duplicates(['a', 'b'], 5)
+        assert len(pool) == 5
+        assert 'a' in pool
+        assert 'b' in pool
+
+
+class TestSleeperWrapperMethods:
+    """Cover lines 1646-1697: get_sleeper_draft_status, display_sleeper_draft,
+    display_sleeper_league_rosters, list_sleeper_leagues."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_get_sleeper_draft_status_success(self):
+        cp = self._make_cp()
+        expected = {'success': True, 'draft_id': 'd1'}
+        cp.sleeper_draft_service.get_current_draft_status = AsyncMock(return_value=expected)
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.return_value = expected
+            result = cp.get_sleeper_draft_status('testuser')
+        assert result == expected
+
+    def test_get_sleeper_draft_status_exception(self):
+        cp = self._make_cp()
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.side_effect = RuntimeError("network error")
+            result = cp.get_sleeper_draft_status('testuser')
+        assert result['success'] is False
+        assert 'error' in result
+
+    def test_display_sleeper_draft_success(self):
+        cp = self._make_cp()
+        expected = {'success': True, 'draft': {}}
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.return_value = expected
+            result = cp.display_sleeper_draft('draft123')
+        assert result == expected
+
+    def test_display_sleeper_draft_exception(self):
+        cp = self._make_cp()
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.side_effect = ValueError("bad id")
+            result = cp.display_sleeper_draft('bad')
+        assert result['success'] is False
+
+    def test_display_sleeper_league_rosters_success(self):
+        cp = self._make_cp()
+        expected = {'success': True}
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.return_value = expected
+            result = cp.display_sleeper_league_rosters('league1')
+        assert result == expected
+
+    def test_display_sleeper_league_rosters_exception(self):
+        cp = self._make_cp()
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.side_effect = ConnectionError("down")
+            result = cp.display_sleeper_league_rosters('league1')
+        assert result['success'] is False
+
+    def test_list_sleeper_leagues_success(self):
+        cp = self._make_cp()
+        expected = {'success': True, 'leagues': []}
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.return_value = expected
+            result = cp.list_sleeper_leagues('username')
+        assert result == expected
+
+    def test_list_sleeper_leagues_exception(self):
+        cp = self._make_cp()
+        with patch('cli.commands.asyncio') as mock_aio:
+            mock_aio.run.side_effect = Exception("fail")
+            result = cp.list_sleeper_leagues('username')
+        assert result['success'] is False
+
+
+class TestFormatTournamentResultsForDisplay:
+    """Cover lines 1698-1762: _format_tournament_results_for_display."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_empty_results(self):
+        cp = self._make_cp()
+        result = cp._format_tournament_results_for_display([], ['aggressive', 'balanced'])
+        assert 'aggressive' in result
+        assert 'balanced' in result
+        assert result['aggressive']['wins'] == 0
+
+    def test_counts_wins_correctly(self):
+        cp = self._make_cp()
+        all_results = [
+            {
+                'draft_data': {
+                    'teams': [
+                        {'strategy': 'aggressive', 'strategy_display_name': 'Aggressive', 'projected_points': 150, 'total_spent': 180},
+                        {'strategy': 'balanced', 'strategy_display_name': 'Balanced', 'projected_points': 130, 'total_spent': 170},
+                    ]
+                }
+            }
+        ]
+        result = cp._format_tournament_results_for_display(all_results, ['aggressive', 'balanced'])
+        assert result['aggressive']['wins'] == 1
+        assert result['balanced']['wins'] == 0
+        assert result['aggressive']['simulations'] == 1
+
+    def test_calculates_averages(self):
+        cp = self._make_cp()
+        all_results = [
+            {'draft_data': {'teams': [
+                {'strategy_display_name': 'Aggressive', 'projected_points': 200, 'total_spent': 180},
+            ]}},
+            {'draft_data': {'teams': [
+                {'strategy_display_name': 'Aggressive', 'projected_points': 100, 'total_spent': 160},
+            ]}},
+        ]
+        result = cp._format_tournament_results_for_display(all_results, ['aggressive'])
+        assert result['aggressive']['avg_points'] == 150.0
+        assert result['aggressive']['avg_spent'] == 170.0
+
+    def test_skips_results_without_teams(self):
+        cp = self._make_cp()
+        all_results = [{'draft_data': {}}]  # no 'teams' key
+        result = cp._format_tournament_results_for_display(all_results, ['aggressive'])
+        assert result['aggressive']['wins'] == 0
+
+
+class TestRunEnhancedMockDraftErrorPaths:
+    """Cover lines 79-163: run_enhanced_mock_draft error paths."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_invalid_single_strategy_returns_error(self):
+        cp = self._make_cp()
+        result = cp.run_enhanced_mock_draft('not_a_real_strategy_xyz')
+        assert result['success'] is False
+        assert 'Invalid strategy' in result['error']
+
+    def test_invalid_list_strategy_returns_error(self):
+        cp = self._make_cp()
+        result = cp.run_enhanced_mock_draft(['not_real_xyz', 'also_fake'])
+        assert result['success'] is False
+        assert 'Invalid strategies' in result['error']
+
+    def test_exception_in_load_returns_error(self):
+        cp = self._make_cp()
+        cp.config_manager.load_config.side_effect = RuntimeError("config load fail")
+        result = cp.run_enhanced_mock_draft('value')
+        assert result['success'] is False
+        assert 'Mock draft failed' in result['error']
+
+
+class TestTestSleeperConnectivity:
+    """Cover lines 978-1070: test_sleeper_connectivity."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_all_pass(self):
+        cp = self._make_cp()
+        mock_players = {
+            'abc': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        cp.sleeper_api.get_all_players.return_value = mock_players
+        result = cp.test_sleeper_connectivity()
+        assert result['success'] is True
+        assert result['overall_status'] in ('HEALTHY', 'DEGRADED')
+
+    def test_api_returns_empty(self):
+        cp = self._make_cp()
+        cp.sleeper_api.get_all_players.return_value = {}
+        result = cp.test_sleeper_connectivity()
+        # Still runs, returns some status
+        assert 'success' in result
+        assert 'tests' in result
+
+    def test_api_raises_exception(self):
+        cp = self._make_cp()
+        cp.sleeper_api.get_all_players.side_effect = ConnectionError("down")
+        result = cp.test_sleeper_connectivity()
+        assert 'success' in result
+        # Should have FAIL test entries
+        fail_tests = [t for t in result['tests'] if t['status'] == 'FAIL']
+        assert len(fail_tests) > 0
+
+    def test_missing_fields_in_player(self):
+        cp = self._make_cp()
+        # Player missing required fields
+        cp.sleeper_api.get_all_players.return_value = {'p1': {'name': 'Joe'}}
+        result = cp.test_sleeper_connectivity()
+        assert 'tests' in result
+        warn_or_fail = [t for t in result['tests'] if t['status'] in ('WARN', 'FAIL')]
+        assert len(warn_or_fail) > 0
+
+
+class TestRunElaborateTournamentMethods:
+    """Cover lines 164-186, 598-600: run_elimination_tournament + run_comprehensive_tournament."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_run_comprehensive_tournament_delegates(self):
+        cp = self._make_cp()
+        cp._run_elimination_rounds = MagicMock(return_value={
+            'success': True,
+            'tournament_winner': 'aggressive',
+            'total_rounds': 2,
+        })
+        result = cp.run_comprehensive_tournament(num_rounds=1)
+        cp._run_elimination_rounds.assert_called_once()
+        assert result['success'] is True
+
+    def test_run_elimination_tournament_calls_run_elimination_rounds(self):
+        cp = self._make_cp()
+        cp._run_elimination_rounds = MagicMock(return_value={
+            'success': True,
+            'tournament_winner': 'value',
+            'total_rounds': 1,
+        })
+        result = cp.run_elimination_tournament(rounds_per_group=1, teams_per_draft=5)
+        cp._run_elimination_rounds.assert_called_once()
+        assert result['success'] is True
+
+
+class TestRunElimRoundsShortCircuit:
+    """Cover lines 187-269: _run_elimination_rounds single-strategy short-circuit."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_single_strategy_immediately_returns(self):
+        cp = self._make_cp()
+        result = cp._run_elimination_rounds(['aggressive'], rounds_per_group=1, teams_per_draft=5, verbose=False)
+        # Single strategy — while loop never runs, immediate champion
+        assert result['success'] is True
+        assert result['tournament_winner'] == 'aggressive'
+
+
+class TestAnalyzeTournamentPerformance:
+    """Cover lines 1557-1611: _analyze_tournament_performance + _generate_strategy_recommendations."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_analyze_empty_rankings(self):
+        cp = self._make_cp()
+        result = cp._analyze_tournament_performance([])
+        assert isinstance(result, dict)
+
+    def test_analyze_with_rankings(self):
+        cp = self._make_cp()
+        rankings = [
+            {'strategy': 'aggressive', 'avg_points': 150.0, 'win_rate': 0.6, 'avg_spent': 200, 'avg_value_efficiency': 1.2, 'efficiency': 0.75, 'wins': 6, 'simulations': 10},
+            {'strategy': 'balanced', 'avg_points': 140.0, 'win_rate': 0.4, 'avg_spent': 190, 'avg_value_efficiency': 1.1, 'efficiency': 0.70, 'wins': 4, 'simulations': 10},
+        ]
+        result = cp._analyze_tournament_performance(rankings)
+        assert isinstance(result, dict)
+
+    def test_generate_strategy_recommendations_empty(self):
+        cp = self._make_cp()
+        result = cp._generate_strategy_recommendations([])
+        assert isinstance(result, dict)
+
+    def test_generate_strategy_recommendations_with_data(self):
+        cp = self._make_cp()
+        rankings = [
+            {'strategy': 'aggressive', 'avg_points': 150.0, 'win_rate': 0.6, 'avg_spent': 200, 'avg_value_efficiency': 1.2, 'efficiency': 0.75, 'wins': 6, 'simulations': 10},
+            {'strategy': 'balanced', 'avg_points': 140.0, 'win_rate': 0.4, 'avg_spent': 190, 'avg_value_efficiency': 1.0, 'efficiency': 0.70, 'wins': 4, 'simulations': 10},
+        ]
+        result = cp._generate_strategy_recommendations(rankings)
+        assert isinstance(result, dict)
+
+
+class TestCreateTestDraft:
+    """Cover lines 1613-1644: _create_test_draft."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_exception_returns_none(self):
+        cp = self._make_cp()
+        cp.config_manager.load_config.side_effect = RuntimeError("boom")
+        result = cp._create_test_draft(10)
+        assert result is None
