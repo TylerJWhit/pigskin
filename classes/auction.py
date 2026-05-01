@@ -1,9 +1,7 @@
 """Auction class for auction draft tool."""
 
-from typing import Dict, List, Optional, Callable
-from datetime import datetime, timedelta
-import threading
-import time
+from typing import Dict, List, Callable
+import random
 from .draft import Draft
 from .player import Player
 from .team import Team
@@ -12,21 +10,16 @@ from .strategy import Strategy
 
 
 class Auction:
-    """Handles the real-time auction mechanics for a draft."""
+    """Handles blind sealed-bid (Vickrey) auction mechanics for a draft."""
     
     def __init__(
         self,
         draft: Draft,
-        bid_timer: int = 30,
-        nomination_timer: int = 60
     ):
         self.draft = draft
-        self.bid_timer = bid_timer
-        self.nomination_timer = nomination_timer
         
         # Auction state
         self.is_active = False
-        self.current_timer: Optional[threading.Timer] = None
         self.auto_bid_enabled = {}  # owner_id -> bool
         self.strategies = {}  # owner_id -> Strategy
         
@@ -34,7 +27,6 @@ class Auction:
         self.on_bid_placed: List[Callable] = []
         self.on_player_nominated: List[Callable] = []
         self.on_auction_completed: List[Callable] = []
-        self.on_timer_tick: List[Callable] = []
         
     def start_auction(self) -> None:
         """Start the auction system."""
@@ -42,13 +34,10 @@ class Auction:
             raise ValueError("Draft must be started before auction can begin")
             
         self.is_active = True
-        self._start_nomination_timer()
         
     def stop_auction(self) -> None:
         """Stop the auction system."""
         self.is_active = False
-        if self.current_timer:
-            self.current_timer.cancel()
             
     def nominate_player(
         self,
@@ -59,8 +48,9 @@ class Auction:
         """Nominate a player for auction."""
         try:
             self.draft.nominate_player(player, nominating_owner_id, initial_bid)
-            self._start_bid_timer()
             self._notify_player_nominated(player, nominating_owner_id, initial_bid)
+            self._process_auto_bids()
+            self._complete_current_auction()
             return True
         except ValueError:
             return False
@@ -72,10 +62,9 @@ class Auction:
             
         success = self.draft.place_bid(bidder_id, bid_amount)
         if success:
-            self._start_bid_timer()  # Reset timer
             self._notify_bid_placed(bidder_id, bid_amount)
             
-            # Trigger auto-bids from other participants
+            # Re-resolve sealed bids after a manual bid changes the floor.
             self._process_auto_bids()
             
         return success
@@ -95,52 +84,6 @@ class Auction:
         """Force complete the current player auction."""
         if self.draft.current_player:
             self._complete_current_auction()
-            
-    def _start_nomination_timer(self) -> None:
-        """Start timer for player nomination."""
-        if self.current_timer:
-            self.current_timer.cancel()
-            
-        self.draft.time_remaining = self.nomination_timer
-        self.current_timer = threading.Timer(1.0, self._nomination_timer_tick)
-        self.current_timer.start()
-        
-    def _start_bid_timer(self) -> None:
-        """Start timer for bidding phase."""
-        if self.current_timer:
-            self.current_timer.cancel()
-            
-        self.draft.time_remaining = self.bid_timer
-        self.current_timer = threading.Timer(1.0, self._bid_timer_tick)
-        self.current_timer.start()
-        
-    def _nomination_timer_tick(self) -> None:
-        """Handle nomination timer tick."""
-        if not self.is_active:
-            return
-            
-        self.draft.time_remaining -= 1
-        self._notify_timer_tick("nomination", self.draft.time_remaining)
-        
-        if self.draft.time_remaining <= 0:
-            self._auto_nominate_player()
-        else:
-            self.current_timer = threading.Timer(1.0, self._nomination_timer_tick)
-            self.current_timer.start()
-            
-    def _bid_timer_tick(self) -> None:
-        """Handle bid timer tick."""
-        if not self.is_active:
-            return
-            
-        self.draft.time_remaining -= 1
-        self._notify_timer_tick("bidding", self.draft.time_remaining)
-        
-        if self.draft.time_remaining <= 0:
-            self._complete_current_auction()
-        else:
-            self.current_timer = threading.Timer(1.0, self._bid_timer_tick)
-            self.current_timer.start()
             
     def _auto_nominate_player(self) -> None:
         """Auto-nominate a player when timer expires."""
@@ -250,8 +193,6 @@ class Auction:
             
             if self.draft.status == "completed":
                 self.stop_auction()
-            else:
-                self._start_nomination_timer()
                 
     def _process_auto_bids(self) -> None:
         """Process auto-bids using simplified sealed bid auction logic."""
@@ -356,7 +297,9 @@ class Auction:
             # Only one bidder - pay minimum increment
             final_price = current_bid + 1
         elif len(valid_bids) > 1 and valid_bids[0][2] == valid_bids[1][2]:
-            # Tie for highest bid - winner pays their full bid (random selection handled by sort stability)
+            # Tie for highest bid - choose randomly among tied teams.
+            tied_bids = [bid for bid in valid_bids if bid[2] == highest_bid]
+            winner_id, winner_team, highest_bid = random.choice(tied_bids)
             final_price = highest_bid
         else:
             # Normal case - winner pays $1 more than second highest
@@ -396,14 +339,6 @@ class Auction:
             except Exception:
                 pass
                 
-    def _notify_timer_tick(self, phase: str, time_remaining: int) -> None:
-        """Notify listeners of timer tick."""
-        for callback in self.on_timer_tick:
-            try:
-                callback(phase, time_remaining)
-            except Exception:
-                pass
-                
     def add_bid_listener(self, callback: Callable) -> None:
         """Add a callback for bid events."""
         self.on_bid_placed.append(callback)
@@ -416,10 +351,6 @@ class Auction:
         """Add a callback for auction completion events."""
         self.on_auction_completed.append(callback)
         
-    def add_timer_listener(self, callback: Callable) -> None:
-        """Add a callback for timer tick events."""
-        self.on_timer_tick.append(callback)
-        
     def get_auction_state(self) -> Dict:
         """Get current auction state."""
         return {
@@ -427,7 +358,6 @@ class Auction:
             'current_player': self.draft.current_player.to_dict() if self.draft.current_player else None,
             'current_bid': self.draft.current_bid,
             'current_high_bidder': self.draft.current_high_bidder,
-            'time_remaining': self.draft.time_remaining,
             'current_nominator': self.draft.get_current_nominator().to_dict() if self.draft.get_current_nominator() else None,
             'auto_bid_enabled': dict(self.auto_bid_enabled)
         }
