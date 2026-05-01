@@ -365,6 +365,114 @@ class TestBalancedStrategy:
         result = strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
 
+    def test_calculate_bid_low_priority_low_bid(self):
+        """Cover position_priority <= 0.1 with current_bid < 5 (lines 77-79)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(position="QB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 2.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_bid_low_priority_high_bid(self):
+        """Cover position_priority <= 0.1 with current_bid >= 5 => return 0 (line 81)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(position="QB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0
+
+    def test_calculate_bid_zero_player_value(self):
+        """Cover player_value <= 0 fallback (line 89)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(position="QB", auction_value=0.0)
+        player.projected_points = 0.0
+        team = _make_team()
+        bid = strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_low_budget_expensive_player(self):
+        """Cover low budget_per_slot + expensive player => False (lines 141-143)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(auction_value=20.0)
+        team = _make_team()
+        # 2 slots remaining, budget=3 → budget_per_slot=1.5 < 2.0
+        with patch.object(strategy, '_get_remaining_roster_slots', return_value=2):
+            result = strategy.should_nominate(player, team, _make_owner(), 3.0)
+        assert result is False
+
+    def test_should_nominate_random_chance(self):
+        """Cover random nomination path (line 166-168)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        # Use a low-value player (auction_value <= 20) so branches 155-162 are skipped
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        # budget_per_slot >= 4.0 to reach the random check
+        # remaining slots = 1, budget = 200 → budget_per_slot = 200
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.2), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.2), \
+             patch.object(strategy, '_get_remaining_roster_slots', return_value=1), \
+             patch('strategies.balanced_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.05  # < 0.15 → True
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_random_no_nominate(self):
+        """Cover random check returns False when random >= 0.15."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.2), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.2), \
+             patch.object(strategy, '_get_remaining_roster_slots', return_value=1), \
+             patch('strategies.balanced_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.5  # >= 0.15 → False
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is False
+
+    def test_should_nominate_scarce_position(self):
+        """Cover scarce position + budget branch (lines 155-157)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(position="TE", auction_value=30.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.5), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.8), \
+             patch.object(strategy, '_get_remaining_roster_slots', return_value=5):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_valuable_affordable(self):
+        """Cover valuable affordable player branch (lines 161-163)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.2), \
+             patch.object(strategy, '_get_remaining_roster_slots', return_value=5):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_calculate_position_priority_full_position(self):
+        """Cover return 0.2 when position is full (line 208)."""
+        from strategies.balanced_strategy import BalancedStrategy
+        strategy = BalancedStrategy()
+        # Create a team whose roster has 4 RBs (at target_count of 4)
+        team = _make_team()
+        rbs = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        team.roster = rbs
+        player = _make_player(position="RB")
+        priority = strategy._calculate_position_priority(player, team)
+        assert priority == 0.2
+
 
 class TestEliteHybridStrategy:
     def test_calculate_bid_basic(self):
