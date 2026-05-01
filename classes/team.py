@@ -209,33 +209,21 @@ class Team:
         return starter_points
         
     def is_roster_complete(self) -> bool:
-        """Check if roster meets minimum requirements."""
-        required_positions = {
-            'QB': 1,
-            'RB': 2,
-            'WR': 2,
-            'TE': 1,
-            'K': 1,
-            'DST': 1
+        """Check if roster meets minimum requirements from roster_config."""
+        required_positions = self.roster_config if self.roster_config else {
+            'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1
         }
-        
         for position, min_count in required_positions.items():
             if self.get_position_count(position) < min_count:
                 return False
         return True
-        
+
     def get_needs(self) -> List[str]:
         """Get list of positions that still need to be filled."""
         needs = []
-        required_positions = {
-            'QB': 1,
-            'RB': 2,
-            'WR': 2,
-            'TE': 1,
-            'K': 1,
-            'DST': 1
+        required_positions = self.roster_config if self.roster_config else {
+            'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1
         }
-        
         for position, min_count in required_positions.items():
             current_count = self.get_position_count(position)
             if current_count < min_count:

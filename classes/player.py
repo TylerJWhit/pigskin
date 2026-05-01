@@ -26,7 +26,7 @@ class Player(BaseModel):
     def __init__(
         self,
         player_id: str,
-        name: str = '',
+        name: str = 'Unknown',
         position: str = 'RB',
         team: str = '',
         projected_points: float = 0.0,
