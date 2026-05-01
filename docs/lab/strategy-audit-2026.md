@@ -393,6 +393,71 @@ After removing the 5 pre-benchmark candidates, the benchmark field is:
 
 ---
 
+## Benchmark Validity Specification (#256)
+
+**Issue:** [#256](https://github.com/TylerJWhit/pigskin/issues/256)  
+**Added:** 2026-05-01 (Sprint 7)
+
+This section defines the statistical and operational requirements that a benchmark run must satisfy before any strategy removal decision is made.
+
+### Run Configuration
+
+| Parameter | Value | Rationale |
+|-----------|-------|-----------|
+| Simulation count | **500** per strategy set | Minimum for 5% significance at realistic effect sizes (win-rate delta ≥ 5 pp) |
+| Draft format | 12-team auction | Standard competitive format; matches target real-draft corpus |
+| Participating strategies | 13 candidates (see §Benchmark Candidate Set above) + `RandomStrategy` as baseline | All surviving-audit strategies compete head-to-head |
+| Budget per team | 200 (default) | Matches target real-draft budget |
+| Scoring | PPR | Most common real-draft format |
+| Seed handling | Fixed seed list, reproducible; store seeds in `benchmark_runs.seed_list` | Reproducibility required |
+
+### Metrics Computed Per Strategy
+
+| Metric | Column | Notes |
+|--------|--------|-------|
+| Win rate | `strategy_results.win_rate` | Fraction of simulations where this strategy's team ranked 1st |
+| Win rate std dev | `strategy_results.win_rate_stddev` | Standard deviation across 500 runs |
+| Average rank | `strategy_results.avg_rank` | Mean finish position (1 = best) |
+| Average budget efficiency | `strategy_results.avg_budget_efficiency` | Points per dollar spent |
+| p-value vs. baseline | `strategy_results.p_value_vs_current` | Two-tailed t-test vs. `RandomStrategy` win rate |
+| Gate result | `strategy_results.gate_result` | `PASS`, `FAIL`, or `NOT_EVALUATED` |
+
+### Removal Gate
+
+A strategy receives `gate_result = FAIL` and is eligible for removal if **all** of:
+1. Win rate ≤ `RandomStrategy` win rate, **AND**
+2. p-value vs. `RandomStrategy` ≥ 0.05 (no statistically significant difference from random)
+
+A strategy receives `gate_result = PASS` and is retained if:
+- Win rate > `RandomStrategy` win rate **AND** p-value < 0.05
+
+A strategy receives `gate_result = NOT_EVALUATED` if it was excluded from the run (broken, untrained, or not in the 13-candidate set).
+
+### Permanent Exclusions from the Gate
+
+| Strategy | Reason |
+|----------|--------|
+| `RandomStrategy` | Baseline — not subject to the removal gate; always retained |
+| `GridironSageStrategy` | MCTS model untrained; excluded until training data pipeline is complete (#84 P0 resolved but training remains incomplete) |
+
+### Limitations
+
+> **These decisions are simulation-valid only, not real-draft-valid.**  
+> Simulation win rates measure performance against other simulation strategies using synthetic projections. They do not measure how a strategy performs in real human-opponent drafts with real projection uncertainty. Re-evaluation against the real auction corpus (Initiative 1, #233–#234) is required before any strategy is permanently removed from the production registry.
+
+### Result Storage
+
+All benchmark outputs must be persisted to `lab/results_db/pigskin_lab.db` via the ADR-004 schema:
+- One `benchmark_runs` row per batch
+- One `strategy_results` row per strategy per batch
+- `Promotion` rows only for strategies that clear the gate AND are selected for deployment
+
+### Gate Check Against Previous Runs
+
+Before removing a strategy based on a new benchmark run, confirm the strategy also failed the gate in the most recent *previous* run (if one exists). A single-run failure is not sufficient for permanent removal — require two consecutive failing runs.
+
+---
+
 ## Incidental Issues Found During Audit
 
 Per the Incidental Issue Protocol, the following bugs discovered during this audit have been filed:
