@@ -84,19 +84,25 @@ gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
    gh issue view <ISSUE_NUMBER> --json labels | jq '.labels[].name' | grep "qa:tests-defined"
    ```
    If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
-3. Move the issue to **In Progress** on the project board (see commands above) and comment:
+3. **Create a feature branch from `develop`** — never work directly on `develop` or `main`:
+   ```bash
+   git checkout develop && git pull origin develop
+   git checkout -b feat/<slug>   # or fix/<slug>, refactor/<slug>, etc.
+   ```
+4. Move the issue to **In Progress** on the project board (see commands above) and comment:
    ```bash
    gh issue comment <ISSUE_NUMBER> --body "Starting implementation — QA tests are defined. Moving to In Progress."
    ```
-4. Read the QA test file(s) to understand exactly what behavior must be implemented
-5. Read the target implementation file fully before modifying
-6. Implement code to make the QA-defined failing tests pass
-7. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
-8. Check `get_errors` after edits to catch type issues
-9. Move the issue to **In Review**, then signal QA Agent:
-   ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. Moving to In Review for QA Phase 2 verification."
-   ```
+5. Read the QA test file(s) to understand exactly what behavior must be implemented
+6. Read the target implementation file fully before modifying
+7. Implement code to make the QA-defined failing tests pass
+8. Validate with `run_in_terminal`: `python -m pytest tests/ -x -q` — all tests must pass
+9. Check `get_errors` after edits to catch type issues
+10. Open a PR targeting `develop` and move the issue to **In Review**, then signal QA Agent:
+    ```bash
+    gh pr create --base develop --title "<type>(<scope>): <description>" --body "Closes #<ISSUE_NUMBER>"
+    gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. PR open targeting develop. Moving to In Review for QA Phase 2 verification."
+    ```
 
 ### Returning an Item to Ready (Questions / Blockers)
 If you encounter a question or blocker that requires Planning or QA input:

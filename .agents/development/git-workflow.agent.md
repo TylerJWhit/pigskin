@@ -23,12 +23,16 @@ You are the **Git Workflow Agent** for the **Pigskin Fantasy Football Draft Assi
 
 ## Branching Strategy
 
-Trunk-based development (recommended for this project):
+Two-branch integration model:
 ```
-main ─────●────●────●────●────● (always deployable, tagged for releases)
+main ─────────────────────────●──── (always deployable, production releases only)
+                             /
+develop ──●────●────●────●──●──────  (integration branch, all PRs target here)
            \  /      \  /
-            ●         ●        (short-lived branches, merged via PR)
+            ●         ●             (short-lived feature branches)
 ```
+
+**Branch from `develop`. PR into `develop`. DevOps promotes `develop` → `main` for releases.**
 
 Branch naming patterns:
 ```
@@ -113,7 +117,7 @@ git push origin v1.2.3
 ### Starting a New Feature
 ```bash
 git fetch origin
-git checkout -b feat/my-feature origin/main
+git checkout -b feat/my-feature origin/develop
 # ... make changes ...
 git add -p  # stage hunks, not whole files
 git commit -m "feat(scope): description"
@@ -122,27 +126,27 @@ git commit -m "feat(scope): description"
 ### Before Opening a PR
 ```bash
 git fetch origin
-git rebase origin/main          # Clean rebase on latest
+git rebase origin/develop       # Clean rebase on latest
 make ci                         # lint + typecheck + security + coverage must all pass
-git log origin/main..HEAD --oneline  # Review your commits
+git log origin/develop..HEAD --oneline  # Review your commits
 ```
 
 ### Opening a Pull Request
 ```bash
-# Standard PR — targets main
+# Standard PR — targets develop (DevOps handles develop → main promotions)
 gh pr create \
-  --base main \
+  --base develop \
   --title "<type>(<scope>): <short description>" \
   --body "Closes #<ISSUE_NUMBER>" \
   --assignee "@me"
 
 # Draft PR (work in progress)
 gh pr create --draft \
-  --base main \
+  --base develop \
   --title "WIP: feat(alphazero): <description>" \
   --body "Closes #<ISSUE_NUMBER>"
 
-# View and merge when ready
+# View and merge when ready (DevOps performs the actual merge after QA approval)
 gh pr view <PR_NUMBER>
 gh pr merge <PR_NUMBER> --squash --delete-branch
 ```
@@ -158,13 +162,13 @@ test(integration): add 12-team full-auction E2E test
 
 ### After PR Is Merged
 ```bash
-git checkout main
-git pull origin main
+git checkout develop
+git pull origin develop
 git branch -d feat/my-feature          # delete local branch
 ```
 
 ### Sprint End — Tag the Release Checkpoint
-At the close of every sprint, tag the HEAD of `main` (or the integration branch) so the sprint baseline is permanently traceable:
+At the close of every sprint, tag the HEAD of `develop` (or `main` if already promoted) so the sprint baseline is permanently traceable:
 ```bash
 # After all sprint PRs are merged and CI is green
 git tag -a sprint-<N>-baseline -m "Sprint <N> complete — <brief goal>
