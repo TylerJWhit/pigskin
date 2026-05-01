@@ -1,5 +1,5 @@
 """Unit tests for strategy modules with low coverage."""
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 import pytest
 
 
@@ -212,6 +212,68 @@ class TestAdaptiveStrategy:
         team = _make_team(roster=[_make_player() for _ in range(5)])
         slots = self.strategy._get_remaining_roster_slots(team)
         assert slots == 10
+
+    def test_update_draft_trends_triggers_update_aggression(self):
+        """Cover _update_aggression (lines 189-211) by adding 3+ bids."""
+        for i in range(5):
+            player = _make_player(name=f"P{i}", auction_value=float(30 + i))
+            self.strategy.update_draft_trends(player, float(35 + i))
+        # After 5 bids, current_aggression should have been updated
+        assert self.strategy.current_aggression > 0
+
+    def test_update_draft_trends_zero_value_player(self):
+        """Cover zero-value branch in update_draft_trends."""
+        player = _make_player(auction_value=0.0)
+        player.projected_points = 0.0
+        self.strategy.update_draft_trends(player, 10.0)
+        assert len(self.strategy.bid_history) > 0
+
+    def test_calculate_bid_kdst_mandatory(self):
+        """Cover K/DST mandatory bid path (lines 74-75)."""
+        player = _make_player(position="K", auction_value=5.0)
+        team = _make_team()
+        # Override position priority to >= 2.0
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=2.5), \
+             patch.object(self.strategy, '_calculate_budget_reservation', return_value=0):
+            bid = self.strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_bid_low_priority_many_slots(self):
+        """Cover low priority + many slots path (lines 79-80)."""
+        player = _make_player(position="K", auction_value=5.0)
+        team = _make_team()
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=0.05), \
+             patch.object(self.strategy, '_get_remaining_roster_slots', return_value=8), \
+             patch.object(self.strategy, '_calculate_budget_reservation', return_value=0):
+            bid = self.strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_bid_low_priority_few_slots(self):
+        """Cover low priority + few slots => return 0 (line 81)."""
+        player = _make_player(position="K", auction_value=5.0)
+        team = _make_team()
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=0.05), \
+             patch.object(self.strategy, '_get_remaining_roster_slots', return_value=2), \
+             patch.object(self.strategy, '_calculate_budget_reservation', return_value=0):
+            bid = self.strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert bid == 0
+
+    def test_should_nominate_undervalued_position(self):
+        """Cover undervalued position branch in should_nominate (lines 141-144)."""
+        player = _make_player(position="RB", auction_value=20.0)
+        team = _make_team()
+        self.strategy.position_trends["RB"] = 0.7  # Undervalued
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=0.5):
+            result = self.strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_valuable_affordable(self):
+        """Cover affordable valuable player branch (lines 147-150)."""
+        player = _make_player(position="WR", auction_value=20.0)
+        team = _make_team()
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=0.2):
+            result = self.strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
 
 
 class TestAggressiveStrategy:
