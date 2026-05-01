@@ -396,3 +396,328 @@ class TestErrorHandling:
         # Test what actually happens - implementation doesn't catch this exception
         with pytest.raises(Exception, match="Test error"):
             self.cli.handle_bid_command(['Josh Allen', '20'])
+
+
+# ── Additional coverage tests ──────────────────────────────────────────────
+
+class TestRunDispatchCoverage:
+    """Cover run() dispatch branches not exercised by existing tests."""
+
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_unknown_command_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.run(['totally_unknown_cmd']) == 1
+
+    def test_help_aliases(self):
+        for flag in ['help', '--help', '-h']:
+            with patch.object(self.cli, 'show_help') as m:
+                result = self.cli.run([flag])
+            assert result == 0
+
+    def test_keyboard_interrupt_returns_130(self):
+        with patch.object(self.cli, 'handle_bid_command', side_effect=KeyboardInterrupt):
+            result = self.cli.run(['bid', 'Josh'])
+        assert result == 130
+
+    def test_generic_exception_returns_1(self):
+        with patch.object(self.cli, 'handle_ping_command', side_effect=RuntimeError('oops')):
+            result = self.cli.run(['ping'])
+        assert result == 1
+
+
+class TestHandleBidCommandCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_no_args_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_bid_command([]) == 1
+
+    def test_failure_path(self):
+        self.cli.command_processor.get_bid_recommendation_detailed = Mock(return_value={
+            'success': False, 'error': 'Not found'
+        })
+        with patch('builtins.print'):
+            assert self.cli.handle_bid_command(['Josh']) == 1
+
+    def test_success_path(self):
+        self.cli.command_processor.get_bid_recommendation_detailed = Mock(return_value={
+            'success': True,
+            'player_name': 'Josh Allen',
+            'player_position': 'QB',
+            'player_team': 'BUF',
+            'current_bid': 20,
+            'recommendation_level': 'BID',
+            'recommended_bid': 25,
+            'auction_value': 40,
+            'projected_points': 350.0,
+            'team_budget': 200,
+            'confidence': 0.85,
+            'team_needs': ['QB', 'RB', 'WR', 'TE'],
+        })
+        with patch('builtins.print'):
+            assert self.cli.handle_bid_command(['Josh Allen', '20']) == 0
+
+
+class TestHandleMockCommandCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_invalid_strategy_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_mock_command(['totally_bogus_strat']) == 1
+
+    def test_invalid_comma_strategy_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_mock_command(['value,totally_bogus_strat']) == 1
+
+    def test_failure_returns_1(self):
+        self.cli.command_processor.run_enhanced_mock_draft = Mock(
+            return_value={'success': False, 'error': 'Draft failed'}
+        )
+        with patch('builtins.print'):
+            assert self.cli.handle_mock_command(['value']) == 1
+
+    def test_success_returns_0(self):
+        self.cli.command_processor.run_enhanced_mock_draft = Mock(
+            return_value={'success': True, 'teams': []}
+        )
+        with patch('cli.main.print_mock_draft'), patch('builtins.print'):
+            assert self.cli.handle_mock_command(['value']) == 0
+
+    def test_flag_style_success(self):
+        self.cli.command_processor.run_enhanced_mock_draft = Mock(
+            return_value={'success': True}
+        )
+        with patch('cli.main.print_mock_draft'), patch('builtins.print'):
+            assert self.cli.handle_mock_command(['-s', 'value', '-n', '8']) == 0
+
+    def test_invalid_n_flag_ignored(self):
+        self.cli.command_processor.run_enhanced_mock_draft = Mock(
+            return_value={'success': True}
+        )
+        with patch('cli.main.print_mock_draft'), patch('builtins.print'):
+            assert self.cli.handle_mock_command(['-n', 'notanum', 'value']) == 0
+
+
+class TestHandleTournamentCommandCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_success_with_rounds_and_teams(self):
+        self.cli.command_processor.run_elimination_tournament = Mock(return_value={
+            'success': True, 'tournament_winner': 'value', 'total_rounds': 3,
+            'execution_time': 1.2,
+        })
+        with patch('builtins.print'):
+            assert self.cli.handle_tournament_command(['5', '12']) == 0
+
+    def test_verbose_flag(self):
+        self.cli.command_processor.run_elimination_tournament = Mock(return_value={
+            'success': True, 'tournament_winner': 'vor', 'total_rounds': 1,
+        })
+        with patch('builtins.print'):
+            assert self.cli.handle_tournament_command(['-v']) == 0
+
+    def test_failure_returns_1(self):
+        self.cli.command_processor.run_elimination_tournament = Mock(return_value={
+            'success': False, 'error': 'Tournament failed'
+        })
+        with patch('builtins.print'):
+            assert self.cli.handle_tournament_command([]) == 1
+
+
+class TestHandlePingCommandCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def _make_result(self, overall_status, success=True):
+        return {
+            'success': success,
+            'tests': [{'test': 'API', 'status': 'PASS', 'details': 'OK'}],
+            'summary': 'test',
+            'overall_status': overall_status,
+        }
+
+    def test_healthy(self):
+        self.cli.command_processor.test_sleeper_connectivity = Mock(
+            return_value=self._make_result('HEALTHY', success=True)
+        )
+        with patch('builtins.print'):
+            assert self.cli.handle_ping_command([]) == 0
+
+    def test_degraded(self):
+        self.cli.command_processor.test_sleeper_connectivity = Mock(
+            return_value=self._make_result('DEGRADED', success=False)
+        )
+        with patch('builtins.print'):
+            assert self.cli.handle_ping_command([]) == 1
+
+    def test_down(self):
+        self.cli.command_processor.test_sleeper_connectivity = Mock(
+            return_value=self._make_result('DOWN', success=False)
+        )
+        with patch('builtins.print'):
+            assert self.cli.handle_ping_command([]) == 1
+
+
+class TestHandleSleeperCommandCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_no_subcommand_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_sleeper_command([]) == 1
+
+    def test_unknown_subcommand_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_sleeper_command(['unknownsub']) == 1
+
+    def test_status_routes(self):
+        with patch.object(self.cli, 'handle_sleeper_status', return_value=0):
+            assert self.cli.handle_sleeper_command(['status']) == 0
+
+    def test_draft_routes(self):
+        with patch.object(self.cli, 'handle_sleeper_draft', return_value=0):
+            assert self.cli.handle_sleeper_command(['draft']) == 0
+
+    def test_league_routes(self):
+        with patch.object(self.cli, 'handle_sleeper_league', return_value=0):
+            assert self.cli.handle_sleeper_command(['league']) == 0
+
+    def test_leagues_routes(self):
+        with patch.object(self.cli, 'handle_sleeper_leagues', return_value=0):
+            assert self.cli.handle_sleeper_command(['leagues']) == 0
+
+    def test_cache_routes(self):
+        with patch.object(self.cli, 'handle_sleeper_cache', return_value=0):
+            assert self.cli.handle_sleeper_command(['cache']) == 0
+
+
+class TestHandleSleeperSubcommandsCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    # status
+    def test_status_no_args_no_config_returns_1(self):
+        with patch.object(self.cli, '_get_config_default', return_value=None), patch('builtins.print'):
+            assert self.cli.handle_sleeper_status([]) == 1
+
+    def test_status_with_username(self):
+        self.cli.command_processor.get_sleeper_draft_status = Mock(return_value={'success': True})
+        with patch('builtins.print'):
+            assert self.cli.handle_sleeper_status(['testuser']) == 0
+
+    def test_status_from_config(self):
+        with patch.object(self.cli, '_get_config_default', return_value='configuser'):
+            self.cli.command_processor.get_sleeper_draft_status = Mock(return_value={'success': True})
+            assert self.cli.handle_sleeper_status([]) == 0
+
+    # draft
+    def test_draft_no_args_no_config_returns_1(self):
+        mock_config = Mock()
+        mock_config.sleeper_draft_id = None
+        self.cli.config_manager = Mock()
+        self.cli.config_manager.load_config.return_value = mock_config
+        with patch('builtins.print'):
+            assert self.cli.handle_sleeper_draft([]) == 1
+
+    def test_draft_with_id(self):
+        self.cli.command_processor.display_sleeper_draft = Mock(return_value={'success': True})
+        assert self.cli.handle_sleeper_draft(['123456']) == 0
+
+    # league
+    def test_league_no_args_returns_1(self):
+        with patch('builtins.print'):
+            assert self.cli.handle_sleeper_league([]) == 1
+
+    def test_league_with_id(self):
+        self.cli.command_processor.display_sleeper_league_rosters = Mock(return_value={'success': True})
+        assert self.cli.handle_sleeper_league(['987654']) == 0
+
+    # leagues
+    def test_leagues_no_args_no_config_returns_1(self):
+        with patch.object(self.cli, '_get_config_default', return_value=None), patch('builtins.print'):
+            assert self.cli.handle_sleeper_leagues([]) == 1
+
+    def test_leagues_with_username(self):
+        self.cli.command_processor.list_sleeper_leagues = Mock(return_value={'success': True})
+        assert self.cli.handle_sleeper_leagues(['testuser']) == 0
+
+
+class TestHandleSleeperCacheCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_no_args_shows_info(self):
+        mock_cache = Mock()
+        mock_cache.get_cache_info.return_value = {
+            'cache_exists': True,
+            'cache_valid': True,
+            'cache_file': '/tmp/cache.json',
+            'metadata': {'player_count': 100, 'last_updated': '2024-01-01'},
+            'file_size_mb': 1.5,
+        }
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache([]) == 0
+
+    def test_info_action(self):
+        mock_cache = Mock()
+        mock_cache.get_cache_info.return_value = {
+            'cache_exists': False, 'cache_valid': False,
+            'cache_file': '/tmp/c', 'metadata': {},
+        }
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['info']) == 0
+
+    def test_refresh_success(self):
+        mock_cache = Mock()
+        mock_cache.get_players.return_value = {'p1': {}}
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['refresh']) == 0
+
+    def test_refresh_failure(self):
+        mock_cache = Mock()
+        mock_cache.get_players.return_value = None
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['refresh']) == 1
+
+    def test_clear_success(self):
+        mock_cache = Mock()
+        mock_cache.clear_cache.return_value = True
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['clear']) == 0
+
+    def test_clear_failure(self):
+        mock_cache = Mock()
+        mock_cache.clear_cache.return_value = False
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['clear']) == 1
+
+    def test_unknown_action_returns_1(self):
+        mock_cache = Mock()
+        with patch('utils.sleeper_cache.get_player_cache', return_value=mock_cache), patch('builtins.print'):
+            assert self.cli.handle_sleeper_cache(['unknown_action']) == 1
+
+
+class TestParseBidArgsCoverage:
+    def setup_method(self):
+        self.cli = AuctionDraftCLI()
+
+    def test_empty_args(self):
+        name, bid, draft_id = self.cli._parse_bid_args([])
+        assert name == "" and bid == 1.0 and draft_id is None
+
+    def test_name_only(self):
+        name, bid, draft_id = self.cli._parse_bid_args(['Josh', 'Allen'])
+        assert name == 'Josh Allen' and bid == 1.0 and draft_id is None
+
+    def test_name_and_bid(self):
+        name, bid, draft_id = self.cli._parse_bid_args(['Josh', 'Allen', '25'])
+        assert name == 'Josh Allen' and bid == 25.0 and draft_id is None
+
+    def test_name_bid_draft_id(self):
+        name, bid, draft_id = self.cli._parse_bid_args(['Josh', 'Allen', '25', '123456'])
+        assert name == 'Josh Allen' and bid == 25.0 and draft_id == '123456'
