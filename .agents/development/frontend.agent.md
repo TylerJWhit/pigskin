@@ -69,16 +69,22 @@ After implementation, hand off to the QA Agent for Phase 2 verification before m
    gh issue view <ISSUE_NUMBER> --json labels | jq '.labels[].name' | grep "qa:tests-defined"
    ```
    If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
-3. Check `launch_draft_ui.py` for server setup and route registration
-4. Read the QA-defined test file(s) to understand exactly what UI behavior must be implemented
-5. Review WebSocket event names and payloads in existing handlers
-6. Implement changes following existing patterns before introducing new dependencies
-7. Test UI changes with `python launch_draft_ui.py` and verify in browser
-8. Validate automated tests pass: `python -m pytest tests/ -x -q`
-9. Move the issue to **In Review**, then signal QA Agent:
+3. **Create a feature branch from `develop`** — never work directly on `develop` or `main`:
    ```bash
-   gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. Moving to In Review for QA Phase 2 verification."
+   git checkout develop && git pull origin develop
+   git checkout -b feat/<slug>   # or fix/<slug>, etc.
    ```
+4. Check `launch_draft_ui.py` for server setup and route registration
+5. Read the QA-defined test file(s) to understand exactly what UI behavior must be implemented
+6. Review WebSocket event names and payloads in existing handlers
+7. Implement changes following existing patterns before introducing new dependencies
+8. Test UI changes with `python launch_draft_ui.py` and verify in browser
+9. Validate automated tests pass: `python -m pytest tests/ -x -q`
+10. Open a PR targeting `develop` and move the issue to **In Review**, then signal QA Agent:
+    ```bash
+    gh pr create --base develop --title "<type>(<scope>): <description>" --body "Closes #<ISSUE_NUMBER>"
+    gh issue comment <ISSUE_NUMBER> --body "Implementation complete — all QA-defined tests pass. PR open targeting develop. Moving to In Review for QA Phase 2 verification."
+    ```
 
 ### Returning an Item to Ready (Questions / Blockers)
 If you encounter a question or blocker that requires Planning or QA input:
