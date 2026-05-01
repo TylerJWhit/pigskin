@@ -9,6 +9,9 @@ description = "Experimental research lab for pigskin auction strategies and back
 requires-python = ">=3.12"
 dependencies = [
     "pigskin-auction-draft",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.13",
 ]
 
 [tool.setuptools.packages.find]

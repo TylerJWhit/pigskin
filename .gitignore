@@ -235,3 +235,7 @@ test_scratch.*
 
 checkpoints/
 results/
+# Lab SQLite database
+lab/results_db/pigskin_lab.db
+lab/results_db/pigskin_lab.db-shm
+lab/results_db/pigskin_lab.db-wal
