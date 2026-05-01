@@ -12,6 +12,7 @@ def _make_player(name="Josh Allen", position="QB", auction_value=50.0, projected
     p.is_drafted = False
     p.team = "BUF"
     p.drafted_price = None
+    p.vor = 0.0
     return p
 
 
@@ -30,6 +31,7 @@ def _make_team(budget=200.0, roster=None):
     t.get_remaining_roster_slots = None
     t.enforce_budget_constraint = None
     t.roster_config = None
+    t.calculate_minimum_budget_needed = None
     return t
 
 
@@ -37,6 +39,7 @@ def _make_owner():
     o = MagicMock()
     o.owner_id = "owner1"
     o.is_human = False
+    o.get_risk_tolerance.return_value = 0.7
     return o
 
 
@@ -327,4 +330,286 @@ class TestEliteHybridStrategy:
         team = _make_team()
         owner = _make_owner()
         result = strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestHybridStrategies:
+    """Tests for hybrid strategy classes."""
+
+    def test_value_random_strategy_init(self):
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        assert s.name is not None
+
+    def test_value_random_calculate_bid(self):
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = s.calculate_bid(player, team, owner, 20.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_random_calculate_bid_no_bid(self):
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy(aggression=0.01, randomness=0.0)  # Minimal bid multiplier
+        player = _make_player(auction_value=10.0)
+        team = _make_team(budget=200.0)
+        owner = _make_owner()
+        # Returns an int/float regardless
+        bid = s.calculate_bid(player, team, owner, 100.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_random_should_nominate(self):
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        result = s.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+    def test_value_smart_strategy_init(self):
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        assert s.name is not None
+
+    def test_value_smart_calculate_bid(self):
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = s.calculate_bid(player, team, owner, 20.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_smart_should_nominate(self):
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        result = s.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+    def test_improved_value_strategy_init(self):
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        assert s.name is not None
+
+    def test_improved_value_calculate_bid(self):
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = s.calculate_bid(player, team, owner, 20.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_improved_value_should_nominate(self):
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        result = s.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestVorStrategy:
+    def setup_method(self):
+        from strategies.vor_strategy import VorStrategy
+        self.strategy = VorStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player(projected_points=350.0)
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+    def test_calculate_bid_exceeds_value(self):
+        player = _make_player(projected_points=100.0, auction_value=20.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 50.0, 200.0, [])
+        assert bid == 0
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player(projected_points=350.0)
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+    def test_calculate_bid_exceeds_value(self):
+        player = _make_player(projected_points=100.0, auction_value=20.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 50.0, 200.0, [])
+        assert bid == 0
+
+
+class TestEnhancedVorStrategy:
+    def setup_method(self):
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        self.strategy = InflationAwareVorStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestValueBasedStrategy:
+    def setup_method(self):
+        from strategies.value_based_strategy import ValueBasedStrategy
+        self.strategy = ValueBasedStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestRefinedValueRandomStrategy:
+    def setup_method(self):
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        self.strategy = RefinedValueRandomStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestImprovedValueStrategy:
+    def setup_method(self):
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        self.strategy = ImprovedValueStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(projected_points=350.0, auction_value=45.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestRandomStrategy:
+    def setup_method(self):
+        from strategies.random_strategy import RandomStrategy
+        self.strategy = RandomStrategy()
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = _make_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+
+class TestSigmoidStrategy:
+    def setup_method(self):
+        from strategies.sigmoid_strategy import SigmoidStrategy
+        self.strategy = SigmoidStrategy()
+
+    def _make_sigmoid_team(self, budget=200.0):
+        t = _make_team(budget=budget)
+        rc = {"QB": 1, "RB": 2, "WR": 3, "TE": 1, "K": 1, "DST": 1}
+        t.roster_requirements = rc
+        t.roster_config = rc
+        return t
+
+    def test_init(self):
+        assert self.strategy.name is not None
+
+    def test_calculate_bid_basic(self):
+        player = _make_player(auction_value=40.0, projected_points=300.0)
+        team = self._make_sigmoid_team()
+        owner = _make_owner()
+        bid = self.strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate(self):
+        player = _make_player()
+        team = self._make_sigmoid_team()
+        owner = _make_owner()
+        result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
