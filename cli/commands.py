@@ -5,6 +5,7 @@ This module contains the core command logic separated from the main CLI interfac
 """
 
 from typing import Dict, List, Optional
+import asyncio
 import time
 from classes import Draft, Team, Owner, create_strategy, AVAILABLE_STRATEGIES
 from data.fantasypros_loader import FantasyProsLoader
@@ -1647,7 +1648,7 @@ class CommandProcessor:
         print(f"Fetching draft status for '{username}' in {season}...")
         
         try:
-            result = self.sleeper_draft_service.get_current_draft_status(username, season)
+            result = asyncio.run(self.sleeper_draft_service.get_current_draft_status(username, season))
             return result
         except Exception as e:
             return {
@@ -1660,7 +1661,7 @@ class CommandProcessor:
         print(f"Fetching draft information for ID: {draft_id}...")
         
         try:
-            result = self.sleeper_draft_service.display_draft_info(draft_id)
+            result = asyncio.run(self.sleeper_draft_service.display_draft_info(draft_id))
             return result
         except Exception as e:
             return {
@@ -1673,7 +1674,7 @@ class CommandProcessor:
         print(f"Fetching league rosters for ID: {league_id}...")
         
         try:
-            result = self.sleeper_draft_service.display_league_rosters(league_id)
+            result = asyncio.run(self.sleeper_draft_service.display_league_rosters(league_id))
             return result
         except Exception as e:
             return {
@@ -1686,7 +1687,7 @@ class CommandProcessor:
         print(f"Fetching leagues for '{username}' in {season}...")
         
         try:
-            result = self.sleeper_draft_service.list_user_leagues(username, season)
+            result = asyncio.run(self.sleeper_draft_service.list_user_leagues(username, season))
             return result
         except Exception as e:
             return {

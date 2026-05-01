@@ -5,8 +5,9 @@ Issues:
   #126 — _convert_sleeper_player_to_auction_format uses hardcoded projected_points/auction_value
   #128 — _get_sleeper_draft_context uses user_budget = 200 unconditionally
 """
+import asyncio
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 # ---------------------------------------------------------------------------
@@ -31,10 +32,10 @@ class TestUserBudgetFromConfig(unittest.TestCase):
     def _mock_sleeper_api(self, svc, player_name="Test Player"):
         """Set up minimal Sleeper API mocks so _get_sleeper_draft_context reaches budget."""
         player_id = "p1"
-        svc.sleeper_api.get_draft.return_value = {
+        svc.sleeper_api.get_draft = AsyncMock(return_value={
             'type': 'auction', 'status': 'in_progress'
-        }
-        svc.sleeper_api.get_draft_picks.return_value = []
+        })
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[])
         svc.get_sleeper_players = MagicMock(return_value={
             player_id: {
                 'full_name': player_name,
@@ -48,7 +49,7 @@ class TestUserBudgetFromConfig(unittest.TestCase):
         svc = self._make_service(budget=500)
         self._mock_sleeper_api(svc)
 
-        result = svc._get_sleeper_draft_context("draft123", "Test Player")
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Test Player"))
 
         self.assertTrue(result.get('success'), f"Expected success, got: {result}")
         self.assertEqual(
@@ -61,7 +62,7 @@ class TestUserBudgetFromConfig(unittest.TestCase):
         svc = self._make_service(budget=100)
         self._mock_sleeper_api(svc)
 
-        result = svc._get_sleeper_draft_context("draft123", "Test Player")
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Test Player"))
 
         self.assertTrue(result.get('success'), f"Expected success, got: {result}")
         self.assertEqual(
@@ -74,7 +75,7 @@ class TestUserBudgetFromConfig(unittest.TestCase):
         svc = self._make_service(budget=200)
         self._mock_sleeper_api(svc)
 
-        result = svc._get_sleeper_draft_context("draft123", "Test Player")
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Test Player"))
 
         self.assertTrue(result.get('success'), f"Expected success, got: {result}")
         self.assertEqual(result['user_budget'], 200)

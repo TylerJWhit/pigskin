@@ -1,5 +1,6 @@
 """Bid recommendation service for the auction draft tool."""
 
+import asyncio
 from typing import Optional, Dict, Any, List
 
 from classes import Player, Team, Owner, Strategy, create_strategy, Draft
@@ -64,13 +65,13 @@ class BidRecommendationService:
             # Try to get Sleeper draft context first
             sleeper_context = None
             if self.sleeper_available and sleeper_draft_id:
-                sleeper_context = self._get_sleeper_draft_context(sleeper_draft_id, player_name)
+                sleeper_context = asyncio.run(self._get_sleeper_draft_context(sleeper_draft_id, player_name))
             
             # If no sleeper_draft_id provided, try to get from config
             if self.sleeper_available and not sleeper_context and not sleeper_draft_id:
                 default_draft_id = getattr(config, 'sleeper_draft_id', None)
                 if default_draft_id:
-                    sleeper_context = self._get_sleeper_draft_context(default_draft_id, player_name)
+                    sleeper_context = asyncio.run(self._get_sleeper_draft_context(default_draft_id, player_name))
             
             # Use Sleeper context if available, otherwise fallback to local draft
             if sleeper_context and sleeper_context.get('success'):
@@ -408,16 +409,16 @@ class BidRecommendationService:
             'should_bid': False
         }
     
-    def _get_sleeper_draft_context(self, draft_id: str, player_name: str) -> Dict[str, Any]:
+    async def _get_sleeper_draft_context(self, draft_id: str, player_name: str) -> Dict[str, Any]:
         """Get context from a live Sleeper draft."""
         try:
             # Get draft info
-            draft_info = self.sleeper_api.get_draft(draft_id)
+            draft_info = await self.sleeper_api.get_draft(draft_id)
             if not draft_info:
                 return {'success': False, 'error': 'Draft not found'}
             
             # Get draft picks to see what's already been drafted
-            picks = self.sleeper_api.get_draft_picks(draft_id)
+            picks = await self.sleeper_api.get_draft_picks(draft_id)
             drafted_player_ids = {pick.get('player_id') for pick in picks if pick.get('player_id')}
             
             # Get player data from cache

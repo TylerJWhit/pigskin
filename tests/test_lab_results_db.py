@@ -70,7 +70,7 @@ def session_factory(engine):
 @pytest.fixture
 def prepared_db(tmp_db_path, engine):
     """Create schema and return (engine, session_factory, db_path)."""
-    asyncio.get_event_loop().run_until_complete(_create_schema(engine))
+    asyncio.run(_create_schema(engine))
     return engine, make_session_factory(engine), tmp_db_path
 
 
@@ -197,7 +197,7 @@ class TestBasicCRUD:
                 await session.refresh(run)
                 return run.id
 
-        run_id = asyncio.get_event_loop().run_until_complete(_run())
+        run_id = asyncio.run(_run())
         assert run_id == 1
 
     def test_insert_strategy_result(self, prepared_db):
@@ -227,7 +227,7 @@ class TestBasicCRUD:
                 await session.refresh(result)
                 return result.id, result.win_rate
 
-        result_id, win_rate = asyncio.get_event_loop().run_until_complete(_run())
+        result_id, win_rate = asyncio.run(_run())
         assert result_id == 1
         assert win_rate == pytest.approx(0.55)
 
@@ -352,7 +352,7 @@ class TestAuctionTablesCRUD:
                 await session.refresh(draft)
                 return draft.id, draft.season
 
-        draft_id, season = asyncio.get_event_loop().run_until_complete(_run())
+        draft_id, season = asyncio.run(_run())
         assert draft_id == 1
         assert season == "2024"
 
@@ -384,7 +384,7 @@ class TestAuctionTablesCRUD:
                 await session.refresh(pick)
                 return pick.id, pick.winner_bid, pick.draft_id
 
-        pick_id, bid, fk = asyncio.get_event_loop().run_until_complete(_run())
+        pick_id, bid, fk = asyncio.run(_run())
         assert pick_id == 1
         assert bid == 55
         assert fk == 1
@@ -414,7 +414,7 @@ class TestAuctionTablesCRUD:
                 await session.refresh(corpus)
                 return corpus.id, corpus.quality_score
 
-        corpus_id, score = asyncio.get_event_loop().run_until_complete(_run())
+        corpus_id, score = asyncio.run(_run())
         assert corpus_id == 1
         assert score == pytest.approx(0.85)
 
