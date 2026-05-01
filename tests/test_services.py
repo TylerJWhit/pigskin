@@ -99,11 +99,12 @@ class TestBidRecommendationService(BaseTestCase):
         recommendation = service.recommend_bid(auction, player, team)
         
         self.assertIn('success', recommendation)
+        # recommended_bid is present in both success and failure responses
+        self.assertIn('recommended_bid', recommendation)
+        self.assertIn('should_bid', recommendation)
         if recommendation['success']:
-            self.assertIn('recommended_bid', recommendation)
             self.assertIn('confidence', recommendation)
             self.assertIn('reasoning', recommendation)
-            
     @patch('services.bid_recommendation_service.ConfigManager')
     def test_recommend_nomination(self, mock_config_manager):
         """Test nomination recommendation."""
@@ -127,10 +128,13 @@ class TestBidRecommendationService(BaseTestCase):
         recommendation = service.recommend_nomination(auction, team)
         
         self.assertIn('success', recommendation)
+        # success key is always present; inner fields only available on success
         if recommendation['success']:
             self.assertIn('recommended_player', recommendation)
             self.assertIn('reasoning', recommendation)
-            
+        else:
+            # On failure, an error key must explain why
+            self.assertIn('error', recommendation)
     @patch('services.bid_recommendation_service.ConfigManager')
     def test_analyze_team_value(self, mock_config_manager):
         """Test team value analysis."""
