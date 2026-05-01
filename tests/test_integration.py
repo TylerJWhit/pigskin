@@ -65,25 +65,32 @@ class TestCompleteAuctionFlow(BaseTestCase):
                 # Should get some kind of recommendation
                 self.assertIn('success', bid_result)
                 
-            # Step 3: Simulate some auction activity
+            # Step 3: Simulate some auction activity using the sealed-bid model.
+            # In the sealed-bid model, nominate_player resolves the auction
+            # immediately and synchronously — there is no timer or intermediate
+            # is_active period visible to callers.
             if len(draft.available_players) > 0:
                 first_player = draft.available_players[0]
-                
-                # Nominate player
-                auction.nominate_player(first_player.player_id, "Owner 1")
-                self.assertTrue(auction.is_active)
-                self.assertEqual(auction.current_player, first_player)
-                
-                # Place some bids
-                auction.place_bid("Team 1", 10.0)
-                self.assertEqual(auction.current_bid, 10.0)
-                
-                auction.place_bid("Team 2", 15.0)
-                self.assertEqual(auction.current_bid, 15.0)
-                
-                # End auction for this player
-                auction.end_current_auction()
-                self.assertFalse(auction.is_active)
+                players_before = len(draft.available_players)
+
+                # Nominate player — resolves immediately in sealed-bid mode
+                result = auction.nominate_player(first_player.player_id, "Owner 1")
+                self.assertTrue(result, "nominate_player should return True for a valid player")
+
+                # After sealed-bid resolution the player has been processed:
+                # either drafted (if a bidder won) or still available (if no bids).
+                # Either way, the auction has returned to the idle state.
+                self.assertFalse(
+                    auction.is_active,
+                    "auction.is_active should be False after sealed-bid resolution",
+                )
+
+                # The player pool has shrunk by at least 1 (player was resolved)
+                self.assertLess(
+                    len(draft.available_players),
+                    players_before,
+                    "available_players should shrink after a nomination is resolved",
+                )
                 
         except ImportError as e:
             self.skipTest(f"Integration test skipped due to import error: {e}")
@@ -122,7 +129,7 @@ class TestCompleteAuctionFlow(BaseTestCase):
             draft.add_players(test_players)
             
             # Create auction
-            auction = Auction(draft, timer_duration=30)
+            auction = Auction(draft)
             
             # Simulate bidding on a player
             if test_players:
@@ -254,9 +261,9 @@ class TestErrorHandling(BaseTestCase):
             with self.assertRaises((KeyError, ValueError)):
                 auction.nominate_player("nonexistent_player", "Test Owner")
                 
-            # Test invalid bid
-            with self.assertRaises((ValueError, TypeError)):
-                auction.place_bid("Test Team", -10.0)  # Negative bid
+            # Test invalid bid — place_bid is a sealed-bid no-op; returns False
+            result = auction.place_bid("Test Team", -10.0)
+            self.assertFalse(result)
                 
         except ImportError as e:
             self.skipTest(f"Auction error test skipped due to import error: {e}")

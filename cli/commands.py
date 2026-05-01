@@ -890,7 +890,7 @@ class CommandProcessor:
             draft.start_draft()
             
             # Create auction with fast timers
-            auction = Auction(draft, bid_timer=1, nomination_timer=1)
+            auction = Auction(draft)
             
             # Assign strategies to teams and enable auto-bidding
             team_strategies = {}
@@ -1139,7 +1139,7 @@ class CommandProcessor:
         draft.start_draft()
         
         # Create auction with reasonable timers for simulation
-        auction = Auction(draft, bid_timer=0.01, nomination_timer=0.01)
+        auction = Auction(draft)
         
         # Configure strategies for each team and enable auto-bidding
         for team in draft.teams:

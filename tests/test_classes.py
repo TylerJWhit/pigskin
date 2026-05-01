@@ -253,14 +253,13 @@ class TestAuction(BaseTestCase):
         from classes.draft import Draft
         
         draft = Draft(name="Test Draft", budget_per_team=200, roster_size=9)
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         self.assertEqual(auction.draft, draft)
-        self.assertEqual(auction.bid_timer, 60)
         self.assertFalse(auction.is_active)
         
     def test_auction_nomination(self):
-        """Test player nomination in auction."""
+        """Test player nomination resolves immediately via sealed bid."""
         from classes.auction import Auction
         from classes.draft import Draft
         from classes.team import Team
@@ -269,18 +268,22 @@ class TestAuction(BaseTestCase):
         players = TestDataGenerator.create_test_players(5)
         draft.add_players(players)
         
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         # Start the draft first
-        draft.add_team(Team("team1", "owner1", "Test Team"))
-        draft.add_team(Team("team2", "owner2", "Test Team 2"))
+        team1 = Team("team1", "owner1", "Test Team")
+        team2 = Team("team2", "owner2", "Test Team 2")
+        draft.add_team(team1)
+        draft.add_team(team2)
         draft.start_draft()
         
-        # Test nomination
+        # Nomination immediately resolves (sealed bid) — player is drafted
         player = players[0]
-        auction.nominate_player(player, "Test Owner")
+        result = auction.nominate_player(player, "owner1")
         
-        self.assertEqual(auction.draft.current_player, player)
+        # nominate_player returns True and the player is no longer available
+        self.assertTrue(result)
+        self.assertNotIn(player, draft.available_players)
 
 
 class TestTournament(BaseTestCase):

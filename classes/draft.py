@@ -54,8 +54,6 @@ class Draft:
         self.current_player: Optional[Player] = None
         self.current_bid = 0.0
         self.current_high_bidder: Optional[str] = None
-        self.bid_timer = 30  # seconds
-        self.time_remaining = 0
         
         # Participants
         self.teams: List[Team] = []
@@ -130,7 +128,6 @@ class Draft:
         self.current_player = player
         self.current_bid = initial_bid
         self.current_high_bidder = nominating_owner_id
-        self.time_remaining = self.bid_timer
         
         # Record nomination
         nomination = {
@@ -160,7 +157,6 @@ class Draft:
             
         self.current_bid = bid_amount
         self.current_high_bidder = bidder_id
-        self.time_remaining = self.bid_timer  # Reset timer
         
         # Record bid
         bid = {
@@ -259,7 +255,6 @@ class Draft:
             
     def _start_new_nomination(self) -> None:
         """Start a new nomination phase."""
-        self.time_remaining = self.bid_timer
         nominator = self.get_current_nominator()
         if nominator:
             self._get_team_nomination(nominator)

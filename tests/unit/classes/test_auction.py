@@ -355,28 +355,41 @@ class TestAuctionNotification:
 
 class TestAuctionDelegation:
     """Test auction methods that delegate to draft."""
-    
-    def test_nominate_player_delegation(self, configured_draft, sample_players, sample_owners):
-        """Test nominate_player is legacy and returns False."""
+
+    def test_nominate_player_resolves_immediately(self, configured_draft, sample_players, sample_owners):
+        """Test nominate_player resolves the auction immediately via sealed bid."""
         auction = Auction(configured_draft)
         player = sample_players[0]
         owner_id = sample_owners[0].owner_id
-        initial_bid = 15.0
-        
-        result = auction.nominate_player(player, owner_id, initial_bid)
-        
-        # This method is legacy and always returns False
+
+        result = auction.nominate_player(player, owner_id, 1.0)
+
+        # Returns True and the player is no longer available (sealed bid resolved)
+        assert result is True
+        assert player not in configured_draft.available_players
+
+    def test_nominate_player_returns_false_if_unavailable(self, configured_draft, sample_players, sample_owners):
+        """Test nominate_player returns False when player is not available."""
+        auction = Auction(configured_draft)
+        player = sample_players[0]
+        owner_id = sample_owners[0].owner_id
+
+        # Remove player from available pool first
+        configured_draft.available_players.remove(player)
+
+        result = auction.nominate_player(player, owner_id, 1.0)
+
         assert result is False
-    
-    def test_place_bid_delegation(self, configured_draft, sample_owners):
-        """Test place_bid is legacy and returns False."""
+
+    def test_place_bid_is_legacy_no_op(self, configured_draft, sample_owners):
+        """Test place_bid is a legacy no-op and always returns False."""
         auction = Auction(configured_draft)
         bidder_id = sample_owners[0].owner_id
         bid_amount = 20.0
-        
+
         result = auction.place_bid(bidder_id, bid_amount)
-        
-        # This method is legacy and always returns False
+
+        # Sealed-bid auction: individual place_bid calls are not supported
         assert result is False
 
 

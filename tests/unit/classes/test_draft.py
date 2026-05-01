@@ -33,8 +33,6 @@ class TestDraftInitialization:
         assert draft.current_player is None
         assert draft.current_bid == 0.0
         assert draft.current_high_bidder is None
-        assert draft.bid_timer == 30
-        assert draft.time_remaining == 0
         
         # Lists should be empty
         assert len(draft.teams) == 0
