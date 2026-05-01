@@ -2,7 +2,7 @@
 
 **Status:** Revised and Accepted
 **Date:** 2026-04-28
-**Revised:** 2026-04-28
+**Revised:** 2026-04-30
 **Author:** Architecture Agent (via Orchestrator)
 **Reviewer:** Architecture Agent
 **Deciders:** Engineering team
@@ -133,23 +133,21 @@ threading.Timer(1.0, ...)  → 5 instances for nomination + bid tick callbacks
 
 The existing pattern is: timers are started outside `self._lock`, but state mutations inside the tick callbacks acquire `self._lock`. This is correct for the threading model, but means the asyncio migration must preserve the same invariant.
 
-#### Thread Safety Migration Contract (issue #12)
+> **⚠️ SUPERSEDED — 2026-04-30 (issue #264):** Timer logic has been removed from the `Auction` class entirely. The auction is now a **blind sealed-bid (Vickrey second-price)** mechanism with no timing state. Phases 2 (asyncio timer migration) and 3 (WebSocket against timer engine) below are **obsolete** and should not be implemented as written. Issue #12 (asyncio migration) should be closed. Issue #13 (WebSocket) requires re-scoping — any future WebSocket endpoint would broadcast auction results, not timer ticks.
+
+#### Thread Safety Migration Contract (issue #12) — OBSOLETE
 
 **The rule**: Do NOT mix `threading.Timer` with the asyncio event loop. The transition must be atomic — either everything stays on threads, or everything moves to asyncio. Partial migration is the most dangerous state.
 
-**Migration sequence (mandatory order):**
+**Migration sequence (mandatory order) — OBSOLETE (timers removed, see issue #264):**
 
 1. **Phase 1 (sync wrappers first)**: FastAPI supports synchronous route handlers. Implement all REST routes using `def` (not `async def`) calling the existing sync auction engine directly. No asyncio in the domain layer yet. This is safe immediately.
 
-2. **Phase 2 (asyncio migration, issue #12)**: Refactor `Auction` class to use `asyncio.Task` for timers and `asyncio.Lock` for state guards:
-   - Replace `threading.RLock()` → `asyncio.Lock()`
-   - Replace `threading.Timer(1.0, tick_fn)` → `asyncio.create_task(asyncio.sleep(1.0)); tick_fn()` via `asyncio.get_event_loop().call_later(1.0, tick_fn)` (**preferred**) or a task wrapper
-   - All callbacks must be coroutines (`async def`) or scheduled via `loop.call_soon_threadsafe()` if called from a non-async context
-   - `asyncio.get_running_loop()` (not the deprecated `asyncio.get_event_loop()`) must be used everywhere
+2. ~~**Phase 2 (asyncio migration, issue #12)**: Refactor `Auction` class to use `asyncio.Task` for timers and `asyncio.Lock` for state guards.~~ **OBSOLETE** — timers removed (issue #264). No threading or asyncio migration needed for the auction engine.
 
-3. **Phase 3 (WebSocket, issue #13)**: WebSocket endpoint is only implemented AFTER Phase 2 is complete. Do not implement WebSocket against the sync/threading auction engine — the GIL plus asyncio event loop create undetectable race conditions.
+3. ~~**Phase 3 (WebSocket, issue #13)**: WebSocket endpoint is only implemented AFTER Phase 2 is complete.~~ **RE-SCOPE REQUIRED** — a WebSocket endpoint can now be built directly against the sync sealed-bid engine without asyncio migration. Timer tick events no longer exist. The broadcast model should emit `auction_complete` and `player_nominated` events only.
 
-**Invariant**: `asyncio.Lock` is not reentrant. The current `threading.RLock` IS reentrant (used in `nominate_player` which is called from `place_bid` callback paths). The asyncio migration must audit all call paths for recursive lock acquisition and break cycles.
+**Invariant (historical)**: `asyncio.Lock` is not reentrant. The `threading.RLock` it was replacing has been removed alongside all timer logic. No locking is required in the current `Auction` implementation.
 
 #### WebSocket State Broadcast Architecture
 

@@ -167,8 +167,8 @@ class Tournament:
         # Start draft
         draft.start_draft()
         
-        # Create auction with strategies
-        auction = Auction(draft, bid_timer=1, nomination_timer=1)  # Fast timers for simulation
+        # Create auction with strategies (sealed-bid model has no timer params)
+        auction = Auction(draft)
         
         # Configure strategies for each owner
         for config in self.strategy_configs:

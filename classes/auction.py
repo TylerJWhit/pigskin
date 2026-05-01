@@ -2,7 +2,6 @@
 
 import logging
 from typing import Dict, List, Optional, Callable, Tuple
-import threading
 from .draft import Draft
 from .player import Player
 from .team import Team
@@ -20,51 +19,11 @@ class Auction:
         draft: Draft,
         players: Optional[List] = None,
         strategies: Optional[Dict] = None,
-        bid_timer: int = 30,
-        nomination_timer: int = 60,
-        timer_duration: Optional[int] = None,
     ):
         self.draft = draft
-        self.bid_timer = timer_duration if timer_duration is not None else bid_timer
-        self.nomination_timer = nomination_timer
-
-        # Thread safety lock for all shared-state mutations.
-        #
-        # ASYNCIO MIGRATION AUDIT (#185) — 2026-04-30
-        # ──────────────────────────────────────────────────────────────────────
-        # Result: NO reentrant lock acquisition exists in the current code.
-        # RLock is used defensively but a plain Lock would suffice today.
-        #
-        # All `with self._lock:` blocks mapped:
-        #   1. nominate_player()         — line ~100  — acquires; no nested acquire
-        #   2. place_bid()               — line ~133  — acquires; releases BEFORE
-        #                                               calling _process_auto_bids()
-        #   3. _nomination_timer_tick()  — line ~209  — acquires to read time_remaining,
-        #                                               releases BEFORE calling
-        #                                               _auto_nominate_player() → nominate_player()
-        #   4. _bid_timer_tick() outer   — line ~228  — acquires to read time_remaining, releases
-        #   5. _bid_timer_tick() inner   — line ~235  — acquires; calls
-        #                                               _complete_current_auction() which
-        #                                               does NOT re-acquire self._lock
-        #
-        # Specifically audited: ADR-002 concern "nominate_player called from place_bid
-        # callback paths" — place_bid RELEASES the lock before any callback/auto-bid
-        # path that could reach nominate_player.  No cycle exists.
-        #
-        # asyncio migration notes (#12):
-        #   • Replace threading.RLock with asyncio.Lock (plain; reentrancy not needed)
-        #   • threading.Timer-based _start_bid_timer / _start_nomination_timer must
-        #     become asyncio.create_task(asyncio.sleep(n)) coroutines
-        #   • _bid_timer_tick lines ~228+235 can be collapsed into a single
-        #     `async with self._lock:` block
-        #   • _process_auto_bids must become a coroutine; any `await` inside must not
-        #     occur while the lock is held (asyncio.Lock is not reentrant)
-        # ──────────────────────────────────────────────────────────────────────
-        self._lock = threading.RLock()
 
         # Auction state
         self.is_active = False
-        self.current_timer: Optional[threading.Timer] = None
         self.auto_bid_enabled = {}  # owner_id -> bool
         self.strategies = {}  # owner_id -> Strategy
 
@@ -78,7 +37,6 @@ class Auction:
         self.on_bid_placed: List[Callable] = []
         self.on_player_nominated: List[Callable] = []
         self.on_auction_completed: List[Callable] = []
-        self.on_timer_tick: List[Callable] = []
 
     @property
     def current_player(self):
@@ -104,8 +62,6 @@ class Auction:
     def stop_auction(self) -> None:
         """Stop the auction system."""
         self.is_active = False
-        if self.current_timer:
-            self.current_timer.cancel()
             
     def nominate_player(
         self,
@@ -113,11 +69,10 @@ class Auction:
         nominating_owner_id: str,
         initial_bid: float = 1.0
     ) -> bool:
-        """Nominate a player for auction.
+        """Nominate a player for auction and immediately resolve via sealed bid.
 
-        In mock/timer-disabled mode (bid_timer == 0), all strategy bids are
-        collected immediately and the auction resolves synchronously — no
-        background timer is started.
+        All teams submit bids simultaneously (blind). The winner pays the
+        second-highest bid + $1 (Vickrey). Ties resolved randomly.
         """
         # Validate: if player is a bare string ID, look it up; raise if not found
         if isinstance(player, str):
@@ -128,18 +83,12 @@ class Auction:
             if found is None:
                 raise ValueError(f"Player '{player}' not found in available players")
             player = found
-        with self._lock:
-            try:
-                self.draft.nominate_player(player, nominating_owner_id, initial_bid)
-                self.is_active = True
-                self._notify_player_nominated(player, nominating_owner_id, initial_bid)
-                # Only start background timer if bid_timer > 0; otherwise bids
-                # are placed manually and resolved via end_current_auction().
-                if self.bid_timer > 0:
-                    self._start_bid_timer()
-                return True
-            except ValueError:
-                return False
+        if player not in self.draft.available_players:
+            return False
+        self.is_active = True
+        self._notify_player_nominated(player, nominating_owner_id, initial_bid)
+        self._resolve_mock_auction(player)
+        return True
 
     def _resolve_mock_auction(self, player: 'Player') -> None:
         """Collect all strategy bids immediately and award player to highest bidder."""
@@ -158,26 +107,11 @@ class Auction:
         self.is_active = False
             
     def place_bid(self, bidder_id: str, bid_amount: float) -> bool:
-        """Place a bid on the current player."""
-        if bid_amount < 0:
-            raise ValueError(f"Bid amount must be non-negative, got {bid_amount}")
-        with self._lock:
-            if not self.is_active:
-                return False
+        """Legacy method — blind-bid auctions are resolved via nominate_player.
 
-            # CR-06: Prevent the current high bidder from bidding against themselves
-            if self.draft.current_high_bidder == bidder_id:
-                return False
-
-            success = self.draft.place_bid(bidder_id, bid_amount)
-        if success:
-            self._start_bid_timer()  # Reset timer
-            self._notify_bid_placed(bidder_id, bid_amount)
-
-            # Trigger auto-bids from other participants
-            self._process_auto_bids()
-
-        return success
+        Retained for backward compatibility only; always returns False.
+        """
+        return False
         
     def enable_auto_bid(self, owner_id: str, strategy: Strategy) -> None:
         """Enable auto-bidding for an owner with given strategy."""
@@ -196,82 +130,12 @@ class Auction:
             self._complete_current_auction()
 
     def end_current_auction(self) -> None:
-        """End bidding on the current player and award to highest bidder."""
-        if self.current_timer:
-            self.current_timer.cancel()
-            self.current_timer = None
+        """End the current player auction and award to highest bidder."""
         if self.draft.current_player:
             self.draft.complete_auction()
         self.is_active = False
             
-    def _start_nomination_timer(self) -> None:
-        """Start timer for player nomination."""
-        if self.current_timer:
-            self.current_timer.cancel()
-            self.current_timer = None
 
-        self.draft.time_remaining = self.nomination_timer
-        if self.nomination_timer <= 0:
-            return  # Timers disabled (e.g. in tests)
-        t = threading.Timer(1.0, self._nomination_timer_tick)
-        t.daemon = True
-        self.current_timer = t
-        t.start()
-
-    def _start_bid_timer(self) -> None:
-        """Start timer for bidding phase."""
-        if self.current_timer:
-            self.current_timer.cancel()
-            self.current_timer = None
-
-        self.draft.time_remaining = self.bid_timer
-        if self.bid_timer <= 0:
-            return  # Timers disabled (e.g. in tests)
-        t = threading.Timer(1.0, self._bid_timer_tick)
-        t.daemon = True
-        self.current_timer = t
-        t.start()
-        
-    def _nomination_timer_tick(self) -> None:
-        """Handle nomination timer tick."""
-        if not self.is_active:
-            return
-
-        with self._lock:
-            self.draft.time_remaining -= 1
-            time_left = self.draft.time_remaining
-
-        self._notify_timer_tick("nomination", time_left)
-
-        if time_left <= 0:
-            self._auto_nominate_player()
-        else:
-            t = threading.Timer(1.0, self._nomination_timer_tick)
-            t.daemon = True
-            self.current_timer = t
-            t.start()
-
-    def _bid_timer_tick(self) -> None:
-        """Handle bid timer tick."""
-        if not self.is_active:
-            return
-
-        with self._lock:
-            self.draft.time_remaining -= 1
-            time_left = self.draft.time_remaining
-
-        self._notify_timer_tick("bidding", time_left)
-
-        if time_left <= 0:
-            with self._lock:
-                if self.draft.current_player:  # Guard against double-fire
-                    self._complete_current_auction()
-        else:
-            t = threading.Timer(1.0, self._bid_timer_tick)
-            t.daemon = True
-            self.current_timer = t
-            t.start()
-            
     def _auto_nominate_player(self) -> None:
         """Auto-nominate a player when timer expires."""
         current_nominator = self.draft.get_current_nominator()
@@ -375,8 +239,6 @@ class Auction:
 
             if self.draft.status == "completed":
                 self.stop_auction()
-            else:
-                self._start_nomination_timer()
 
     def _get_team_nomination(self, team: 'Team') -> Optional['Player']:
         """Get a player nomination from the given team."""
@@ -620,14 +482,6 @@ class Auction:
             except Exception:
                 pass
 
-    def _notify_timer_tick(self, phase: str, time_remaining: int) -> None:
-        """Notify listeners of timer tick."""
-        for callback in self.on_timer_tick:
-            try:
-                callback(phase, time_remaining)
-            except Exception:
-                pass
-                
     def add_bid_listener(self, callback: Callable) -> None:
         """Add a callback for bid events."""
         self.on_bid_placed.append(callback)
@@ -639,10 +493,6 @@ class Auction:
     def add_completion_listener(self, callback: Callable) -> None:
         """Add a callback for auction completion events."""
         self.on_auction_completed.append(callback)
-        
-    def add_timer_listener(self, callback: Callable) -> None:
-        """Add a callback for timer tick events."""
-        self.on_timer_tick.append(callback)
 
     def __str__(self) -> str:
         return f"Auction for {self.draft.name} ({'Active' if self.is_active else 'Inactive'})"

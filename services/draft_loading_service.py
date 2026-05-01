@@ -297,8 +297,7 @@ class DraftLoadingService:
             if draft:
                 # Import Auction here to avoid circular imports
                 from classes.auction import Auction
-                # timer_duration=0 → mock/sealed-bid mode, no background timers
-                auction = Auction(draft, timer_duration=0)
+                auction = Auction(draft)
                 
                 return {
                     'success': True,
