@@ -449,7 +449,7 @@ class BidRecommendationService:
             
             # Get user's team info if available
             user_id = getattr(self.config_manager.load_config(), 'sleeper_user_id', None)
-            user_budget = 200  # Default auction budget
+            user_budget = self.config_manager.load_config().budget
             user_roster = []
             
             if user_id and picks:
@@ -656,9 +656,9 @@ class BidRecommendationService:
         position = sleeper_player.get('position', 'UNK')
         team = sleeper_player.get('team', 'UNK')
         
-        # Use basic projections - could be enhanced with real projection data
-        projected_points = 100.0  # Default projection
-        auction_value = 10.0     # Default auction value
+        # Use actual projection data when available, falling back to defaults only if absent
+        projected_points = float(sleeper_player.get('projected_points') or 100.0)
+        auction_value = float(sleeper_player.get('auction_value') or 10.0)
         
         # Create Player object
         player = Player(
