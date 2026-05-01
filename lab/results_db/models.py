@@ -1,9 +1,14 @@
 """SQLAlchemy ORM models for the Pigskin Lab results database.
 
-Schema defined by ADR-004. Three tables:
-  - benchmark_runs    : one row per full simulation batch
-  - strategy_results  : per-strategy results within a run
-  - promotions        : strategy promotion history with single-current trigger
+Schema defined by ADR-004. Tables:
+  Baseline (migration 7679204de4ae):
+    - benchmark_runs    : one row per full simulation batch
+    - strategy_results  : per-strategy results within a run
+    - promotions        : strategy promotion history with single-current trigger
+  Migration a1b2c3d4e5f6 (#194):
+    - real_auction_drafts : one row per Sleeper draft ingested
+    - real_auction_picks  : one row per pick within a draft
+    - auction_corpus      : corpus membership/quality record for each draft
 
 Database: SQLite with WAL mode, accessed via SQLAlchemy async (aiosqlite).
 """
@@ -101,6 +106,75 @@ Index("idx_benchmark_runs_experiment", BenchmarkRun.experiment_id)
 Index("idx_strategy_results_run", StrategyResult.run_id)
 Index("idx_strategy_results_name", StrategyResult.strategy_name)
 Index("idx_promotions_current", Promotion.is_current)
+
+
+# ---------------------------------------------------------------------------
+# Real auction tables (migration a1b2c3d4e5f6, issue #194)
+# ---------------------------------------------------------------------------
+
+class RealAuctionDraft(Base):
+    """One row per Sleeper auction draft ingested into the lab corpus."""
+
+    __tablename__ = "real_auction_drafts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    sleeper_draft_id = Column(Text, nullable=False, unique=True)
+    sleeper_league_id = Column(Text, nullable=False)
+    season = Column(Text, nullable=False)
+    team_count = Column(Integer, nullable=False)
+    scoring_format = Column(Text, nullable=True)
+    auction_budget = Column(Integer, nullable=True)
+    draft_date = Column(DateTime, nullable=True)
+    fetched_at = Column(DateTime, nullable=False, default=datetime.utcnow)
+    raw_metadata = Column(Text, nullable=True)
+
+    picks = relationship(
+        "RealAuctionPick", back_populates="draft", cascade="all, delete-orphan"
+    )
+    corpus_entry = relationship(
+        "AuctionCorpus", back_populates="draft", uselist=False, cascade="all, delete-orphan"
+    )
+
+
+class RealAuctionPick(Base):
+    """One row per pick within a real Sleeper auction draft."""
+
+    __tablename__ = "real_auction_picks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    draft_id = Column(Integer, ForeignKey("real_auction_drafts.id"), nullable=False)
+    sleeper_player_id = Column(Text, nullable=False)
+    player_name = Column(Text, nullable=False)
+    position = Column(Text, nullable=False)
+    nfl_team = Column(Text, nullable=True)
+    winner_bid = Column(Integer, nullable=False)
+    picked_by_slot = Column(Integer, nullable=True)
+    pick_order = Column(Integer, nullable=True)
+    raw_pick = Column(Text, nullable=True)
+
+    draft = relationship("RealAuctionDraft", back_populates="picks")
+
+
+class AuctionCorpus(Base):
+    """Corpus membership and quality record for a real auction draft."""
+
+    __tablename__ = "auction_corpus"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    draft_id = Column(
+        Integer, ForeignKey("real_auction_drafts.id"), nullable=False, unique=True
+    )
+    quality_score = Column(Float, nullable=True)
+    used_in_backtest = Column(Boolean, nullable=False, default=False)
+    exclusion_reason = Column(Text, nullable=True)
+    included_at = Column(DateTime, nullable=True)
+
+    draft = relationship("RealAuctionDraft", back_populates="corpus_entry")
+
+
+Index("idx_rad_season", RealAuctionDraft.season)
+Index("idx_rap_draft_id", RealAuctionPick.draft_id)
+Index("idx_rap_player_id", RealAuctionPick.sleeper_player_id)
 
 
 # ---------------------------------------------------------------------------
