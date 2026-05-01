@@ -2,8 +2,9 @@
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends
 
+from api.deps import require_api_key
 from api.routers import auction, draft, players, strategies
 
 
@@ -29,11 +30,12 @@ def create_app() -> FastAPI:
     def health() -> dict:
         return {"status": "ok"}
 
-    # Mount routers
-    app.include_router(strategies.router)
-    app.include_router(players.router)
-    app.include_router(draft.router)
-    app.include_router(auction.router)
+    # Mount routers — all require a valid API key
+    _auth = [Depends(require_api_key)]
+    app.include_router(strategies.router, dependencies=_auth)
+    app.include_router(players.router, dependencies=_auth)
+    app.include_router(draft.router, dependencies=_auth)
+    app.include_router(auction.router, dependencies=_auth)
 
     return app
 

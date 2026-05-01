@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     data_path: str = 'data/sheets'
     refresh_interval: int = 30
     min_projected_points: float = 0.0
+    api_key: str = ''  # Set via PIGSKIN_API_KEY env var or .env
 
     model_config = SettingsConfigDict(
         env_file='.env',
