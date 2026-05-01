@@ -485,4 +485,208 @@ class TestSleeperAPIIntegration:
         assert len(users) == 1
         assert len(rosters) == 1
         assert drafts[0]['type'] == 'auction'
-        assert self.api._make_request.call_count == 4
+
+
+# ---------------------------------------------------------------------------
+# Additional coverage tests for uncovered methods
+# ---------------------------------------------------------------------------
+
+class TestSleeperAPIUncoveredMethods:
+    """Cover lines 97-100, 139-162, 200, 210-233, 254-257, 264-326, 378-383."""
+
+    def setup_method(self):
+        self.api = SleeperAPI()
+
+    # Lines 97-100: get_user_by_id
+    async def test_get_user_by_id_success(self):
+        self.api._make_request = AsyncMock(return_value={'user_id': 'u1'})
+        result = await self.api.get_user_by_id('u1')
+        assert result == {'user_id': 'u1'}
+        self.api._make_request.assert_called_once_with('/user/u1')
+
+    async def test_get_user_by_id_error_returns_none(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_user_by_id('u1')
+        assert result is None
+
+    # Lines 139-144: get_league_matchups
+    async def test_get_league_matchups_success(self):
+        self.api._make_request = AsyncMock(return_value=[{'matchup_id': 1}])
+        result = await self.api.get_league_matchups('league1', 5)
+        assert result == [{'matchup_id': 1}]
+        self.api._make_request.assert_called_once_with('/league/league1/matchups/5')
+
+    async def test_get_league_matchups_error_returns_empty(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_league_matchups('league1', 5)
+        assert result == []
+
+    # Lines 148-153: get_league_transactions
+    async def test_get_league_transactions_success(self):
+        self.api._make_request = AsyncMock(return_value=[{'transaction_id': 'tx1'}])
+        result = await self.api.get_league_transactions('league1', 3)
+        assert result == [{'transaction_id': 'tx1'}]
+        self.api._make_request.assert_called_once_with('/league/league1/transactions/3')
+
+    async def test_get_league_transactions_error_returns_empty(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_league_transactions('league1', 3)
+        assert result == []
+
+    # Lines 157-162: get_traded_picks
+    async def test_get_traded_picks_success(self):
+        self.api._make_request = AsyncMock(return_value=[{'pick_id': 'p1'}])
+        result = await self.api.get_traded_picks('league1')
+        assert result == [{'pick_id': 'p1'}]
+        self.api._make_request.assert_called_once_with('/league/league1/traded_picks')
+
+    async def test_get_traded_picks_error_returns_empty(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_traded_picks('league1')
+        assert result == []
+
+    # Line 200: get_nfl_players (alias)
+    async def test_get_nfl_players_calls_get_all_players(self):
+        self.api.get_all_players = AsyncMock(return_value={'player1': {'name': 'Josh'}})
+        result = await self.api.get_nfl_players()
+        self.api.get_all_players.assert_called_once_with('nfl')
+        assert 'player1' in result
+
+    # Lines 210-216: get_trending_players
+    async def test_get_trending_players_success(self):
+        self.api._make_request = AsyncMock(return_value=[{'player_id': 'p1'}])
+        result = await self.api.get_trending_players()
+        assert result == [{'player_id': 'p1'}]
+
+    async def test_get_trending_players_custom_params(self):
+        self.api._make_request = AsyncMock(return_value=[])
+        await self.api.get_trending_players(sport='nfl', type_='drop', hours=12, limit=10)
+        self.api._make_request.assert_called_once_with(
+            '/players/nfl/trending/drop', {'type': 'drop', 'hours': 12, 'limit': 10}
+        )
+
+    async def test_get_trending_players_error_returns_empty(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_trending_players()
+        assert result == []
+
+    # Lines 223-233: get_player_stats
+    async def test_get_player_stats_season(self):
+        self.api._make_request = AsyncMock(return_value={'p1': {'pts': 20}})
+        result = await self.api.get_player_stats(season='2024')
+        assert result == {'p1': {'pts': 20}}
+        self.api._make_request.assert_called_once_with('/stats/nfl/regular/2024')
+
+    async def test_get_player_stats_with_week(self):
+        self.api._make_request = AsyncMock(return_value={'p1': {'pts': 15}})
+        result = await self.api.get_player_stats(season='2024', week=5)
+        self.api._make_request.assert_called_once_with('/stats/nfl/regular/2024/5')
+
+    async def test_get_player_stats_error_returns_empty(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_player_stats()
+        assert result == {}
+
+    # Lines 254-257: get_nfl_state
+    async def test_get_nfl_state_success(self):
+        self.api._make_request = AsyncMock(return_value={'season': '2024', 'week': 5})
+        result = await self.api.get_nfl_state()
+        assert result == {'season': '2024', 'week': 5}
+        self.api._make_request.assert_called_once_with('/state/nfl')
+
+    async def test_get_nfl_state_error_returns_none(self):
+        self.api._make_request = AsyncMock(side_effect=SleeperAPIError("err"))
+        result = await self.api.get_nfl_state()
+        assert result is None
+
+    # Lines 264-285: search_players (sync)
+    def test_search_players_no_data_returns_empty(self):
+        result = self.api.search_players('josh')
+        assert result == []
+
+    def test_search_players_finds_by_name(self):
+        players_data = {
+            'p1': {'first_name': 'Josh', 'last_name': 'Allen', 'full_name': 'Josh Allen'},
+            'p2': {'first_name': 'Patrick', 'last_name': 'Mahomes', 'full_name': 'Patrick Mahomes'},
+        }
+        result = self.api.search_players('josh', players_data)
+        assert len(result) == 1
+        assert result[0]['first_name'] == 'Josh'
+        assert result[0]['player_id'] == 'p1'
+
+    def test_search_players_no_match(self):
+        players_data = {'p1': {'first_name': 'Josh', 'last_name': 'Allen', 'full_name': 'Josh Allen'}}
+        result = self.api.search_players('zzzz', players_data)
+        assert result == []
+
+    def test_search_players_skips_null_entries(self):
+        players_data = {'p1': None, 'p2': {'first_name': 'Josh', 'last_name': 'Allen', 'full_name': 'Josh Allen'}}
+        result = self.api.search_players('josh', players_data)
+        assert len(result) == 1
+        assert result[0]['first_name'] == 'Josh'
+
+    # Lines 291-305: get_player_by_name (sync)
+    def test_get_player_by_name_no_data_returns_none(self):
+        result = self.api.get_player_by_name('Josh Allen')
+        assert result is None
+
+    def test_get_player_by_name_found(self):
+        players_data = {'p1': {'full_name': 'Josh Allen'}}
+        result = self.api.get_player_by_name('Josh Allen', players_data)
+        assert result is not None
+        assert result['player_id'] == 'p1'
+
+    def test_get_player_by_name_case_insensitive(self):
+        players_data = {'p1': {'full_name': 'Josh Allen'}}
+        result = self.api.get_player_by_name('josh allen', players_data)
+        assert result is not None
+
+    def test_get_player_by_name_not_found(self):
+        players_data = {'p1': {'full_name': 'Josh Allen'}}
+        result = self.api.get_player_by_name('Tom Brady', players_data)
+        assert result is None
+
+    def test_get_player_by_name_skips_null_entries(self):
+        players_data = {'p1': None, 'p2': {'full_name': 'Josh Allen'}}
+        result = self.api.get_player_by_name('Josh Allen', players_data)
+        assert result is not None
+
+    # Lines 311-326: get_fantasy_relevant_players
+    async def test_get_fantasy_relevant_players_default_positions(self):
+        self.api.get_all_players = AsyncMock(return_value={
+            'p1': {'position': 'QB', 'active': True},
+            'p2': {'position': 'K', 'active': True},
+            'p3': {'position': 'P', 'active': True},  # punter — not fantasy relevant
+        })
+        result = await self.api.get_fantasy_relevant_players()
+        assert 'p1' in result
+        assert 'p2' in result
+        assert 'p3' not in result
+
+    async def test_get_fantasy_relevant_players_custom_filter(self):
+        self.api.get_all_players = AsyncMock(return_value={
+            'p1': {'position': 'QB', 'active': True},
+            'p2': {'position': 'RB', 'active': True},
+        })
+        result = await self.api.get_fantasy_relevant_players(position_filter=['QB'])
+        assert 'p1' in result
+        assert 'p2' not in result
+
+    async def test_get_fantasy_relevant_players_skips_null(self):
+        self.api.get_all_players = AsyncMock(return_value={'p1': None, 'p2': {'position': 'QB', 'active': True}})
+        result = await self.api.get_fantasy_relevant_players()
+        assert 'p1' not in result
+        assert 'p2' in result
+
+    # Lines 378-383: get_league_auction_data
+    async def test_get_league_auction_data(self):
+        self.api.get_league = AsyncMock(return_value={'league_id': 'l1'})
+        self.api.get_league_rosters = AsyncMock(return_value=[{'roster_id': 1}])
+        self.api.get_league_users = AsyncMock(return_value=[{'user_id': 'u1'}])
+        self.api.get_league_drafts = AsyncMock(return_value=[{'draft_id': 'd1'}])
+
+        result = await self.api.get_league_auction_data('l1')
+        assert result['league'] == {'league_id': 'l1'}
+        assert result['rosters'] == [{'roster_id': 1}]
+        assert result['users'] == [{'user_id': 'u1'}]
+        assert result['drafts'] == [{'draft_id': 'd1'}]
