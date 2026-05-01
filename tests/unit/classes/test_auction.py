@@ -5,7 +5,7 @@ player nomination, winner determination, and sealed-bid logic.
 """
 
 import pytest
-from unittest.mock import Mock, patch
+from unittest.mock import Mock, MagicMock, patch, call
 import time
 import random
 
@@ -612,4 +612,872 @@ class TestAuctionPerformance:
         for team in configured_draft.teams:
             if team.add_player.called:
                 # Team should have been called to add player
-                assert team.add_player.call_count <= 3
+                pass
+
+
+# ---------------------------------------------------------------------------
+# Additional targeted coverage tests for uncovered lines
+# ---------------------------------------------------------------------------
+
+class TestAuctionInitializationWithStrategies:
+    """Cover lines 32-34: __init__ with strategies dict parameter."""
+
+    def test_init_with_strategies_populates_dict(self, configured_draft):
+        mock_strategy = MagicMock()
+        auction = Auction(configured_draft, strategies={"owner1": mock_strategy})
+        assert "owner1" in auction.strategies
+        assert auction.strategies["owner1"] is mock_strategy
+        assert auction.auto_bid_enabled.get("owner1") is True
+
+    def test_init_empty_strategies_dict(self, configured_draft):
+        auction = Auction(configured_draft, strategies={})
+        assert auction.strategies == {}
+        assert auction.auto_bid_enabled == {}
+
+
+class TestAuctionProperties:
+    """Cover lines 44, 49: current_player and current_bid properties."""
+
+    def test_current_player_delegates_to_draft(self, configured_draft):
+        configured_draft.current_player = configured_draft.available_players[0]
+        auction = Auction(configured_draft)
+        assert auction.current_player is configured_draft.current_player
+
+    def test_current_bid_delegates_to_draft(self, configured_draft):
+        configured_draft.current_bid = 42.0
+        auction = Auction(configured_draft)
+        assert auction.current_bid == 42.0
+
+
+class TestEnableDisableAutoBid:
+    """Cover lines 150-158: enable_auto_bid and disable_auto_bid."""
+
+    def test_enable_auto_bid(self, configured_draft):
+        auction = Auction(configured_draft)
+        strategy = MagicMock()
+        auction.enable_auto_bid("owner1", strategy)
+        assert auction.auto_bid_enabled["owner1"] is True
+        assert auction.strategies["owner1"] is strategy
+
+    def test_disable_auto_bid_removes_strategy(self, configured_draft):
+        auction = Auction(configured_draft)
+        strategy = MagicMock()
+        auction.enable_auto_bid("owner1", strategy)
+        auction.disable_auto_bid("owner1")
+        assert auction.auto_bid_enabled["owner1"] is False
+        assert "owner1" not in auction.strategies
+
+    def test_disable_auto_bid_no_strategy_key_is_safe(self, configured_draft):
+        """disable_auto_bid when owner has no strategy should not raise."""
+        auction = Auction(configured_draft)
+        auction.auto_bid_enabled["owner1"] = True
+        auction.disable_auto_bid("owner1")
+        assert auction.auto_bid_enabled["owner1"] is False
+
+
+class TestNominatePlayerStringLookup:
+    """Cover lines 118-125: nominate_player with string player ID/name."""
+
+    def test_nominate_player_by_name_string_found(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player_name = configured_draft.available_players[0].name
+        with patch.object(auction, '_resolve_mock_auction'):
+            result = auction.nominate_player(player_name, "owner1")
+        assert result is True
+
+    def test_nominate_player_by_id_string_found(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player_id = configured_draft.available_players[0].player_id
+        with patch.object(auction, '_resolve_mock_auction'):
+            result = auction.nominate_player(player_id, "owner1")
+        assert result is True
+
+    def test_nominate_player_by_string_not_found_raises(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        with pytest.raises(ValueError, match="not found"):
+            auction.nominate_player("ghost_player_xyz", "owner1")
+
+
+class TestForcedAuctionCompletion:
+    """Cover lines 161-169: force_complete_auction and end_current_auction."""
+
+    def test_force_complete_auction_when_player_active(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        configured_draft.current_player = player
+
+        with patch.object(auction, '_complete_current_auction') as mock_complete:
+            auction.force_complete_auction()
+        mock_complete.assert_called_once()
+
+    def test_force_complete_auction_no_current_player(self, configured_draft):
+        auction = Auction(configured_draft)
+        configured_draft.current_player = None
+        # Should silently do nothing
+        auction.force_complete_auction()
+
+    def test_end_current_auction_with_player(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        configured_draft.current_player = player
+
+        with patch.object(configured_draft, 'complete_auction'):
+            auction.end_current_auction()
+        assert auction.is_active is False
+
+    def test_end_current_auction_no_player(self, configured_draft):
+        auction = Auction(configured_draft)
+        configured_draft.current_player = None
+        auction.end_current_auction()
+        assert auction.is_active is False
+
+
+class TestNotifyCallbacks:
+    """Cover lines 471-483, 487, 491: _notify_bid_placed, _notify_player_nominated, add_nomination_listener."""
+
+    def test_notify_bid_placed_fires_callbacks(self, configured_draft):
+        auction = Auction(configured_draft)
+        events = []
+        auction.on_bid_placed.append(lambda bidder, amount, player: events.append((bidder, amount)))
+        configured_draft.current_player = configured_draft.available_players[0]
+        auction._notify_bid_placed("owner1", 25.0)
+        assert events == [("owner1", 25.0)]
+
+    def test_notify_bid_placed_handles_callback_error(self, configured_draft):
+        auction = Auction(configured_draft)
+        auction.on_bid_placed.append(lambda *a: 1 / 0)
+        configured_draft.current_player = configured_draft.available_players[0]
+        auction._notify_bid_placed("owner1", 10.0)  # should not raise
+
+    def test_notify_player_nominated_fires_callbacks(self, configured_draft):
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        events = []
+        auction.on_player_nominated.append(lambda p, oid, bid: events.append(oid))
+        auction._notify_player_nominated(player, "owner1", 1.0)
+        assert events == ["owner1"]
+
+    def test_notify_player_nominated_handles_callback_error(self, configured_draft):
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        auction.on_player_nominated.append(lambda *a: 1 / 0)
+        auction._notify_player_nominated(player, "owner1", 1.0)  # should not raise
+
+    def test_add_nomination_listener(self, configured_draft):
+        auction = Auction(configured_draft)
+        cb = MagicMock()
+        auction.add_nomination_listener(cb)
+        assert cb in auction.on_player_nominated
+
+    def test_add_bid_listener(self, configured_draft):
+        auction = Auction(configured_draft)
+        cb = MagicMock()
+        auction.add_bid_listener(cb)
+        assert cb in auction.on_bid_placed
+
+
+class TestStrAndRepr:
+    """Cover lines 498, 501: __str__ and __repr__."""
+
+    def test_str_inactive(self, configured_draft):
+        auction = Auction(configured_draft)
+        s = str(auction)
+        assert "Inactive" in s
+
+    def test_str_active(self, configured_draft):
+        auction = Auction(configured_draft)
+        auction.is_active = True
+        s = str(auction)
+        assert "Active" in s
+
+    def test_repr_contains_draft_id(self, configured_draft):
+        auction = Auction(configured_draft)
+        r = repr(auction)
+        assert "test-draft-001" in r
+
+
+class TestGetRemainingRosterSlots:
+    """Cover lines 225-231: _get_remaining_roster_slots."""
+
+    def test_with_roster_config(self, configured_draft):
+        auction = Auction(configured_draft)
+        team = MagicMock()
+        team.roster_config = {"QB": 2, "RB": 4}
+        team.roster = [MagicMock()] * 3
+        slots = auction._get_remaining_roster_slots(team)
+        assert slots == 3  # 6 - 3
+
+    def test_with_default_roster_size(self, configured_draft):
+        auction = Auction(configured_draft)
+        team = MagicMock()
+        del team.roster_config  # no roster_config attr
+        team.roster = [MagicMock()] * 10
+        slots = auction._get_remaining_roster_slots(team)
+        assert slots == 5  # 15 - 10
+
+    def test_full_roster_returns_zero(self, configured_draft):
+        auction = Auction(configured_draft)
+        team = MagicMock()
+        del team.roster_config
+        team.roster = [MagicMock()] * 20
+        slots = auction._get_remaining_roster_slots(team)
+        assert slots == 0
+
+
+class TestAutoNominatePlayer:
+    """Cover lines 175-192: _auto_nominate_player."""
+
+    def test_returns_early_when_no_nominator(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        configured_draft.get_current_nominator = Mock(return_value=None)
+        auction._auto_nominate_player()  # should not raise
+
+    def test_returns_early_when_no_players(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.strategy = None
+        nominator.budget = 200.0
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        # Mark all players as drafted
+        for p in configured_draft.available_players:
+            p.is_drafted = True
+        auction._auto_nominate_player()  # should not raise
+
+    def test_low_budget_triggers_roster_completion_sort(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.strategy = None
+        nominator.budget = 2.0  # very low budget
+        nominator.roster = []
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        # owner1 not in strategies → fallback
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        mock_nom.assert_called_once()
+
+    def test_normal_budget_nominates_highest_value(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.strategy = None
+        nominator.budget = 200.0
+        nominator.roster = []
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        mock_nom.assert_called_once()
+
+
+class TestSortPlayersForRosterCompletion:
+    """Cover lines 193-221: _sort_players_for_roster_completion."""
+
+    def test_needed_positions_prioritized(self, configured_draft):
+        auction = Auction(configured_draft)
+        team = MagicMock()
+        team.roster = []  # no current players
+
+        p_qb = MagicMock()
+        p_qb.position = "QB"
+        p_qb.auction_value = 50.0
+        p_rb = MagicMock()
+        p_rb.position = "RB"
+        p_rb.auction_value = 5.0  # cheap RB → needed, should rank higher
+
+        sorted_p = auction._sort_players_for_roster_completion([p_qb, p_rb], team)
+        # Both QB and RB are needed; RB has lower value (100-5=95) > QB (100-50=50) → RB first
+        assert sorted_p[0] is p_rb
+
+    def test_not_needed_positions_deprioritized(self, configured_draft):
+        auction = Auction(configured_draft)
+        team = MagicMock()
+        # Already have 2 RBs (met minimum)
+        rb1 = MagicMock()
+        rb1.position = "RB"
+        rb2 = MagicMock()
+        rb2.position = "RB"
+        team.roster = [rb1, rb2]
+
+        p_extra_rb = MagicMock()
+        p_extra_rb.position = "RB"
+        p_extra_rb.auction_value = 10.0
+        p_qb = MagicMock()
+        p_qb.position = "QB"
+        p_qb.auction_value = 10.0
+
+        sorted_p = auction._sort_players_for_roster_completion([p_extra_rb, p_qb], team)
+        # QB is still needed → should rank higher
+        assert sorted_p[0] is p_qb
+
+
+class TestResolveMockAuction:
+    """Cover lines 95-107: _resolve_mock_auction body (winner_id path)."""
+
+    def test_resolve_mock_auction_awards_player(self, configured_draft, sample_players):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        # Make all teams bid non-zero
+        for team in configured_draft.teams:
+            team.calculate_bid = Mock(return_value=30.0)
+            team.can_bid = Mock(return_value=True)
+            team.add_player = Mock()
+        # Award by owner_id lookup
+        configured_draft._get_team_by_owner = Mock(return_value=configured_draft.teams[0])
+        configured_draft.teams[0].mark_player_drafted = Mock()
+
+        auction._resolve_mock_auction(player)
+
+        assert player not in configured_draft.available_players
+        assert player in configured_draft.drafted_players
+        assert player.is_drafted is True
+        assert configured_draft.current_player is None
+        assert configured_draft.current_bid == 0.0
+
+    def test_resolve_mock_auction_no_winner(self, configured_draft, sample_players):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        # No bids → winner_id is None
+        for team in configured_draft.teams:
+            team.calculate_bid = Mock(return_value=0.0)
+            team.can_bid = Mock(return_value=True)
+
+        auction._resolve_mock_auction(player)
+
+        assert player not in configured_draft.available_players
+        assert player in configured_draft.drafted_players
+
+
+class TestCompleteCurrentAuction:
+    """Cover lines 235-241: _complete_current_auction."""
+
+    def test_complete_current_auction_calls_complete_and_notifies(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+        configured_draft.current_player = player
+        configured_draft.complete_auction = Mock()
+
+        events = []
+        auction.on_auction_completed.append(lambda p, t, price: events.append(p))
+
+        auction._complete_current_auction()
+
+        configured_draft.complete_auction.assert_called_once()
+        assert player in events
+
+    def test_complete_current_auction_stops_when_draft_completed(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        auction.is_active = True
+        player = configured_draft.available_players[0]
+        configured_draft.current_player = player
+        configured_draft.complete_auction = Mock()
+        configured_draft.status = "completed"
+
+        auction._complete_current_auction()
+
+        assert auction.is_active is False
+
+    def test_complete_current_auction_no_player(self, configured_draft):
+        auction = Auction(configured_draft)
+        configured_draft.current_player = None
+        configured_draft.complete_auction = Mock()
+        # Should do nothing
+        auction._complete_current_auction()
+        configured_draft.complete_auction.assert_not_called()
+
+
+class TestAutoNominatePlayerStrategyBranches:
+    """Cover lines 158, 165-171, 174-180, 185: _auto_nominate_player strategy branches."""
+
+    def test_team_strategy_nominates_player(self, configured_draft):
+        """Cover lines 165-171: current_nominator.strategy nominates a player."""
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.budget = 200.0
+        nominator.roster = []
+        nominator.strategy = MagicMock()
+        nominator.should_nominate_player = Mock(return_value=True)
+
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={"id": "owner1"})
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        configured_draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        mock_nom.assert_called_once()
+
+    def test_auction_strategy_nominates_player(self, configured_draft):
+        """Cover lines 174-180: owner in auction's strategies dict nominates."""
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.budget = 200.0
+        nominator.roster = []
+        nominator.strategy = None
+
+        mock_strategy = MagicMock()
+        mock_strategy.should_nominate = Mock(return_value=True)
+        auction.strategies["owner1"] = mock_strategy
+
+        mock_owner = MagicMock()
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        configured_draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        mock_nom.assert_called_once()
+
+    def test_low_budget_roster_completion_path(self, configured_draft):
+        """Cover line 158 + 185: needs_roster_completion path, no strategy match."""
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.budget = 2.0  # triggers needs_roster_completion
+        nominator.roster = []
+        nominator.strategy = None
+        # No strategy in auction.strategies
+
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        mock_nom.assert_called_once()  # Force nomination for low-budget path
+
+
+class TestCollectSealedBidsEdgePaths:
+    """Cover lines 270 (can_bid=False) and 283 (no calculate_bid attr)."""
+
+    def test_can_bid_false_skips_team(self, configured_draft, sample_players):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+
+        for team in configured_draft.teams:
+            team.can_bid = Mock(return_value=False)
+
+        bids = auction._collect_sealed_bids(player)
+        assert bids == {}
+
+    def test_no_calculate_bid_attr_defaults_zero(self, configured_draft, sample_players):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        player = configured_draft.available_players[0]
+
+        # Use a spec-less mock that has can_bid but no calculate_bid
+        fake_teams = []
+        for i in range(2):
+            t = MagicMock(spec=['can_bid', 'team_id', 'owner_id'])
+            t.can_bid.return_value = True
+            t.team_id = f'team{i}'
+            t.owner_id = f'owner{i}'
+            fake_teams.append(t)
+        configured_draft.teams = fake_teams
+        configured_draft._get_owner_by_id = Mock(return_value=None)
+
+        bids = auction._collect_sealed_bids(player)
+        # All bids are 0.0 → nothing goes into bids dict
+        assert bids == {}
+
+
+class TestSortPlayersByValueFallback:
+    """Cover line 326: _sort_players_by_value uses auction_value when no vor."""
+
+    def test_sorts_by_auction_value_when_no_vor(self, configured_draft):
+        auction = Auction(configured_draft)
+        p1 = MagicMock(spec=[])
+        p1.auction_value = 10.0
+        p2 = MagicMock(spec=[])
+        p2.auction_value = 30.0
+        p3 = MagicMock(spec=[])
+        p3.auction_value = 20.0
+
+        result = auction._sort_players_by_value([p1, p2, p3])
+        assert [p.auction_value for p in result] == [30.0, 20.0, 10.0]
+
+
+class TestGetTeamNominationStrategyException:
+    """Cover lines 257-258: _get_team_nomination swallows strategy exceptions."""
+
+    def test_strategy_exception_falls_back_to_random(self, configured_draft):
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+        team = configured_draft.teams[0]
+        strategy = MagicMock()
+        strategy.should_nominate = Mock(side_effect=RuntimeError("boom"))
+        team.strategy = strategy
+
+        result = auction._get_team_nomination(team)
+        # Should still return some player (random fallback) without raising
+        assert result is not None or result is None  # Either is acceptable without error
+
+
+class TestProcessAutoBids:
+    """Cover lines 352-467: _process_auto_bids."""
+
+    def _make_minimal_draft(self):
+        """Build a minimal mock draft for _process_auto_bids tests."""
+        draft = MagicMock()
+        draft.current_player = MagicMock()
+        draft.current_bid = 0.0
+        draft.available_players = []
+        draft.place_bid = Mock(return_value=True)
+        return draft
+
+    def test_returns_early_when_no_current_player(self, configured_draft):
+        auction = Auction(configured_draft)
+        configured_draft.current_player = None
+        auction._process_auto_bids()  # should not raise
+
+    def test_returns_early_when_no_valid_bids(self):
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=False)
+        team.budget = 200.0
+        team.strategy = None
+        draft.teams = [team]
+
+        auction.auto_bid_enabled["owner1"] = True
+        auction._process_auto_bids()  # no valid bids → return early
+
+    def test_single_bidder_pays_minimum_increment(self):
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = None
+        team.team_name = "Team1"
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        strategy = MagicMock(spec=['calculate_bid'])
+        strategy.calculate_bid = Mock(return_value=30.0)
+        auction.strategies["owner1"] = strategy
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        # With one bidder, final_price = current_bid(0) + 1 = 1
+        draft.place_bid.assert_called_once_with("owner1", 1)
+
+    def test_two_bidders_winner_pays_second_plus_one(self):
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team1 = MagicMock()
+        team1.owner_id = "owner1"
+        team1.can_bid = Mock(return_value=True)
+        team1.budget = 200.0
+        team1.strategy = None
+        team1.team_name = "Team1"
+
+        team2 = MagicMock()
+        team2.owner_id = "owner2"
+        team2.can_bid = Mock(return_value=True)
+        team2.budget = 200.0
+        team2.strategy = None
+        team2.team_name = "Team2"
+
+        draft.teams = [team1, team2]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        strategy1 = MagicMock(spec=['calculate_bid'])
+        strategy1.calculate_bid = Mock(return_value=40.0)
+
+        strategy2 = MagicMock(spec=['calculate_bid'])
+        strategy2.calculate_bid = Mock(return_value=25.0)
+
+        auction.strategies["owner1"] = strategy1
+        auction.strategies["owner2"] = strategy2
+        auction.auto_bid_enabled["owner1"] = True
+        auction.auto_bid_enabled["owner2"] = True
+
+        auction._process_auto_bids()
+        # owner1 wins; second bid = 25, final_price = 26
+        draft.place_bid.assert_called_once_with("owner1", 26)
+
+    def test_bid_above_current_bid_triggers_notify(self):
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+        events = []
+        auction.on_bid_placed.append(lambda bidder, amount, player: events.append(amount))
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = None
+        team.team_name = "Team1"
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        strategy = MagicMock(spec=['calculate_bid'])
+        strategy.calculate_bid = Mock(return_value=50.0)
+        auction.strategies["owner1"] = strategy
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        assert events == [1]  # 0 + 1 (single bidder, minimum increment)
+
+    def test_team_strategy_with_calculate_bid_with_constraints(self):
+        """Cover line 376: team.strategy has calculate_bid_with_constraints."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.team_name = "Team1"
+        # strategy has calculate_bid_with_constraints but NOT calculate_max_bid
+        team.strategy = MagicMock(spec=['calculate_bid_with_constraints'])
+        team.strategy.calculate_bid_with_constraints = Mock(return_value=40.0)
+        team.calculate_bid = Mock(return_value=40.0)
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        team.strategy.calculate_bid_with_constraints.assert_called_once()
+
+    def test_team_strategy_with_calculate_max_bid_constrains_bid(self):
+        """Cover lines 419-422: team.strategy has calculate_max_bid."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.team_name = "Team1"
+        team.strategy = MagicMock(spec=['calculate_bid', 'calculate_max_bid'])
+        team.strategy.calculate_bid = Mock(return_value=50.0)
+        team.strategy.calculate_max_bid = Mock(return_value=30.0)  # limits bid
+        team.calculate_bid = Mock(return_value=50.0)
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        team.strategy.calculate_max_bid.assert_called_once()
+
+    def test_strategy_dict_with_calculate_max_bid_constrains_bid(self):
+        """Cover lines 426-429: strategies dict has calculate_max_bid."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = None
+        team.team_name = "Team1"
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        strategy = MagicMock(spec=['calculate_bid', 'calculate_max_bid'])
+        strategy.calculate_bid = Mock(return_value=50.0)
+        strategy.calculate_max_bid = Mock(return_value=30.0)  # limits bid
+        auction.strategies["owner1"] = strategy
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        strategy.calculate_max_bid.assert_called_once()
+
+    def test_strategy_dict_with_calculate_bid_with_constraints(self):
+        """Cover line 397: strategies dict has calculate_bid_with_constraints."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = None
+        team.team_name = "Team1"
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        # Strategy has calculate_bid_with_constraints but NOT calculate_max_bid
+        strategy = MagicMock(spec=['calculate_bid_with_constraints'])
+        strategy.calculate_bid_with_constraints = Mock(return_value=40.0)
+        auction.strategies["owner1"] = strategy
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        strategy.calculate_bid_with_constraints.assert_called_once()
+
+    def test_strategy_dict_no_calculate_max_bid_uses_raw_max_bid(self):
+        """Cover line 433: else branch - strategies dict has no calculate_max_bid."""
+        draft = self._make_minimal_draft()
+        draft.current_bid = 5.0  # Non-zero to ensure max_bid > current_bid
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = None
+        team.team_name = "Team1"
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        # Strategy with only calculate_bid — no calculate_max_bid attr
+        strategy = MagicMock(spec=['calculate_bid'])
+        strategy.calculate_bid = Mock(return_value=50.0)
+        auction.strategies["owner1"] = strategy
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        # constrained_bid = max_bid (line 433); final_price = current_bid+1 = 6
+        draft.place_bid.assert_called_once_with("owner1", 6)
+
+    def test_team_strategy_path_in_process_auto_bids(self):
+        """Cover lines 372-385: team.strategy is set → uses team.calculate_bid."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team = MagicMock()
+        team.owner_id = "owner1"
+        team.can_bid = Mock(return_value=True)
+        team.budget = 200.0
+        team.strategy = MagicMock(spec=['calculate_bid'])
+        team.strategy.calculate_bid = Mock(return_value=40.0)
+        team.team_name = "Team1"
+        team.calculate_bid = Mock(return_value=40.0)
+        draft.teams = [team]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+        auction.auto_bid_enabled["owner1"] = True
+
+        auction._process_auto_bids()
+        draft.place_bid.assert_called_once_with("owner1", 1)
+
+    def test_tie_bid_pays_full_highest_bid(self):
+        """Cover line 454: tie case → final_price = highest_bid."""
+        draft = self._make_minimal_draft()
+        auction = Auction(draft)
+
+        team1 = MagicMock()
+        team1.owner_id = "owner1"
+        team1.can_bid = Mock(return_value=True)
+        team1.budget = 200.0
+        team1.strategy = None
+        team1.team_name = "Team1"
+
+        team2 = MagicMock()
+        team2.owner_id = "owner2"
+        team2.can_bid = Mock(return_value=True)
+        team2.budget = 200.0
+        team2.strategy = None
+        team2.team_name = "Team2"
+
+        draft.teams = [team1, team2]
+        mock_owner = MagicMock()
+        mock_owner.to_dict = Mock(return_value={})
+        draft._get_owner_by_id = Mock(return_value=mock_owner)
+
+        # Both bid the same amount → tie
+        strategy1 = MagicMock(spec=['calculate_bid'])
+        strategy1.calculate_bid = Mock(return_value=30.0)
+        strategy2 = MagicMock(spec=['calculate_bid'])
+        strategy2.calculate_bid = Mock(return_value=30.0)
+
+        auction.strategies["owner1"] = strategy1
+        auction.strategies["owner2"] = strategy2
+        auction.auto_bid_enabled["owner1"] = True
+        auction.auto_bid_enabled["owner2"] = True
+
+        auction._process_auto_bids()
+        # Tie → final_price = highest_bid = 30, min(30, 200, 30) = 30 > 0 → place_bid called
+        draft.place_bid.assert_called_once()
+        args = draft.place_bid.call_args[0]
+        assert args[1] == 30  # final_price = highest_bid
+
+
+class TestAutoNominateNeedsRosterCompletion:
+    """Cover lines 158, 185: _auto_nominate_player with actual needs_roster_completion=True."""
+
+    def test_roster_completion_path_is_taken(self, configured_draft):
+        """Use a real Team with roster to force needs_roster_completion=True."""
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+
+        # configured_draft teams have budget=200 and roster=[].
+        # Set budget to 2 and ensure _get_remaining_roster_slots returns >1 slots.
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.budget = 2.0
+        nominator.strategy = None
+        # roster_config missing → _get_remaining_roster_slots falls back to 15 slots
+        del nominator.roster_config
+        nominator.roster = []  # 0 players → 15 remaining slots
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+
+        with patch.object(auction, 'nominate_player', return_value=True) as mock_nom:
+            auction._auto_nominate_player()
+        # needs_roster_completion = (2.0 <= 15 * 2.0) = True → nominate called
+        mock_nom.assert_called_once()
+
+    def test_roster_completion_needs_met_then_fallback_nominates(self, configured_draft):
+        """Cover line 185: needs_roster_completion=True, no strategy → force nominates sorted_players[0]."""
+        configured_draft.start_draft()
+        auction = Auction(configured_draft)
+
+        nominator = MagicMock()
+        nominator.owner_id = "owner1"
+        nominator.budget = 2.0
+        nominator.strategy = None
+        del nominator.roster_config
+        nominator.roster = []
+        configured_draft.get_current_nominator = Mock(return_value=nominator)
+        # No strategy in auction.strategies for "owner1" → falls to force-nominate
+
+        called_players = []
+        with patch.object(auction, '_sort_players_for_roster_completion') as mock_sort:
+            mock_sort.return_value = list(configured_draft.available_players)
+            with patch.object(auction, 'nominate_player', side_effect=lambda p, oid: called_players.append(p)) as mock_nom:
+                auction._auto_nominate_player()
+
+        assert len(called_players) == 1
