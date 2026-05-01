@@ -1,0 +1,8 @@
+name: balanced
+display_name: Balanced
+description: Balanced bidding strategy targeting positional value and budget control.
+base_class: BalancedStrategy
+version: "1.0.0"
+tags:
+  - benchmark
+  - balanced
