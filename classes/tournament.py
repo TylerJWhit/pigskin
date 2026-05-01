@@ -168,18 +168,19 @@ class Tournament:
         draft.start_draft()
         
         # Create auction with strategies
-        auction = Auction(draft, bid_timer=1, nomination_timer=1)  # Fast timers for simulation
+        auction = Auction(draft)
         
-        # Configure strategies for each owner
+        # Configure strategies for each owner.
+        # Each team receives its OWN strategy instance to prevent mutable state
+        # from leaking across teams within the same simulation (#116).
         for config in self.strategy_configs:
-            strategy = create_strategy(config['strategy_type'])
-            
-            # Apply custom parameters
-            for param, value in config['strategy_params'].items():
-                strategy.set_parameter(param, value)
-                
-            # Enable auto-bid for all teams of this strategy type and set strategy on team
             for i in range(config['num_teams']):
+                strategy = create_strategy(config['strategy_type'])
+
+                # Apply custom parameters to this team's instance
+                for param, value in config['strategy_params'].items():
+                    strategy.set_parameter(param, value)
+
                 owner_id = f"{config['owner_name']}_{simulation_id}_{i}"
                 auction.enable_auto_bid(owner_id, strategy)
                 team_obj = draft._get_team_by_owner(owner_id)
@@ -292,8 +293,13 @@ class Tournament:
             # Normalize points (assume max reasonable is 1500)
             points_score = min(results['avg_points'] / 1500, 1.0) * 30
             
-            # Ranking score (lower ranking is better, so invert)
-            ranking_score = (1 - (results['avg_ranking'] - 1) / (len(self.strategy_configs) - 1)) * 20
+            # Ranking score (lower ranking is better, so invert).
+            # Guard against division by zero when only one strategy is configured (#113).
+            num_strategies = len(self.strategy_configs)
+            if num_strategies > 1:
+                ranking_score = (1 - (results['avg_ranking'] - 1) / (num_strategies - 1)) * 20
+            else:
+                ranking_score = 20  # sole strategy always ranks first
             
             # Consistency score (lower std deviation is better)
             consistency_score = max(0, 1 - results['points_std'] / 100) * 10

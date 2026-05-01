@@ -50,8 +50,8 @@ class Strategy(ABC):
         if 'calculate_bid' in cls.__dict__:
             _orig_calc = cls.__dict__['calculate_bid']
 
-            def _wrapped_calculate_bid(self, player, team, owner, current_bid, remaining_budget, remaining_players, _f=_orig_calc):
-                raw = _f(self, player, team, owner, current_bid, remaining_budget, remaining_players)
+            def _wrapped_calculate_bid(self, player, team, owner, current_bid, remaining_budget, remaining_players, *args, _f=_orig_calc, **kwargs):
+                raw = _f(self, player, team, owner, current_bid, remaining_budget, remaining_players, *args, **kwargs)
                 if not isinstance(raw, (int, float)):
                     return 0
                 enforce = getattr(team, 'enforce_budget_constraint', None)
