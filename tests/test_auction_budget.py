@@ -42,7 +42,9 @@ def test_budget_constraint_in_auction():
     
     # Create auction
     strategies = {team.owner_id: team.strategy for team in teams}
-    auction = Auction(draft, players, strategies)
+    auction = Auction(draft)
+    for owner_id, strategy in strategies.items():
+        auction.enable_auto_bid(owner_id, strategy)
     
     print(f"Starting auction with {len(teams)} teams")
     print(f"Team roster config: {teams[0].roster_config}")
@@ -50,7 +52,7 @@ def test_budget_constraint_in_auction():
     
     # Run a few rounds and check budgets
     for round_num in range(10):
-        auction._nominate_next_player()
+        auction._auto_nominate_player()
         auction._process_auto_bids()
         
         # Check team budgets every few rounds

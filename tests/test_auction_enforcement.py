@@ -35,14 +35,16 @@ def test_auction_budget_enforcement():
         draft.add_team(team)
         strategies[team.owner_id] = strategy
     
-    auction = Auction(draft, players, strategies)
+    auction = Auction(draft)
+    for owner_id, strategy in strategies.items():
+        auction.enable_auto_bid(owner_id, strategy)
     
     print("Running auction with budget constraint enforcement...")
     
     # Run auction rounds
     for round_num in range(15):
         if draft.current_player:
-            auction._nominate_next_player()
+            auction._auto_nominate_player()
             auction._process_auto_bids()
         else:
             print(f"No current player at round {round_num}, stopping")

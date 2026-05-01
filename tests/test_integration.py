@@ -128,7 +128,7 @@ class TestCompleteAuctionFlow(BaseTestCase):
             draft.add_players(test_players)
             
             # Create auction
-            auction = Auction(draft, timer_duration=30)
+            auction = Auction(draft)
             
             # Simulate bidding on a player
             if test_players:

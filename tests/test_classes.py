@@ -261,10 +261,9 @@ class TestAuction(BaseTestCase):
         from classes.draft import Draft
         
         draft = Draft(name="Test Draft", budget_per_team=200, roster_size=9)
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         self.assertEqual(auction.draft, draft)
-        self.assertEqual(auction.bid_timer, 60)
         self.assertFalse(auction.is_active)
         
     def test_auction_nomination(self):
@@ -277,7 +276,7 @@ class TestAuction(BaseTestCase):
         players = TestDataGenerator.create_test_players(5)
         draft.add_players(players)
         
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         # Start the draft first
         draft.add_team(Team("team1", "owner1", "Test Team"))
@@ -288,7 +287,8 @@ class TestAuction(BaseTestCase):
         player = players[0]
         auction.nominate_player(player, "Test Owner")
         
-        self.assertEqual(auction.draft.current_player, player)
+        self.assertIn(player, auction.draft.drafted_players)
+        self.assertIsNone(auction.draft.current_player)
 
 
 class TestTournament(BaseTestCase):
