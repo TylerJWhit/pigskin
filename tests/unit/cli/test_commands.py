@@ -228,6 +228,17 @@ class TestCreateTournamentPools:
         assert len(pools) == 1
         assert len(pools[0]) == 10
 
+    def test_remainder_merged_into_last_pool(self):
+        """Cover line 848: remaining strategies fit in last pool."""
+        cp = self._make_cp()
+        # 12 strategies, teams_per_draft=10: first pool=10, remainder=2
+        # len(last_pool=10) + len(remaining=2) = 12 <= 10+2=12 → merge
+        strategies = [f's{i}' for i in range(12)]
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        # All 12 fit in 1 expanded pool
+        assert len(pools) == 1
+        assert len(pools[0]) == 12
+
 
 class TestCreateSinglePoolWithDuplicates:
     """Cover lines 860-872: _create_single_pool_with_duplicates."""
@@ -851,6 +862,60 @@ class TestCreateMockDraft:
         assert result is not None
 
 
+class TestCreateMockDraftExtraCoverage:
+    """Cover remaining uncovered paths in _create_mock_draft."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_no_roster_positions_uses_roster_size(self):
+        """Cover line 1088: no roster_positions falls back to roster_size."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.budget_per_team = 200
+        mock_config.roster_positions = None  # Force fallback
+        mock_config.roster_size = 12
+        mock_player = MagicMock()
+
+        with patch('cli.commands.Draft') as MockDraft, \
+             patch('cli.commands.Team') as MockTeam, \
+             patch('cli.commands.Owner') as MockOwner, \
+             patch('cli.commands.create_strategy') as MockCreate:
+            mock_strategy = MagicMock()
+            mock_strategy.name = "Balanced"
+            MockCreate.return_value = mock_strategy
+            result = cp._create_mock_draft(mock_config, [mock_player], 'balanced', 2)
+
+        assert result is not None
+
+    def test_gridiron_sage_tournament_mode(self):
+        """Cover lines 1105-1108, 1112: gridiron_sage strategy enables tournament mode."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.budget_per_team = 200
+        mock_config.roster_positions = {'QB': 1}
+        mock_player = MagicMock()
+
+        mock_strategy = MagicMock()
+        mock_strategy.name = "GridironSage"
+        mock_strategy.enable_tournament_mode = MagicMock()
+
+        with patch('cli.commands.Draft') as MockDraft, \
+             patch('cli.commands.Team') as MockTeam, \
+             patch('cli.commands.Owner') as MockOwner, \
+             patch('cli.commands.create_strategy') as MockCreate:
+            MockCreate.return_value = mock_strategy
+            # Pass a non-list string strategy to hit lines 1104-1112
+            # Need num_teams > len(active_strategies) = 4 to cycle through
+            result = cp._create_mock_draft(mock_config, [mock_player], 'gridiron_sage', 5)
+
+        assert result is not None
+
+
 class TestRunComprehensiveStatisticalTournament:
     """Cover _run_comprehensive_statistical_tournament (lines 308-586)."""
 
@@ -982,3 +1047,62 @@ class TestRunEliminationRounds:
         )
 
         assert result['success'] is True
+
+
+class TestCommandsExtraCoverage:
+    """Cover remaining small gaps in commands.py."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_generate_recommendations_high_scoring(self):
+        """Cover line 1594: avg_points > 1200."""
+        cp = self._make_cp()
+        rankings = [
+            {'strategy': 'balanced', 'avg_points': 1300.0, 'wins': 5, 'avg_value_efficiency': 1.2, 'std_dev': 50.0},
+            {'strategy': 'aggressive', 'avg_points': 1100.0, 'wins': 3, 'avg_value_efficiency': 1.0, 'std_dev': 80.0},
+            {'strategy': 'conservative', 'avg_points': 900.0, 'wins': 1, 'avg_value_efficiency': 0.9, 'std_dev': 30.0},
+        ]
+        result = cp._generate_strategy_recommendations(rankings)
+        assert 'High scoring potential' in result['reasoning']
+
+    def test_create_test_draft_success(self):
+        """Cover lines 1618-1640: _create_test_draft happy path."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.data_path = "/fake/path"
+        mock_config.budget_per_team = 200
+        mock_config.roster_size = 16
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_player = MagicMock()
+        mock_loader = MagicMock()
+        mock_loader.load_all_players.return_value = [mock_player]
+
+        with patch('cli.commands.FantasyProsLoader', return_value=mock_loader), \
+             patch('cli.commands.Draft') as MockDraft, \
+             patch('cli.commands.Team') as MockTeam, \
+             patch('cli.commands.Owner') as MockOwner:
+            MockDraft.return_value = MagicMock()
+            result = cp._create_test_draft(2)
+
+        assert result is not None
+
+    def test_create_test_draft_no_players_returns_none(self):
+        """Cover line 1622: no players returns None."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.data_path = "/fake/path"
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_loader = MagicMock()
+        mock_loader.load_all_players.return_value = []
+
+        with patch('cli.commands.FantasyProsLoader', return_value=mock_loader):
+            result = cp._create_test_draft(2)
+
+        assert result is None

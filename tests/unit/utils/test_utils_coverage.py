@@ -407,3 +407,14 @@ class TestPathUtils:
         count_before = sys.path.count(root)
         setup_project_path()
         assert sys.path.count(root) == count_before
+
+
+class TestSleeperCacheExtraCoverage:
+    def test_get_sleeper_players_module_function(self, tmp_path):
+        from unittest.mock import patch, MagicMock
+        import utils.sleeper_cache as sc_mod
+        mock_cache = MagicMock()
+        mock_cache.get_players.return_value = {"p1": {"name": "Test"}}
+        with patch.object(sc_mod, '_player_cache', mock_cache):
+            result = sc_mod.get_sleeper_players(force_refresh=False)
+        assert result == {"p1": {"name": "Test"}}
