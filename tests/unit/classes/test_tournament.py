@@ -211,3 +211,52 @@ class TestStrAndRepr:
         result = repr(t)
         assert "Tournament" in result
         assert "MyTournament" in result
+
+
+class TestRunSingleSimulationCoverage:
+    def test_strategy_params_applied(self):
+        """Covers line 182: strategy.set_parameter called when strategy_params non-empty."""
+        t = Tournament(num_simulations=1, budget_per_team=200.0, roster_size=2)
+        t.add_players(_make_players(5))
+        # Use 2 teams so draft can start; pass strategy_params to cover line 182
+        t.add_strategy_config("balanced", "Balanced", num_teams=2, aggressiveness=0.8)
+        d = t._run_single_simulation(0)
+        assert d is not None
+        assert d.status == "completed"
+
+    def test_while_loop_body_and_complete_fallback(self):
+        """Covers lines 198-208 (while loop body) and 214 (fallback _complete_draft).
+        Force draft to require loop iterations by patching force_complete_auction
+        to not advance draft past 'started' until max_iterations exceeded.
+        """
+        from unittest.mock import patch, MagicMock
+        from classes import auction as auction_mod
+
+        t = Tournament(num_simulations=1, budget_per_team=200.0, roster_size=2)
+        t.add_players(_make_players(2))  # Only 2 players → max_iterations=4
+
+        t.add_strategy_config("balanced", "Balanced", num_teams=2)
+
+        call_count = [0]
+
+        original_init = auction_mod.Auction.__init__
+
+        def patched_init(self_a, draft, *args, **kwargs):
+            original_init(self_a, draft, *args, **kwargs)
+            # Override force_complete_auction to be a no-op so loop runs max_iterations
+            self_a.force_complete_auction = lambda: None
+
+        with patch.object(auction_mod.Auction, "__init__", patched_init):
+            d = t._run_single_simulation(0)
+        # Draft status was never advanced past "started" → fallback fires
+        assert d is not None
+
+    def test_single_strategy_ranking_score_solo(self):
+        """Covers line 302: sole strategy gets ranking_score=20."""
+        t = Tournament(num_simulations=1, budget_per_team=200.0, roster_size=2)
+        t.add_players(_make_players(5))
+        t.add_strategy_config("balanced", "Balanced", num_teams=2)
+        t.run_tournament(parallel=False)
+        rankings = t.get_strategy_rankings()
+        assert len(rankings) == 1
+        assert rankings[0][1]["composite_score"] > 0

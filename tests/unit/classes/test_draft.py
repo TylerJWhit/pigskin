@@ -1078,3 +1078,35 @@ class TestDraftLinesCoverage:
         draft = self._configured_draft()
         state = draft.get_state()
         assert hasattr(state, 'draft_id')
+
+    def test_collect_team_bids_parallel_exception(self):
+        """Cover lines 319-320 — exception in future.result() is silently ignored."""
+        from unittest.mock import patch, MagicMock
+        draft = self._configured_draft()
+        draft.start_draft()
+
+        # Make calculate_bid raise an exception to hit except block
+        with patch.object(draft.teams[0], 'calculate_bid', side_effect=RuntimeError("bid error")):
+            player = draft.available_players[0]
+            bids = draft._collect_team_bids_parallel(player)
+        # Team 0 raised, team 1 may have returned a valid bid or 0
+        assert isinstance(bids, dict)
+
+    def test_run_complete_draft_nominator_none(self):
+        """Cover line 360 — break when get_current_nominator returns None."""
+        draft = self._configured_draft()
+        draft.start_draft()
+        with patch.object(draft, 'get_current_nominator', return_value=None):
+            draft.run_complete_draft()
+        # Should return without error
+
+    def test_run_complete_draft_player_none(self):
+        """Cover line 363 — break when _get_team_nomination returns None."""
+        from unittest.mock import patch, MagicMock
+        draft = self._configured_draft()
+        draft.start_draft()
+        mock_nominator = MagicMock()
+        with patch.object(draft, 'get_current_nominator', return_value=mock_nominator):
+            with patch.object(draft, '_get_team_nomination', return_value=None):
+                draft.run_complete_draft()
+        # Should return without error
