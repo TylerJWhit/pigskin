@@ -1002,3 +1002,79 @@ class TestDraftAdditionalCoverage:
         with patch.object(draft, '_collect_team_bids', return_value={}):
             draft.run_complete_draft()
         assert draft.status == "completed"
+
+
+class TestDraftLinesCoverage:
+    """Cover draft.py lines 78, 126, 156, 185-191, 360, 363, 456-459."""
+
+    def _configured_draft(self):
+        from classes.draft import Draft
+        from classes.team import Team
+        from classes.owner import Owner
+        from classes.player import Player
+        draft = Draft(budget_per_team=200, roster_size=2, num_teams=2)
+        p1 = Player("p1", "Josh Allen", "QB", "BUF", projected_points=400.0, auction_value=40.0)
+        p2 = Player("p2", "CMC", "RB", "SF", projected_points=350.0, auction_value=60.0)
+        draft.add_players([p1, p2])
+        o1 = Owner("o1", "Owner1")
+        o2 = Owner("o2", "Owner2")
+        t1 = Team("t1", "o1", "Team1", 200)
+        t2 = Team("t2", "o2", "Team2", 200)
+        draft.add_owner(o1)
+        draft.add_owner(o2)
+        draft.add_team(t1, o1)
+        draft.add_team(t2, o2)
+        return draft
+
+    def test_add_team_too_many_raises(self):
+        """Cover line 78 — adding too many teams raises ValueError."""
+        from classes.draft import Draft
+        from classes.team import Team
+        from classes.owner import Owner
+        draft = Draft(budget_per_team=200, roster_size=2, num_teams=2)
+        o1 = Owner("o1", "Owner1")
+        o2 = Owner("o2", "Owner2")
+        o3 = Owner("o3", "Owner3")
+        t1 = Team("t1", "o1", "Team1", 200)
+        t2 = Team("t2", "o2", "Team2", 200)
+        t3 = Team("t3", "o3", "Team3", 200)
+        draft.add_team(t1)
+        draft.add_team(t2)
+        import pytest
+        with pytest.raises(ValueError, match="Maximum number of teams"):
+            draft.add_team(t3)
+
+    def test_start_auction_low_bid_raises(self):
+        """Cover line 126 — initial bid < 1 raises ValueError."""
+        draft = self._configured_draft()
+        draft.start_draft()
+        import pytest
+        player = draft.available_players[0]
+        with pytest.raises(ValueError, match="Initial bid must be at least"):
+            draft.nominate_player(player, "o1", initial_bid=0.0)
+
+    def test_place_bid_insufficient_budget(self):
+        """Cover line 156 — insufficient budget returns False."""
+        draft = self._configured_draft()
+        draft.start_draft()
+        player = draft.available_players[0]
+        draft.nominate_player(player, "o1", initial_bid=1.0)
+        result = draft.place_bid("o2", 99999.0)
+        assert result is False
+
+    def test_award_player_no_winner(self):
+        """Cover lines 183-191 — no winner cleans up auction state."""
+        draft = self._configured_draft()
+        draft.start_draft()
+        player = draft.available_players[0]
+        draft.nominate_player(player, "o1", initial_bid=1.0)
+        # Set an invalid current_high_bidder so _get_team_by_owner returns None
+        draft.current_high_bidder = "nonexistent_owner"
+        draft.complete_auction()
+        assert draft.current_player is None
+
+    def test_get_state_returns_draft_state(self):
+        """Cover lines 456-459 — get_state returns serializable state."""
+        draft = self._configured_draft()
+        state = draft.get_state()
+        assert hasattr(state, 'draft_id')

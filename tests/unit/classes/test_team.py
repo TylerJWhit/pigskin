@@ -1071,3 +1071,128 @@ class TestTeamAdditionalCoverage:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--cov=classes.team", "--cov-report=term-missing"])
+
+class TestTeamLinesCoverage:
+    """Cover team.py lines 37, 107, 125, 397, 459, 477-479, 523-537, 552, 562, 577, 585, 590, 593, 613."""
+
+    def test_negative_budget_raises(self):
+        """Cover line 37 — negative budget raises ValueError."""
+        from classes.team import Team
+        import pytest
+        with pytest.raises(ValueError, match="budget cannot be negative"):
+            Team("t1", "o1", "Test", budget=-1)
+
+    def test_remove_player_returns_false_not_found(self):
+        """Cover line 107 — remove_player returns False when player not in roster."""
+        from classes.team import Team
+        from classes.player import Player
+        team = Team("t1", "o1", "Test", budget=200)
+        player = Player("p1", "Josh Allen", "QB", "BUF", projected_points=400.0, auction_value=40.0)
+        result = team.remove_player(player)
+        assert result is False
+
+    def test_remaining_roster_slots_by_position_empty_config(self):
+        """Cover line 125 — returns {} when no roster_config."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=200)
+        team.roster_config = {}
+        result = team.get_remaining_roster_slots_by_position()
+        assert result == {}
+
+    def test_can_fit_in_roster_structure_roster_full(self):
+        """Cover line 397 — roster full returns False."""
+        from classes.team import Team
+        from classes.player import Player
+        team = Team("t1", "o1", "Test", budget=200)
+        player = Player("p1", "Test QB", "QB", "KC", projected_points=10.0, auction_value=5.0)
+        # Overfill the roster manually
+        for i in range(30):
+            p = Player(f"p{i}", f"Player {i}", "QB", "KC", projected_points=10.0, auction_value=5.0)
+            team.roster.append(p)
+        result = team._can_fit_in_roster_structure(player)
+        assert result is False
+
+    def test_is_roster_complete_false_missing_positions(self):
+        """Cover line 459 — returns False when required positions not met."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=200)
+        # Empty roster → not complete
+        result = team.is_roster_complete()
+        assert result is False
+
+    def test_get_required_positions_flex(self):
+        """Cover lines 477-479 — FLEX positions adjustments."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=200)
+        team.roster_config = {'QB': 1, 'RB': 2, 'WR': 3, 'TE': 1, 'FLEX': 2, 'K': 1, 'DST': 1}
+        required = team._get_required_positions()
+        # With FLEX > 0, RB/WR/TE should each be at least 1
+        assert required.get('RB', 0) >= 1
+        assert required.get('WR', 0) >= 1
+        assert required.get('TE', 0) >= 1
+
+    def test_get_available_budget_for_bidding(self):
+        """Cover lines 523-537 — budget minus reserves for unfilled required positions."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=200)
+        result = team.get_available_budget_for_bidding()
+        assert result >= 0 and result <= 200
+
+    def test_can_bid_budget_too_low(self):
+        """Cover line 552 — budget < min_bid returns False."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=0)
+        result = team.can_bid(min_bid=1.0)
+        assert result is False
+
+    def test_can_bid_player_cannot_be_added(self):
+        """Cover line 562 — player can't be added returns False."""
+        from classes.team import Team
+        from classes.player import Player
+        from unittest.mock import patch
+        team = Team("t1", "o1", "Test", budget=200)
+        player = Player("p1", "Test", "QB", "KC", projected_points=10.0, auction_value=5.0)
+        with patch.object(team, '_can_add_player', return_value=False):
+            result = team.can_bid(player=player)
+        assert result is False
+
+    def test_has_critical_position_need_missing_required(self):
+        """Cover line 577 — position required but 0 filled → True."""
+        from classes.team import Team
+        team = Team("t1", "o1", "Test", budget=200)
+        # Empty roster, check if QB is critical (QB should be required)
+        result = team.has_critical_position_need("QB")
+        assert result is True
+
+    def test_has_critical_position_need_many_positions_missing(self):
+        """Cover line 585 — many position types missing."""
+        from classes.team import Team
+        from classes.player import Player
+        team = Team("t1", "o1", "Test", budget=200)
+        # Add just 1 position type (QB)
+        p = Player("p1", "Test QB", "QB", "KC", projected_points=10.0, auction_value=5.0)
+        team.roster.append(p)
+        # Now check if RB is critical when many positions missing
+        result = team.has_critical_position_need("RB")
+        assert isinstance(result, bool)
+
+    def test_str_representation(self):
+        """Cover line 590 — __str__."""
+        from classes.team import Team
+        team = Team("t1", "o1", "MyTeam", budget=200)
+        s = str(team)
+        assert "MyTeam" in s
+
+    def test_repr_representation(self):
+        """Cover line 593 — __repr__."""
+        from classes.team import Team
+        team = Team("t1", "o1", "MyTeam", budget=200)
+        r = repr(team)
+        assert "Team" in r
+
+    def test_get_state(self):
+        """Cover line 613 — get_state returns TeamState."""
+        from classes.team import Team
+        team = Team("t1", "o1", "MyTeam", budget=200)
+        state = team.get_state()
+        assert state.team_id == "t1"

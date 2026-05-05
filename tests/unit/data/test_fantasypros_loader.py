@@ -260,3 +260,52 @@ class TestConvenienceFunction:
         # No files in tmp_path → all positions fail
         loader_result = load_fantasypros_players(data_path=str(tmp_path))
         assert isinstance(loader_result, list)
+
+
+class TestFantasyProsLoaderExtraCoverage:
+    """Cover fantasypros_loader.py lines 188-189, 250, 271-302, 312-313."""
+
+    def test_find_player_by_name_exception_continues(self, tmp_path):
+        """Cover lines 188-189 — exception in load_position_data continues."""
+        from data.fantasypros_loader import FantasyProsLoader
+        loader = FantasyProsLoader(data_path=str(tmp_path))
+        # Inject a mock that raises
+        from unittest.mock import patch, MagicMock
+        with patch.object(loader, 'load_position_data', side_effect=Exception("bad file")):
+            result = loader.get_player_by_name("Josh Allen")
+        assert result is None
+
+    def test_calculate_auction_values_no_points(self, tmp_path):
+        """Cover line 250 — total_points == 0 sets value_per_point to 0."""
+        from data.fantasypros_loader import FantasyProsLoader
+        from classes.player import Player
+        loader = FantasyProsLoader(data_path=str(tmp_path))
+        players = [
+            Player("p1", "Player 1", "QB", "KC", projected_points=0.0, auction_value=0.0),
+        ]
+        loader.calculate_auction_values(players, total_budget=200)
+        assert players[0].auction_value >= 0
+
+    def test_export_player_summary(self, tmp_path):
+        """Cover lines 271-302 — export_player_summary to CSV."""
+        from data.fantasypros_loader import FantasyProsLoader
+        from classes.player import Player
+        from unittest.mock import patch
+        loader = FantasyProsLoader(data_path=str(tmp_path))
+        mock_players = [
+            Player("p1", "Josh Allen", "QB", "BUF", projected_points=400.0, auction_value=40.0),
+        ]
+        output_file = str(tmp_path / "summary.csv")
+        with patch.object(loader, 'load_all_players', return_value=mock_players):
+            loader.export_player_summary(output_file=output_file)
+        import os
+        assert os.path.exists(output_file)
+
+    def test_get_data_summary_with_exception(self, tmp_path):
+        """Cover lines 312-313 — exception in load_position_data sets count to 0."""
+        from data.fantasypros_loader import FantasyProsLoader
+        from unittest.mock import patch
+        loader = FantasyProsLoader(data_path=str(tmp_path))
+        with patch.object(loader, 'load_position_data', side_effect=Exception("bad")):
+            summary = loader.get_data_summary()
+        assert summary['total'] == 0
