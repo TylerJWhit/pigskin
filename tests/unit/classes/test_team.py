@@ -965,5 +965,109 @@ class TestTeamAdditionalCoverage:
         assert result == {}
 
 
+class TestTeamAdditionalCoverage:
+    """Tests to cover remaining uncovered lines in team.py."""
+
+    def _make_player(self, player_id, position, points=100.0, value=10.0):
+        from classes.player import Player
+        p = Player(player_id=player_id, name=player_id, position=position)
+        p.projected_points = points
+        p.auction_value = value
+        return p
+
+    def test_calculate_position_priority_no_roster_config_returns_1(self):
+        """Cover line 134 — no roster_config → return 1.0."""
+        from classes.team import Team
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200)
+        team.roster_config = None
+        result = team.calculate_position_priority("QB")
+        assert result == 1.0
+
+    def test_get_starter_projected_points_no_roster_config(self):
+        """Cover line 167 — no roster_config → sum all roster points."""
+        from classes.team import Team
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200)
+        team.roster_config = None
+        p1 = self._make_player("QB1", "QB", 200.0)
+        p2 = self._make_player("RB1", "RB", 150.0)
+        team.roster = [p1, p2]
+        result = team.get_starter_projected_points()
+        assert result == 350.0
+
+    def test_get_starter_projected_points_flex_slots(self):
+        """Cover lines 206-207 — flex candidates scored."""
+        from classes.team import Team
+        config = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'FLEX': 1, 'BN': 1}
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200, roster_config=config)
+        qb = self._make_player("QB1", "QB", 300.0)
+        rb1 = self._make_player("RB1", "RB", 200.0)
+        rb2 = self._make_player("RB2", "RB", 180.0)
+        wr1 = self._make_player("WR1", "WR", 170.0)
+        wr2 = self._make_player("WR2", "WR", 160.0)
+        te = self._make_player("TE1", "TE", 100.0)
+        rb3 = self._make_player("RB3", "RB", 150.0)  # Will be flex candidate
+        team.roster = [qb, rb1, rb2, wr1, wr2, te, rb3]
+        result = team.get_starter_projected_points()
+        assert result > 0
+
+    def test_should_nominate_player_with_owner_data_and_preferences(self):
+        """Cover lines 321-328 — owner_data provided with preferences."""
+        from classes.team import Team
+        from unittest.mock import MagicMock
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200)
+        strategy = MagicMock()
+        strategy.should_nominate.return_value = True
+        team.strategy = strategy
+        player = self._make_player("QB1", "QB")
+        result = team.should_nominate_player(player, owner_data={
+            'name': 'Alice', 'is_human': True, 'preferences': {'risk': 0.8}
+        })
+        assert result is True
+
+    def test_can_bid_roster_full_returns_false(self):
+        """Cover line 397 — roster full returns False via can_bid."""
+        from classes.team import Team
+        config = {'QB': 1}
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200, roster_config=config)
+        p = self._make_player("QB1", "QB", 100.0)
+        team.roster = [p]  # roster now full (1 total spot)
+        result = team.can_bid()
+        assert result is False
+
+    def test_get_required_positions_no_roster_config(self):
+        """Cover line 464 — no roster_config returns default dict."""
+        from classes.team import Team
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200)
+        team.roster_config = None
+        result = team._get_required_positions()
+        assert result == {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1}
+
+    def test_has_critical_position_need_return_false(self):
+        """Cover line 587 — return False when not a critical need."""
+        from classes.team import Team
+        config = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1}
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200, roster_config=config)
+        # Fill all but TE — only 1 distinct position type missing
+        team.roster = [
+            self._make_player("QB1", "QB"),
+            self._make_player("RB1", "RB"),
+            self._make_player("RB2", "RB"),
+            self._make_player("WR1", "WR"),
+            self._make_player("WR2", "WR"),
+        ]
+        # TE still needed but only 1 type short → not 'critical' by count logic
+        # K is not required at all → should return False
+        result = team.has_critical_position_need("K")
+        assert result is False
+
+    def test_get_position_caps_no_roster_config(self):
+        """Cover line 625 — no roster_config returns default caps."""
+        from classes.team import Team
+        team = Team(team_id="t1", owner_id="o1", team_name="T", budget=200)
+        team.roster_config = None
+        result = team._get_position_caps()
+        assert result == {'QB': 2, 'RB': 8, 'WR': 8, 'TE': 2, 'K': 1, 'DST': 1}
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v", "--cov=classes.team", "--cov-report=term-missing"])

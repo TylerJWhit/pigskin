@@ -267,3 +267,37 @@ class TestConvenienceFunctions:
         ai_teams = [t for t in draft.teams if t.team_name != 'Sharks']
         for team in ai_teams:
             assert team.strategy is not None
+
+
+class TestClassesInitFunctions:
+    """Tests for classes/__init__.py convenience functions."""
+
+    def test_create_simple_draft(self):
+        """Cover lines 34-38 — create_simple_draft calls DraftSetup."""
+        from unittest.mock import patch, MagicMock
+        mock_draft = MagicMock()
+        with patch('classes.DraftSetup') as mock_setup_cls:
+            mock_setup_cls.setup_draft_with_participants.return_value = mock_draft
+            from classes import create_simple_draft
+            result = create_simple_draft(['Alice', 'Bob'], ['Sharks', 'Bears'])
+            mock_setup_cls.setup_draft_with_participants.assert_called_once()
+            args = mock_setup_cls.setup_draft_with_participants.call_args
+            participants = args[0][1]
+            assert len(participants) == 2
+            assert participants[0]['is_human'] is True
+
+    def test_create_ai_vs_human_draft(self):
+        """Cover lines 42-50 — create_ai_vs_human_draft builds participants."""
+        from unittest.mock import patch, MagicMock
+        mock_draft = MagicMock()
+        with patch('classes.DraftSetup') as mock_setup_cls:
+            mock_setup_cls.setup_draft_with_participants.return_value = mock_draft
+            from classes import create_ai_vs_human_draft
+            result = create_ai_vs_human_draft('Alice', 'Sharks', ai_count=3)
+            args = mock_setup_cls.setup_draft_with_participants.call_args
+            participants = args[0][1]
+            # 1 human + 3 AI
+            assert len(participants) == 4
+            human = participants[0]
+            assert human['is_human'] is True
+            assert human['owner_name'] == 'Alice'

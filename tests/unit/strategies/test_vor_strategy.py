@@ -672,7 +672,7 @@ class TestVorStrategyAdditionalCoverage:
             assert strategy._vor_scaling_factor == 0.25
 
     def test_calculate_bid_vor_negative_high_slots(self):
-        """Cover lines 132-134 — vor <= 0, roster_slots > 3 → bid $2."""
+        """Cover line 133 — vor <= 0, roster_slots > 3 → bid $2."""
         from strategies.vor_strategy import VorStrategy as VORStrategy
         from unittest.mock import MagicMock
 
@@ -692,6 +692,28 @@ class TestVorStrategyAdditionalCoverage:
 
         result = strategy.calculate_bid(player, team, MagicMock(), 1.0, 100.0, [])
         assert result >= 0  # bid up to $2
+
+    def test_calculate_bid_vor_negative_low_slots(self):
+        """Cover line 134 — vor <= 0, roster_slots <= 3 → return 0."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock
+
+        strategy = VORStrategy()
+
+        player = MagicMock()
+        player.position = "WR"
+        player.projected_points = 50.0  # Below VOR baseline for WR (140), so vor < 0
+        player.auction_value = 2.0
+
+        team = MagicMock()
+        team.get_remaining_roster_slots.return_value = 2  # <= 3
+        team.calculate_position_priority.return_value = 0.8
+        team.calculate_max_bid.return_value = 50
+        team.enforce_budget_constraint = None
+        team.calculate_minimum_budget_needed.return_value = 2.0
+
+        result = strategy.calculate_bid(player, team, MagicMock(), 1.0, 100.0, [])
+        assert result == 0
 
     def test_calculate_bid_zero_position_priority(self):
         """Cover line 152 — position_priority == 0.0 → return 0."""
@@ -798,6 +820,9 @@ class TestVorStrategyAdditionalCoverage:
             p.position = "RB"
             players.append(p)
 
-        strategy.remaining_players = players
-        result = strategy._calculate_all_dynamic_scarcity_factors()
+        result = strategy._calculate_all_dynamic_scarcity_factors(players)
         assert isinstance(result, dict)
+        # WR: 12 players hits count <= 15 branch (line 360-361)
+        assert 'WR' in result
+        # RB: 20 players hits count > 15 branch (line 362-363)
+        assert 'RB' in result
