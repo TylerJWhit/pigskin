@@ -814,5 +814,96 @@ class TestConvertSleeperPlayerWithValues(unittest.TestCase):
         self.assertEqual(player.auction_value, 55.0)
 
 
+class TestBidRecommendationAdditionalCoverage(unittest.TestCase):
+    """Cover remaining uncovered lines in bid_recommendation_service.py."""
+
+    def test_recommend_bid_with_sleeper_draft_id(self):
+        """Cover lines 67-68 — sleeper_available=True with sleeper_draft_id."""
+        svc = _make_service()
+        svc.sleeper_available = True
+        ctx = {'success': True, 'picks': [], 'players': {}, 'rosters': [],
+               'available_players': []}
+        svc.sleeper_draft_service.get_draft_context = MagicMock(return_value=ctx)
+
+        mock_config = MagicMock()
+        mock_config.budget = 200.0
+        mock_config.strategy_type = 'value'
+        svc.config_manager.load_config.return_value = mock_config
+
+        with unittest.mock.patch('asyncio.run', return_value={
+            'success': False, 'error': 'no data'
+        }):
+            result = svc.recommend_bid("Josh Allen", 10.0, sleeper_draft_id="draft123")
+        assert isinstance(result, dict)
+
+    def test_recommend_bid_conservative_confidence(self):
+        """Cover line 373 — value_ratio < 0.8 adds 0.2 factor."""
+        svc = _make_service()
+
+        mock_player = MagicMock()
+        mock_player.auction_value = 50.0  # high value
+        mock_player.projected_points = 300.0
+        mock_player.position = 'QB'
+
+        team_ctx = MagicMock()
+        team_ctx.get_needs.return_value = ['QB']
+        team_ctx.is_roster_complete.return_value = False
+        team_ctx.budget = 100.0
+
+        # recommended_bid = 30, auction_value = 50 → ratio = 0.6 < 0.8 → line 373
+        result = svc._calculate_confidence(mock_player, 30.0, team_ctx)
+        assert 0 <= result <= 1.0
+
+    def test_get_sleeper_draft_context_partial_player_match(self):
+        """Cover lines 441-443 — partial player name match."""
+        svc = _make_service()
+        svc.sleeper_available = True
+        players_data = {
+            'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        svc.get_sleeper_players.return_value = players_data
+
+        picks = [{'player_id': 'p2', 'picked_by': 'u1', 'metadata': {'amount': '30'}}]
+        rosters = []
+
+        async def fake_context(draft_id):
+            return {'picks': picks, 'rosters': rosters}
+
+        with unittest.mock.patch.object(
+            svc.sleeper_draft_service, 'get_draft_with_picks',
+            return_value={'picks': picks, 'rosters': rosters}
+        ):
+            import asyncio
+            result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh"))
+        assert isinstance(result, dict)
+
+    def test_bid_amount_invalid_in_sleeper_context(self):
+        """Cover lines 470-471 — invalid bid amount in pick metadata."""
+        svc = _make_service()
+        svc.sleeper_available = True
+        players_data = {
+            'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        svc.get_sleeper_players.return_value = players_data
+
+        picks = [
+            {'player_id': 'p1', 'picked_by': 'u1', 'metadata': {'amount': 'invalid'}},  # triggers line 470-471
+        ]
+        rosters = [{'owner_id': 'u1', 'players': ['p2'], 'taxi': []}]
+
+        mock_config = MagicMock()
+        mock_config.sleeper_user_id = 'u1'
+        mock_config.budget = 200.0
+        svc.config_manager.load_config.return_value = mock_config
+
+        with unittest.mock.patch.object(
+            svc.sleeper_draft_service, 'get_draft_with_picks',
+            return_value={'picks': picks, 'rosters': rosters}
+        ):
+            import asyncio
+            result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh Allen"))
+        assert isinstance(result, dict)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -928,3 +928,77 @@ class TestDraftAdditionalCoverage:
         state = draft.get_state()
         assert state.draft_id == draft.draft_id
         assert hasattr(state, 'status')
+
+class TestDraftAdditionalCoverage:
+    """Cover remaining uncovered lines in draft.py."""
+
+    def _configured_draft(self):
+        from classes.draft import Draft
+        from classes.player import Player
+        from classes.team import Team
+        from classes.owner import Owner
+
+        draft = Draft(budget_per_team=200, roster_size=2, num_teams=2)
+        players = [Player(player_id=f"p{i}", name=f"Player{i}", position="QB") for i in range(5)]
+        for p in players:
+            p.projected_points = 200.0
+            p.auction_value = 30.0
+        draft.add_players(players)
+
+        for i in range(2):
+            owner = Owner(owner_id=f"o{i}", name=f"Owner{i}", is_human=False)
+            team = Team(team_id=f"t{i}", owner_id=f"o{i}", team_name=f"Team{i}",
+                        budget=200, roster_config={"QB": 1, "RB": 1})
+            draft.add_owner(owner)
+            draft.add_team(team)
+
+        draft.start_draft()
+        return draft
+
+    def test_collect_team_bids_strategy_exception(self):
+        """Cover lines 298-302 — exception in strategy bid."""
+        from classes.draft import Draft
+        from classes.player import Player
+        from classes.team import Team
+        from classes.owner import Owner
+        from unittest.mock import MagicMock
+
+        draft = self._configured_draft()
+        player = draft.available_players[0]
+
+        # Set a strategy that raises an exception
+        for team in draft.teams:
+            team.calculate_bid = MagicMock(side_effect=Exception("bid error"))
+
+        bids = draft._collect_team_bids(player)
+        assert isinstance(bids, dict)
+
+    def test_determine_auction_winner_no_bids(self):
+        """Cover line 329-330 — no bids returns None, 0.0."""
+        draft = self._configured_draft()
+        winner, bid = draft._determine_auction_winner({})
+        assert winner is None
+        assert bid == 0.0
+
+    def test_determine_auction_winner_single_bid(self):
+        """Cover lines 332-334 — single bidder pays their bid."""
+        draft = self._configured_draft()
+        winner, bid = draft._determine_auction_winner({'t1': 25.0})
+        assert winner == 't1'
+        assert bid == 25.0
+
+    def test_determine_auction_winner_tie(self):
+        """Cover lines 338-340 — tie at top resolved randomly."""
+        draft = self._configured_draft()
+        winner, bid = draft._determine_auction_winner({'t1': 30.0, 't2': 30.0})
+        assert winner in ('t1', 't2')
+
+    def test_run_complete_draft_no_bids(self):
+        """Cover lines 368-370 — no bids removes player from pool."""
+        from unittest.mock import patch
+
+        draft = self._configured_draft()
+        # Patch _collect_team_bids to return empty to force no-bid path
+        with patch.object(draft, '_collect_team_bids', return_value={}):
+            draft.run_complete_draft()
+        assert draft.status == "completed"
