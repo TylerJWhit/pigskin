@@ -478,3 +478,11 @@ class TestInflationAwareVorStrategy(BaseTestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestGetStrategyInfoInvalidType(unittest.TestCase):
+    def test_get_strategy_info_unknown_raises(self):
+        """Cover line 65 — raises ValueError for unknown strategy type."""
+        from strategies import get_strategy_info
+        with self.assertRaises(ValueError):
+            get_strategy_info("nonexistent_strategy_xyz")

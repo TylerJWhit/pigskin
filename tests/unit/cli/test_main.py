@@ -721,3 +721,89 @@ class TestParseBidArgsCoverage:
     def test_name_bid_draft_id(self):
         name, bid, draft_id = self.cli._parse_bid_args(['Josh', 'Allen', '25', '123456'])
         assert name == 'Josh Allen' and bid == 25.0 and draft_id == '123456'
+
+
+class TestCliMainUncoveredLines:
+    """Cover remaining uncovered lines in cli/main.py."""
+
+    def setup_method(self):
+        from cli.main import AuctionDraftCLI
+        self.cli = AuctionDraftCLI()
+
+    def test_run_dispatch_sleeper_command(self):
+        """Cover line 90 — dispatch to handle_sleeper_command."""
+        self.cli.handle_sleeper_command = lambda args: 0
+        result = self.cli.run(['sleeper'])
+        assert result == 0
+
+    def test_run_dispatch_help_command(self):
+        """Cover lines 91-93 — dispatch help command."""
+        result = self.cli.run(['help'])
+        assert result == 0
+
+    def test_handle_mock_invalid_num_teams(self):
+        """Cover line 162-163 — invalid int for num_teams arg."""
+        from unittest.mock import MagicMock
+        self.cli.command_processor = MagicMock()
+        self.cli.command_processor.run_enhanced_mock_draft.return_value = {
+            'success': False, 'error': 'Failed'
+        }
+        # 'notanumber' as second positional arg triggers ValueError at line 162
+        result = self.cli.handle_mock_command(['value', 'notanumber'])
+        assert result == 1
+
+    def test_handle_mock_comma_strategies(self):
+        """Cover line 173 — comma-separated strategies display."""
+        from unittest.mock import MagicMock
+        self.cli.command_processor = MagicMock()
+        self.cli.command_processor.run_enhanced_mock_draft.return_value = {
+            'success': False, 'error': 'Failed'
+        }
+        result = self.cli.handle_mock_command(['value,aggressive'])
+        assert isinstance(result, int)
+
+    def test_handle_bid_sleeper_data_source(self):
+        """Cover line 490 — data_source == 'sleeper' prints Live Draft Context."""
+        from unittest.mock import MagicMock, patch
+        self.cli.command_processor = MagicMock()
+        self.cli.command_processor.get_bid_recommendation_detailed.return_value = {
+            'success': True,
+            'player_name': 'Josh Allen',
+            'recommendation': 40.0,
+            'player': {
+                'position': 'QB',
+                'projected_points': 300.0,
+                'auction_value': 45.0,
+            },
+            'data_source': 'sleeper',
+            'current_bid': 10,
+            'recommendation_level': 'BID',
+            'confidence': 0.8,
+            'team_budget': 100,
+            'recommended_bid': 40,
+            'team_needs': ['QB'],
+            'auction_value': 45.0,
+        }
+        with patch('builtins.print'):
+            result = self.cli.handle_bid_command(['Josh Allen'])
+        assert isinstance(result, int)
+
+    def test_handle_undervalued_invalid_threshold(self):
+        """Cover lines 583-584 — invalid threshold falls back to 15.0."""
+        from unittest.mock import MagicMock
+        self.cli.command_processor = MagicMock()
+        self.cli.command_processor.analyze_undervalued_players.return_value = {
+            'success': True, 'undervalued_players': []
+        }
+        result = self.cli.handle_undervalued_command(['notanumber'])
+        assert isinstance(result, int)
+
+    def test_handle_undervalued_failure(self):
+        """Cover lines 600-601 — error path for undervalued."""
+        from unittest.mock import MagicMock
+        self.cli.command_processor = MagicMock()
+        self.cli.command_processor.analyze_undervalued_players.return_value = {
+            'success': False, 'error': 'Something went wrong'
+        }
+        result = self.cli.handle_undervalued_command([])
+        assert result == 1

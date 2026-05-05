@@ -243,3 +243,32 @@ class TestConvenienceFunctions:
         cfg = update_config(config_dir=tmp_config_dir, budget=333)
         assert cfg.budget == 333
         cm_module._config_manager = None
+
+
+class TestConfigManagerSettingsLayer:
+    """Cover lines 104-111 — settings layer applied when available."""
+
+    def test_settings_applied_when_present(self, tmp_config_dir):
+        import config.config_manager as cm_module
+        from config.config_manager import ConfigManager, DraftConfig
+        from unittest.mock import patch, MagicMock
+        import json, os
+
+        cm_module._config_manager = None
+        # Pre-create config.json so load_config doesn't return early
+        config_file = os.path.join(tmp_config_dir, 'config.json')
+        with open(config_file, 'w') as f:
+            json.dump(DraftConfig().to_dict(), f)
+
+        mock_settings = MagicMock()
+        mock_settings.sleeper_user_id = "test_user"
+        mock_settings.sleeper_username = "test_username"
+        mock_settings.strategy_type = "aggressive"
+
+        with patch('config.settings.get_settings', return_value=mock_settings):
+            cm = ConfigManager(config_dir=tmp_config_dir)
+            cfg = cm.load_config()
+            assert cfg.sleeper_user_id == "test_user"
+            assert cfg.sleeper_username == "test_username"
+            assert cfg.strategy_type == "aggressive"
+        cm_module._config_manager = None
