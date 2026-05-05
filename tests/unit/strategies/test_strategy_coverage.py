@@ -160,6 +160,42 @@ class TestLeagueStrategy:
         slots = self.strategy._get_remaining_roster_slots(team)
         assert slots == 10
 
+    def test_calculate_bid_low_priority_low_current_bid(self):
+        """Cover position_priority <= 0.1 with current_bid < 5 (lines 82-84)."""
+        from strategies.league_strategy import LeagueStrategy
+        strategy = LeagueStrategy()
+        player = _make_player(position="K", auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 2.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_overvalued_player(self):
+        """Cover overvalued player \u2192 random 25% nomination (lines 151-152)."""
+        from strategies.league_strategy import LeagueStrategy
+        strategy = LeagueStrategy()
+        player = _make_player(position="RB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_league_trend_factor', return_value=1.1), \
+             patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.league_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.1  # < 0.25 \u2192 True
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_standard_random(self):
+        """Cover standard 15% random nomination (lines 155-156)."""
+        from strategies.league_strategy import LeagueStrategy
+        strategy = LeagueStrategy()
+        player = _make_player(position="K", auction_value=3.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_league_trend_factor', return_value=1.0), \
+             patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.league_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.1  # < 0.15 → True
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
 
 class TestAdaptiveStrategy:
     def setup_method(self):
@@ -1285,6 +1321,58 @@ class TestRandomStrategy:
         owner = _make_owner()
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
+
+    def test_random_skip(self):
+        """Cover 10% random skip → return 0 (line 62)."""
+        from strategies.random_strategy import RandomStrategy
+        strategy = RandomStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        # Patch position_priority to bypass random calls, then check skip
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.5), \
+             patch.object(strategy, 'should_force_nominate_for_completion', return_value=False), \
+             patch('strategies.random_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.05  # < 0.1 → skip
+            mock_random.uniform.return_value = 0.5
+            mock_random.randint.return_value = 1
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0
+
+    def test_impulse_bid(self):
+        """Cover impulse bid (lines 79-80)."""
+        from strategies.random_strategy import RandomStrategy
+        strategy = RandomStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.5), \
+             patch.object(strategy, 'should_force_nominate_for_completion', return_value=False), \
+             patch('strategies.random_strategy.random') as mock_random:
+            # 1st call (skip check) > 0.1, 2nd call (impulse) < 0.3, 3rd call (conservative) > 0.2
+            mock_random.random.side_effect = [0.5, 0.1, 0.5]
+            mock_random.uniform.return_value = 1.2
+            mock_random.randint.return_value = 1
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_low_priority(self):
+        """Cover position_priority < 0.3 branch (line 138)."""
+        from strategies.random_strategy import RandomStrategy
+        strategy = RandomStrategy()
+        player = _make_player(position="QB")
+        team = _make_team()
+        team.roster = [_make_player(f"QB{i}", "QB") for i in range(2)]  # QB full
+        result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_position_priority_full(self):
+        """Cover position full → random.uniform (line 174)."""
+        from strategies.random_strategy import RandomStrategy
+        strategy = RandomStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]  # RB full
+        priority = strategy._calculate_position_priority(player, team)
+        assert 0.1 <= priority <= 0.3
 
 
 class TestSigmoidStrategy:

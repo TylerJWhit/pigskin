@@ -135,6 +135,103 @@ class TestStrategyAnalyzer(unittest.TestCase):
 
         self.assertIn("Winning Strategy Analysis", out.getvalue())
 
+    def test_test_strategy_bidding_zero_bid_warning(self):
+        """Cover bid == 0 → WARNING line (line 69-70)."""
+        mock_config = MagicMock()
+        mock_config.data_path = "/fake"
+        mock_strategy = MagicMock()
+        mock_strategy.name = "test"
+        mock_strategy.description = "test"
+        mock_strategy.calculate_bid.return_value = 0.0
+        mock_strategy.should_nominate.return_value = False
+
+        player = MagicMock()
+        player.name = "Test Player"
+        player.position = "RB"
+        player.auction_value = 30
+        player.projected_points = 200
+
+        with (
+            patch("strategies.strategy_analyzer.ConfigManager") as MockCM,
+            patch("strategies.strategy_analyzer.FantasyProsLoader") as MockFP,
+            patch("strategies.strategy_analyzer.create_strategy", return_value=mock_strategy),
+            patch("strategies.strategy_analyzer.AVAILABLE_STRATEGIES", {"balanced": None}),
+            patch("strategies.strategy_analyzer.Owner"),
+            patch("strategies.strategy_analyzer.Team"),
+        ):
+            MockCM.return_value.load_config.return_value = mock_config
+            MockFP.return_value.load_all_players.return_value = [player]
+
+            import io
+            out = io.StringIO()
+            with patch("sys.stdout", out):
+                from strategies.strategy_analyzer import test_strategy_bidding
+                test_strategy_bidding()
+
+        self.assertIn("WARNING", out.getvalue())
+
+    def test_test_strategy_bidding_exception_path(self):
+        """Cover exception path in test_strategy_bidding (line 71-72)."""
+        mock_config = MagicMock()
+        mock_config.data_path = "/fake"
+        mock_strategy = MagicMock()
+        mock_strategy.calculate_bid.side_effect = RuntimeError("boom")
+
+        player = MagicMock()
+        player.name = "Test Player"
+        player.position = "RB"
+        player.auction_value = 30
+        player.projected_points = 200
+
+        with (
+            patch("strategies.strategy_analyzer.ConfigManager") as MockCM,
+            patch("strategies.strategy_analyzer.FantasyProsLoader") as MockFP,
+            patch("strategies.strategy_analyzer.create_strategy", return_value=mock_strategy),
+            patch("strategies.strategy_analyzer.AVAILABLE_STRATEGIES", {"balanced": None}),
+            patch("strategies.strategy_analyzer.Owner"),
+            patch("strategies.strategy_analyzer.Team"),
+        ):
+            MockCM.return_value.load_config.return_value = mock_config
+            MockFP.return_value.load_all_players.return_value = [player]
+
+            import io
+            out = io.StringIO()
+            with patch("sys.stdout", out):
+                from strategies.strategy_analyzer import test_strategy_bidding
+                test_strategy_bidding()
+
+        self.assertIn("ERROR", out.getvalue())
+
+    def test_analyze_winning_strategies_no_key_features(self):
+        """Cover 'no key features' branch (line 107-108)."""
+        mock_strategy = MagicMock()
+        mock_strategy.name = "basic"
+        mock_strategy.description = "basic desc"
+        # Remove known attributes so key_features will be empty
+        del mock_strategy.aggression
+        del mock_strategy.scarcity_weight
+        del mock_strategy.randomness
+
+        with patch("strategies.strategy_analyzer.create_strategy", return_value=mock_strategy):
+            import io
+            out = io.StringIO()
+            with patch("sys.stdout", out):
+                from strategies.strategy_analyzer import analyze_winning_strategies
+                analyze_winning_strategies()
+
+        self.assertIn("None identified", out.getvalue())
+
+    def test_analyze_winning_strategies_exception(self):
+        """Cover exception in analyze_winning_strategies (lines 112-113)."""
+        with patch("strategies.strategy_analyzer.create_strategy", side_effect=RuntimeError("fail")):
+            import io
+            out = io.StringIO()
+            with patch("sys.stdout", out):
+                from strategies.strategy_analyzer import analyze_winning_strategies
+                analyze_winning_strategies()
+
+        self.assertIn("ERROR", out.getvalue())
+
 
 class TestEnhancedVorUncoveredLines(unittest.TestCase):
     """Cover the remaining uncovered branches in enhanced_vor_strategy.py."""
