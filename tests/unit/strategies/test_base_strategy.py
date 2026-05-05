@@ -763,3 +763,226 @@ class TestStrategyIntegration:
         team.get_remaining_roster_slots.assert_called()
         team.calculate_position_priority.assert_called()
         team.enforce_budget_constraint.assert_called()
+
+class TestBaseStrategyAdditionalCoverage:
+    """Cover remaining uncovered lines in base_strategy.py."""
+
+    def test_wrapped_calculate_bid_non_numeric_return(self):
+        """Cover line 56 — wrapped_calculate_bid returns 0 when raw is non-numeric."""
+        from strategies.base_strategy import Strategy
+        
+        class BadReturnStrategy(Strategy):
+            def calculate_bid(self, player, team, owner, current_bid, remaining_budget, remaining_players, **kwargs):
+                return "not_a_number"  # Non-numeric return
+            
+            def should_nominate(self, player, team, owner, remaining_budget, **kwargs):
+                return True
+        
+        strategy = BadReturnStrategy("Bad Strategy")
+        player = Mock()
+        player.position = "QB"
+        player.auction_value = 20.0
+        
+        team = Mock()
+        team.get_remaining_roster_slots.return_value = 5
+        team.calculate_position_priority.return_value = 0.7
+        team.calculate_max_bid.return_value = 30.0
+        team.enforce_budget_constraint = None
+        team.calculate_minimum_budget_needed.return_value = 5.0
+        
+        result = strategy.calculate_bid(player, team, Mock(), 10.0, 100.0, [])
+        assert result == 0
+
+    def test_calculate_position_priority_with_roster_players(self):
+        """Cover lines 125-126 — roster iteration for position counting."""
+        strategy = ConcreteTestStrategy()
+        
+        player = Mock()
+        player.position = "RB"
+        
+        roster_player_1 = Mock()
+        roster_player_1.position = "RB"
+        roster_player_2 = Mock()
+        roster_player_2.position = "WR"
+        
+        team = Mock()
+        team.calculate_position_priority = None  # Force fallback
+        team.roster = [roster_player_1, roster_player_2]
+        team.roster_config = None
+        
+        # Without config, uses hardcoded: RB needs 2, current 1 → returns > 0.1
+        result = strategy._calculate_position_priority(player, team)
+        assert isinstance(result, float)
+        assert result > 0.0
+
+    def test_calculate_position_priority_with_roster_config_dict(self):
+        """Cover line 129 — roster_config is a dict."""
+        strategy = ConcreteTestStrategy()
+        
+        player = Mock()
+        player.position = "QB"
+        
+        team = Mock()
+        team.calculate_position_priority = None  # Force fallback
+        team.roster = []
+        team.roster_config = {'QB': 2, 'RB': 3}  # Dict roster config
+        
+        result = strategy._calculate_position_priority(player, team)
+        assert isinstance(result, float)
+        assert result > 0.0
+
+    def test_calculate_position_priority_with_strategy_config(self):
+        """Cover lines 135, 137 — config_positions from strategy.config."""
+        strategy = ConcreteTestStrategy()
+        
+        config = Mock()
+        config.roster_positions = {'QB': 1, 'RB': 2, 'WR': 3}
+        strategy.config = config
+        
+        player = Mock()
+        player.position = "WR"
+        
+        team = Mock()
+        team.calculate_position_priority = None  # Force fallback
+        team.roster = []
+        team.roster_config = None
+        
+        result = strategy._calculate_position_priority(player, team)
+        assert isinstance(result, float)
+
+    def test_calculate_position_priority_position_filled(self):
+        """Cover line 143 — return 0.1 when position is already filled."""
+        strategy = ConcreteTestStrategy()
+        
+        player = Mock()
+        player.position = "QB"
+        
+        # QB with 1 already, need=1 → current >= needed → return 0.1
+        qb_player = Mock()
+        qb_player.position = "QB"
+        
+        team = Mock()
+        team.calculate_position_priority = None  # Force fallback
+        team.roster = [qb_player]
+        team.roster_config = {'QB': 1}  # Only need 1 QB
+        
+        result = strategy._calculate_position_priority(player, team)
+        assert result == 0.1
+
+    def test_should_force_bid_zero_remaining_slots(self):
+        """Cover line 170 — return False when remaining_slots == 0."""
+        strategy = ConcreteTestStrategy()
+        
+        team = Mock()
+        team.get_remaining_roster_slots.return_value = 0
+        team.calculate_minimum_budget_needed.return_value = 0.0
+        
+        result = strategy._should_force_bid(team, 50.0, 10.0)
+        assert result is False
+
+    def test_should_force_nominate_few_remaining_slots(self):
+        """Cover line 186 — return False when remaining_slots < 3."""
+        strategy = ConcreteTestStrategy()
+        
+        player = Mock()
+        player.position = "QB"
+        player.auction_value = 20.0
+        
+        team = Mock()
+        team.get_remaining_roster_slots.return_value = 2
+        team.calculate_position_priority.return_value = 0.8
+        team.calculate_minimum_budget_needed.return_value = 5.0
+        
+        result = strategy.should_force_nominate_for_completion(player, team, 50.0)
+        assert result is False
+
+    def test_safe_bid(self):
+        """Cover lines 276-277 — safe_bid method."""
+        strategy = ConcreteTestStrategy()
+        
+        team = Mock()
+        team.get_remaining_roster_slots.return_value = 5
+        team.calculate_minimum_budget_needed.return_value = 10.0
+        
+        # 5 remaining slots, remaining_budget=100 → max_bid = 100 - 4 = 96
+        # safe_bid(50.0) → min(50, 96) = 50
+        result = strategy.safe_bid(50.0, team, 100.0)
+        assert result == 50
+        
+        # When calculated_bid > max_allowable, it should cap
+        team2 = Mock()
+        team2.get_remaining_roster_slots.return_value = 1
+        # last slot: max_bid = max(1, 100) = 100
+        result2 = strategy.safe_bid(200.0, team2, 100.0)
+        assert result2 == 100
+
+    def test_get_market_inflation_rate_exception(self):
+        """Cover lines 328-329 — exception fallback in _get_market_inflation_rate."""
+        strategy = ConcreteTestStrategy()
+        mock_tracker = Mock()
+        mock_tracker.get_inflation_rate.side_effect = Exception("tracker error")
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=mock_tracker):
+            rate = strategy._get_market_inflation_rate()
+        
+        assert rate == 1.0
+
+    def test_get_position_inflation_rate_no_tracker(self):
+        """Cover line 335 — return 1.0 when tracker is None."""
+        strategy = ConcreteTestStrategy()
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=None):
+            rate = strategy._get_position_inflation_rate("QB")
+        
+        assert rate == 1.0
+
+    def test_get_position_inflation_rate_exception(self):
+        """Cover lines 338-339 — exception fallback in _get_position_inflation_rate."""
+        strategy = ConcreteTestStrategy()
+        mock_tracker = Mock()
+        mock_tracker.get_position_inflation_rate.side_effect = Exception("error")
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=mock_tracker):
+            rate = strategy._get_position_inflation_rate("RB")
+        
+        assert rate == 1.0
+
+    def test_get_market_budget_remaining_percentage_no_tracker(self):
+        """Cover line 345 — return 1.0 when tracker is None."""
+        strategy = ConcreteTestStrategy()
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=None):
+            rate = strategy._get_market_budget_remaining_percentage()
+        
+        assert rate == 1.0
+
+    def test_get_market_budget_remaining_percentage_exception(self):
+        """Cover lines 348-349 — exception fallback."""
+        strategy = ConcreteTestStrategy()
+        mock_tracker = Mock()
+        mock_tracker.get_remaining_budget_percentage.side_effect = Exception("error")
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=mock_tracker):
+            rate = strategy._get_market_budget_remaining_percentage()
+        
+        assert rate == 1.0
+
+    def test_get_position_scarcity_factor_no_tracker(self):
+        """Cover line 355 — return 1.0 when tracker is None."""
+        strategy = ConcreteTestStrategy()
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=None):
+            factor = strategy._get_position_scarcity_factor("WR")
+        
+        assert factor == 1.0
+
+    def test_get_position_scarcity_factor_exception(self):
+        """Cover lines 358-359 — exception fallback in _get_position_scarcity_factor."""
+        strategy = ConcreteTestStrategy()
+        mock_tracker = Mock()
+        mock_tracker.get_position_scarcity.side_effect = Exception("error")
+        
+        with patch.object(strategy, '_get_market_tracker', return_value=mock_tracker):
+            factor = strategy._get_position_scarcity_factor("WR")
+        
+        assert factor == 1.0
