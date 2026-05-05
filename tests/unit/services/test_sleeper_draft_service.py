@@ -337,3 +337,29 @@ class TestSleeperDraftServiceConvenienceFunctions(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSleeperDraftServiceExceptionPaths(unittest.TestCase):
+    """Cover exception paths in sleeper_draft_service.py lines 227-228, 292, 300-301."""
+
+    def _service(self):
+        from services.sleeper_draft_service import SleeperDraftService
+        svc = SleeperDraftService()
+        svc.sleeper_api = MagicMock()
+        return svc
+
+    def test_list_user_leagues_exception(self):
+        """Cover lines 227-228 — exception in list_user_leagues."""
+        svc = self._service()
+        svc.sleeper_api.get_user = AsyncMock(side_effect=Exception("network error"))
+        result = asyncio.run(svc.list_user_leagues("testuser"))
+        self.assertFalse(result['success'])
+        self.assertIn('Error', result['error'])
+
+    def test_get_current_draft_status_exception(self):
+        """Cover lines 300-301 — exception in get_current_draft_status."""
+        svc = self._service()
+        svc.sleeper_api.get_user = AsyncMock(side_effect=Exception("api error"))
+        result = asyncio.run(svc.get_current_draft_status("testuser"))
+        self.assertFalse(result['success'])
+        self.assertIn('Error', result['error'])

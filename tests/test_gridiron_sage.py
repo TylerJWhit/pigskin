@@ -405,3 +405,47 @@ class TestRosterSlotsTypeMismatch:
         assert after == before - 1, (
             f"RB slot count should decrease by 1 after adding an RB: got before={before}, after={after}"
         )
+
+
+class TestGridironSageNetworkFallback:
+    """Cover gridiron_sage_strategy.py exception paths in _GridironSageNetwork."""
+
+    def test_forward_torch_exception_falls_back(self):
+        """Cover lines 248-249 — torch exception falls back to uniform policy."""
+        from unittest.mock import MagicMock
+        from strategies.gridiron_sage_strategy import _GridironSageNetwork
+        network = _GridironSageNetwork()
+        # Inject a mock torch model that raises on forward pass
+        mock_model = MagicMock()
+        mock_model.side_effect = Exception("torch error")
+        network._torch_model = mock_model
+        features = [0.5] * 10
+        logits, value = network.forward(features)
+        assert value == 0.5
+        assert len(logits) == network.policy_dim
+
+    def test_mcts_search_no_children(self):
+        """Cover line 382 — MCTS search returns 0.0 when no children."""
+        from strategies.gridiron_sage_strategy import _GridironSageMCTS, _GridironSageNetwork
+        from classes.player import Player
+        from classes.team import Team
+        network = _GridironSageNetwork()
+        mcts = _GridironSageMCTS(network, iterations=5)
+        player = Player("p1", "Test Player", "QB", "KC", projected_points=200.0, auction_value=30.0)
+        team = Team("t1", "o1", "Test Team", 200)
+        # current_bid >= remaining_budget → max_bid <= current_bid → returns 0.0
+        result = mcts.search(player, team, 200.0, 200.0, [])
+        assert result == 0.0
+
+
+class TestTryImportTorchNet:
+    """Cover lines 266-283 — _try_import_torch_net with torch available."""
+
+    def test_returns_none_when_torch_not_available(self):
+        """Cover line 232-233 (except block) when torch not available."""
+        from unittest.mock import patch
+        import sys
+        with patch.dict(sys.modules, {'torch': None, 'torch.nn': None}):
+            from strategies.gridiron_sage_strategy import _try_import_torch_net
+            result = _try_import_torch_net()
+        assert result is None

@@ -2177,3 +2177,252 @@ class TestEnhancedVorLine211:
             test_inflation_aware_strategy()
         except Exception:
             pass  # May fail due to missing deps, but line is covered
+
+
+class TestAdaptiveStrategyExtraCoverage:
+    """Cover adaptive_strategy.py lines 86, 152."""
+
+    def _make_strategy(self):
+        from strategies.adaptive_strategy import AdaptiveStrategy
+        return AdaptiveStrategy()
+
+    def test_calculate_bid_zero_player_value(self):
+        """Cover line 86 — player_value <= 0 sets it to 10."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 0.0
+        player.position = 'QB'
+        player.vor = 5.0
+        team = MagicMock()
+        team.roster = []
+        team.get_remaining_roster_slots.return_value = 10
+        team.get_needs.return_value = ['QB']
+        owner = MagicMock()
+        owner.get_risk_tolerance.return_value = 0.5
+        import unittest.mock as um
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.5):
+            with um.patch.object(strategy, 'calculate_max_bid', return_value=100.0):
+                result = strategy.calculate_bid(player, team, owner, 1.0, 200.0, [player])
+        assert isinstance(result, (int, float))
+
+    def test_should_nominate_returns_false_low_value(self):
+        """Cover line 152 — should_nominate returns False when all conditions fail."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 5.0   # <= 15, last condition not met
+        player.position = 'RB'
+        team = MagicMock()
+        team.roster = []
+        owner = MagicMock()
+        import unittest.mock as um
+        # position_priority=0.3, position_factor=1.0 → neither trend nor value conditions met
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+
+class TestAggressiveStrategyExtraCoverage:
+    """Cover aggressive_strategy.py line 81."""
+
+    def test_should_nominate_owner_none(self):
+        """Cover line 81 — owner is None returns False."""
+        from strategies.aggressive_strategy import AggressiveStrategy
+        strategy = AggressiveStrategy()
+        player = MagicMock()
+        player.auction_value = 10.0  # < elite_threshold
+        player.player_id = 'p1'
+        team = MagicMock()
+        result = strategy.should_nominate(player, team, None, 200.0)
+        assert result is False
+
+
+class TestEliteHybridExtraCoverage:
+    """Cover elite_hybrid_strategy.py lines 171, 198."""
+
+    def _make_strategy(self):
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        return EliteHybridStrategy()
+
+    def test_should_nominate_returns_false_all_conditions_fail(self):
+        """Cover line 171 — all nomination conditions fail."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 5.0  # <= 25
+        player.position = 'K'
+        team = MagicMock()
+        team.roster = []
+        owner = MagicMock()
+        import unittest.mock as um
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            with um.patch('random.random', return_value=0.99):
+                result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+    def test_calculate_elite_factor_no_premium(self):
+        """Cover line 198 — non-elite player returns 1.0 factor."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.projected_points = 100.0
+        player.auction_value = 5.0   # << threshold
+        player.position = 'QB'
+        result = strategy._calculate_elite_factor(player)
+        assert result == 1.0
+
+
+class TestLeagueStrategyExtraCoverage:
+    """Cover league_strategy.py lines 86, 148, 158."""
+
+    def _make_strategy(self):
+        from strategies.league_strategy import LeagueStrategy
+        return LeagueStrategy()
+
+    def test_calculate_bid_low_priority_high_bid(self):
+        """Cover line 86 — position_priority <= 0.1 and current_bid >= 5."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.position = 'K'
+        player.auction_value = 5.0
+        player.vor = 0.0
+        team = MagicMock()
+        team.roster = []
+        team.get_needs.return_value = []
+        team.get_remaining_roster_slots.return_value = 15
+        owner = MagicMock()
+        owner.get_risk_tolerance.return_value = 0.5
+        result = strategy.calculate_bid(player, team, owner, 10.0, 200.0, [player])
+        assert result == 0
+
+    def test_should_nominate_returns_true_high_value(self):
+        """Cover line 148 — player_value > 20 and affordable."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 30.0
+        player.position = 'QB'
+        team = MagicMock()
+        team.roster = []
+        owner = MagicMock()
+        result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is True
+
+    def test_should_nominate_returns_false_all_fail(self):
+        """Cover line 158 — all nomination conditions fail."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 5.0  # <= 20
+        player.position = 'K'
+        team = MagicMock()
+        team.roster = []
+        owner = MagicMock()
+        import unittest.mock as um
+        # priority=0.3 → first if(>0.5) fails; random=0.99 → all random checks fail
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            with um.patch('random.random', return_value=0.99):
+                result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+
+class TestImprovedValueStrategyExtraCoverage:
+    """Cover improved_value_strategy.py line 144."""
+
+    def test_should_nominate_returns_false(self):
+        """Cover line 144 — random.random() >= 0.2 returns False."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = MagicMock()
+        player.vor = 0.0  # Not valuable
+        player.position = 'K'
+        player.auction_value = 5.0
+        team = MagicMock()
+        team.roster = []
+        owner = MagicMock()
+        import unittest.mock as um
+        # priority <= 0.4 → first condition fails; random=0.99 → second fails
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            with um.patch('random.random', return_value=0.99):
+                result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+
+class TestStrategyRegistryExtraCoverage:
+    """Cover strategy_registry.py lines 137-138, 183."""
+
+    def test_from_yaml_import_error(self):
+        """Cover lines 137-138 — yaml not available raises ImportError."""
+        from strategies.strategy_registry import StrategyRegistry
+        import unittest.mock as um
+        with um.patch.dict('sys.modules', {'yaml': None}):
+            import importlib
+            import strategies.strategy_registry as sr
+            importlib.reload(sr)
+            registry = sr.StrategyRegistry
+            import builtins
+            original_import = builtins.__import__
+            def mock_import(name, *args, **kwargs):
+                if name == 'yaml':
+                    raise ImportError("No module named 'yaml'")
+                return original_import(name, *args, **kwargs)
+            with um.patch('builtins.__import__', side_effect=mock_import):
+                try:
+                    registry.from_yaml('nonexistent.yaml')
+                except ImportError as e:
+                    assert 'PyYAML' in str(e)
+
+    def test_instantiate_with_parameters(self):
+        """Cover line 183 — config.parameters truthy calls strategy_class(**parameters)."""
+        from strategies.strategy_registry import StrategyRegistry, StrategyConfig
+        import unittest.mock as um
+
+        mock_class = MagicMock(return_value=MagicMock())
+        mock_config = MagicMock(spec=StrategyConfig)
+        mock_config.base_class = 'basic'
+        mock_config.parameters = {'aggression': 0.5}
+
+        with um.patch.object(StrategyRegistry, '_get_allowlist', return_value={'basic': mock_class}):
+            result = StrategyRegistry._instantiate(mock_config)
+        mock_class.assert_called_once_with(aggression=0.5)
+
+
+class TestRefinedValueRandomStrategyExtraCoverage:
+    """Cover refined_value_random_strategy.py lines 165, 214, 232."""
+
+    def _make_strategy(self):
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        return RefinedValueRandomStrategy()
+
+    def test_should_nominate_returns_false(self):
+        """Cover line 165 — all nomination conditions fail."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 5.0  # <= 20
+        player.position = 'K'
+        team = MagicMock()
+        owner = MagicMock()
+        import unittest.mock as um
+        with um.patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            with um.patch('random.random', return_value=0.99):  # > randomness
+                result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+    def test_apply_draft_phase_mid_draft_high_value(self):
+        """Cover line 214 — mid draft and player_value > 20."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.auction_value = 25.0  # > 20
+        player.position = 'QB'
+        team = MagicMock()
+        # draft_progress between 0.3 and 0.7 = mid draft
+        result = strategy._apply_draft_stage_refinements(30.0, player, team, 0.5)
+        # 30 * 1.05 = 31.5
+        assert abs(result - 31.5) < 0.01
+
+    def test_apply_smart_randomness_medium_priority(self):
+        """Cover line 232 — position_priority between 0.4 and 0.7."""
+        strategy = self._make_strategy()
+        player = MagicMock()
+        player.position = 'RB'
+        import unittest.mock as um
+        # random.random() < randomness (first call), then 0.5 for random_factor
+        calls = iter([0.1, 0.5])  # first call < randomness triggers block, second for factor calc
+        with um.patch('random.random', side_effect=calls):
+            result = strategy._apply_smart_randomness(30.0, player, 0.5)
+        assert isinstance(result, float)
