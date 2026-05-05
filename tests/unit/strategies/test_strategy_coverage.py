@@ -304,6 +304,39 @@ class TestAggressiveStrategy:
         result = strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
 
+    def test_mandatory_position_high_priority(self):
+        """Cover position_priority >= 2.0 for K/DST (lines 42-44)."""
+        from strategies.aggressive_strategy import AggressiveStrategy
+        strategy = AggressiveStrategy()
+        player = _make_player(position="K", auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=2.5):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_bid_too_high_returns_zero(self):
+        """Cover current_bid >= max_bid → return 0.0 (line 61)."""
+        from strategies.aggressive_strategy import AggressiveStrategy
+        strategy = AggressiveStrategy()
+        player = _make_player(auction_value=10.0)
+        team = _make_team()
+        team.initial_budget = 200.0
+        # Low budget ratio means max_bid = auction_value * 0.8 = 8.0, current_bid=15 > 8
+        bid = strategy.calculate_bid(player, team, _make_owner(), 15.0, 100.0, [])
+        assert bid == 0.0
+
+    def test_should_nominate_owner_target(self):
+        """Cover owner.is_target_player branch (line 81)."""
+        from strategies.aggressive_strategy import AggressiveStrategy
+        strategy = AggressiveStrategy()
+        player = _make_player(auction_value=5.0)  # Below elite_threshold=25
+        player.player_id = "player1"
+        team = _make_team()
+        owner = _make_owner()
+        owner.is_target_player.return_value = True
+        result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is True
+
 
 class TestConservativeStrategy:
     def test_calculate_bid_basic(self):
@@ -323,6 +356,28 @@ class TestConservativeStrategy:
         owner = _make_owner()
         result = strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
+
+    def test_should_nominate_sleeper(self):
+        """Cover sleeper nomination branch (line 64)."""
+        from strategies.conservative_strategy import ConservativeStrategy
+        strategy = ConservativeStrategy()
+        # sleeper_threshold should be around 5-15 - use very low auction_value
+        player = _make_player(auction_value=1.0)  # Well below any sleeper threshold
+        team = _make_team()
+        with patch.object(strategy, 'should_force_nominate_for_completion', return_value=False):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_by_position_need(self):
+        """Cover position need nomination (lines 68-69)."""
+        from strategies.conservative_strategy import ConservativeStrategy
+        strategy = ConservativeStrategy()
+        player = _make_player(position="RB", auction_value=50.0)  # above sleeper threshold
+        team = _make_team()
+        team.get_needs.return_value = ["RB", "WR"]
+        with patch.object(strategy, 'should_force_nominate_for_completion', return_value=False):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
 
 
 class TestBalancedStrategy:
@@ -501,6 +556,109 @@ class TestEliteHybridStrategy:
         owner = _make_owner()
         result = strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
+
+    def test_low_priority_high_bid_returns_zero(self):
+        """Cover position_priority <= 0.1 with high bid → 0.0 (line 86)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_zero_player_value_fallback(self):
+        """Cover player_value <= 0 → fallback to 10 (line 91)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(auction_value=0.0)
+        player.projected_points = 0.0
+        team = _make_team()
+        bid = strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_elite_scarce_position_bonus(self):
+        """Cover elite player in scarce position → 30% bonus (line 109)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="TE", auction_value=50.0)  # Elite TE (scarce)
+        team = _make_team()
+        bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_affordable_valuable(self):
+        """Cover player_value > 25 and affordable → True (lines 163-169)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(auction_value=30.0)  # > 25
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.3):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_is_elite_super_elite(self):
+        """Cover super-elite value multiplier (line 191)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="RB", auction_value=60.0)  # Super-elite RB
+        result = strategy._is_elite_player(player)
+        assert result  # 2.0 is truthy for super-elite
+
+    def test_is_elite_standard(self):
+        """Cover standard elite value multiplier (lines 194-196)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="RB", auction_value=38.0)  # above threshold 35, below 52.5
+        result = strategy._is_elite_player(player)
+        assert result  # 1.5 is truthy
+
+    def test_position_priority_full(self):
+        """Cover return 0.2 when position is full (line 230)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        priority = strategy._calculate_position_priority(player, team)
+        assert priority == 0.2
+
+    def test_should_nominate_random_price_drive(self):
+        """Cover random 15% chance nomination (line 168-169)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(auction_value=5.0)  # low value won't trigger value branch
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.1), \
+             patch.object(strategy, '_calculate_position_scarcity', return_value=0.1), \
+             patch('strategies.elite_hybrid_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.05  # < 0.15 → True
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_elite_factor_rwr_super_elite(self):
+        """Cover RB/WR super-elite → 2.0 (lines 191-193)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="WR", auction_value=60.0)  # way above threshold
+        result = strategy._calculate_elite_factor(player)
+        assert result == 2.0
+
+    def test_elite_factor_other_super_elite(self):
+        """Cover non-skill super-elite → 1.8 (lines 194-195)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="QB", auction_value=60.0)  # way above threshold
+        result = strategy._calculate_elite_factor(player)
+        assert result == 1.8
+
+    def test_elite_factor_standard_elite(self):
+        """Cover standard elite → 1.5 (lines 196-197)."""
+        from strategies.elite_hybrid_strategy import EliteHybridStrategy
+        strategy = EliteHybridStrategy()
+        player = _make_player(position="RB", auction_value=38.0)  # above threshold, below 1.5x
+        result = strategy._calculate_elite_factor(player)
+        assert result == 1.5
 
 
 class TestHybridStrategies:
@@ -745,6 +903,101 @@ class TestValueBasedStrategy:
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
 
+    def test_calculate_bid_risk_exception(self):
+        """Cover except block for risk tolerance (lines 90-91)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        owner = _make_owner()
+        owner.get_risk_tolerance.side_effect = AttributeError("no method")
+        bid = strategy.calculate_bid(player, team, owner, 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_cheap_player(self):
+        """Cover cheap player nomination (lines 112-113)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=2.0, projected_points=10.0)
+        team = _make_team()
+        result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_needs_exception(self):
+        """Cover except block for team needs (lines 129-130, 135-137)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        team.get_needs.side_effect = AttributeError("no method")
+        owner = _make_owner()
+        owner.is_target_player.side_effect = AttributeError("no method")
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            result = strategy.should_nominate(player, team, owner, 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_returns_false(self):
+        """Cover final return False (line 145)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=3.0)  # value <= 20 won't trigger 30% branch
+        team = _make_team()
+        team.get_needs.return_value = []
+        owner = _make_owner()
+        owner.is_target_player.return_value = False
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is False
+
+    def test_should_nominate_low_budget_cheap_player(self):
+        """Cover budget_per_slot < 2.0 with cheap player (line 112-115)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=3.0)  # cheap
+        team = _make_team()
+        # Override get_remaining_roster_slots to return many slots → low per-slot budget
+        team.get_remaining_roster_slots = MagicMock(return_value=50)
+        result = strategy.should_nominate(player, team, _make_owner(), 1.0)  # 1/50=0.02 < 2.0
+        assert isinstance(result, bool)
+
+    def test_should_nominate_low_budget_expensive_returns_false(self):
+        """Cover budget_per_slot < 2.0 expensive player → False (line 114-115)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=40.0)  # expensive
+        team = _make_team()
+        team.get_remaining_roster_slots = MagicMock(return_value=50)
+        result = strategy.should_nominate(player, team, _make_owner(), 1.0)
+        assert result is False
+
+    def test_should_nominate_target_player(self):
+        """Cover owner.is_target_player branch (lines 133-135)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=15.0, position="RB")
+        team = _make_team()
+        team.get_needs.return_value = ["QB"]  # RB not needed by get_needs
+        owner = _make_owner()
+        owner.is_target_player.return_value = True
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3):
+            result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is True
+
+    def test_should_nominate_high_budget_high_value(self):
+        """Cover budget_per_slot >= 5.0 with high value player (lines 138-140)."""
+        from strategies.value_based_strategy import ValueBasedStrategy
+        strategy = ValueBasedStrategy()
+        player = _make_player(auction_value=25.0)  # value > 20
+        team = _make_team()
+        team.get_needs.return_value = []  # No needs
+        owner = _make_owner()
+        owner.is_target_player.return_value = False
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.value_based_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.1  # < 0.3 → True
+            result = strategy.should_nominate(player, team, owner, 200.0)
+        assert result is True
+
 
 class TestRefinedValueRandomStrategy:
     def setup_method(self):
@@ -768,6 +1021,142 @@ class TestRefinedValueRandomStrategy:
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
 
+    def test_calculate_bid_low_priority_high_bid(self):
+        """Cover low priority + high bid → 0.0 (line 88)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_should_nominate_mid_draft_high_priority(self):
+        """Cover mid-draft high priority nomination (lines 146-148)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(position="RB", auction_value=30.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.8), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.5):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_mid_draft_low_priority(self):
+        """Cover mid-draft low priority → True via line 163."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.4), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.5), \
+             patch('strategies.refined_value_random_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.0  # force nomination
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_late_draft(self):
+        """Cover late-draft branch (lines 203-205)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(position="TE", auction_value=15.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.8), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.8):
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert isinstance(result, bool)
+
+    def test_should_nominate_random_nomination(self):
+        """Cover random_chance nomination (line 163)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.1), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.5), \
+             patch('strategies.refined_value_random_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.0
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_apply_draft_stage_early_high_value(self):
+        """Cover early draft > 25 value (line 203-204)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_draft_progress', return_value=0.15):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_apply_draft_stage_early_mid_value(self):
+        """Cover early draft 20 < value <= 25 (line 207-208)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(auction_value=22.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_draft_progress', return_value=0.15):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_apply_draft_stage_late_high_priority(self):
+        """Cover late draft high priority (lines 211-212)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(position="RB", auction_value=20.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_draft_progress', return_value=0.8), \
+             patch.object(strategy, '_calculate_position_priority', return_value=0.8):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_apply_draft_stage_late_mid_priority(self):
+        """Cover late draft mid priority (lines 213-214)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(position="WR", auction_value=20.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_draft_progress', return_value=0.8), \
+             patch.object(strategy, '_calculate_position_priority', return_value=0.6):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_apply_smart_randomness_high_priority(self):
+        """Cover smart randomness high-priority variance (lines 228-229)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy(randomness=1.0)
+        player = _make_player(auction_value=15.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.8), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.5), \
+             patch('strategies.refined_value_random_strategy.random') as mock_random:
+            mock_random.random.side_effect = [0.0, 0.5, 0.5]
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_apply_smart_randomness_low_priority(self):
+        """Cover smart randomness low-priority variance (lines 234-235)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy(randomness=1.0)
+        player = _make_player(auction_value=15.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.2), \
+             patch.object(strategy, '_calculate_draft_progress', return_value=0.5), \
+             patch('strategies.refined_value_random_strategy.random') as mock_random:
+            mock_random.random.side_effect = [0.0, 0.5, 0.5]
+            bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_position_priority_full_position(self):
+        """Cover return 0.2 when full (line 256)."""
+        from strategies.refined_value_random_strategy import RefinedValueRandomStrategy
+        strategy = RefinedValueRandomStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        priority = strategy._calculate_position_priority(player, team)
+        assert priority == 0.2
+
 
 class TestImprovedValueStrategy:
     def setup_method(self):
@@ -790,6 +1179,89 @@ class TestImprovedValueStrategy:
         owner = _make_owner()
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
+
+    def test_low_priority_high_bid_returns_zero(self):
+        """Cover low priority + high current bid → 0.0 (line 76)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            bid = strategy.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_zero_base_value_fallback(self):
+        """Cover base_value <= 0 fallback (line 84)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(auction_value=0.0)
+        player.projected_points = 0.0
+        team = _make_team()
+        bid = strategy.calculate_bid(player, team, _make_owner(), 0.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_randomness_applied(self):
+        """Cover randomness branch (line 95)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy(randomness=0.1)
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        bid = strategy.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_should_nominate_affordable_valuable(self):
+        """Cover player_value > 20 and affordable (lines 136-137)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(auction_value=25.0)  # > 20
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.improved_value_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.9  # Don't trigger random branch
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_random_chance(self):
+        """Cover random nomination chance (line 141)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.improved_value_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.1  # < 0.2
+            result = strategy.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_position_priority_full_position(self):
+        """Cover return 0.2 when position full (line 178)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        priority = strategy._calculate_position_priority(player, team)
+        assert priority == 0.2
+
+    def test_position_urgency_very_urgent(self):
+        """Cover return 2.0 (very urgent) (line 191)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"P{i}") for i in range(13)]  # 13/15 > 0.8
+        urgency = strategy._calculate_position_urgency(player, team)
+        assert urgency == 2.0
+
+    def test_position_urgency_somewhat_urgent(self):
+        """Cover return 1.5 (somewhat urgent) (line 193)."""
+        from strategies.improved_value_strategy import ImprovedValueStrategy
+        strategy = ImprovedValueStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"P{i}") for i in range(10)]  # 10/15 > 0.6 but <= 0.8
+        urgency = strategy._calculate_position_urgency(player, team)
+        assert urgency == 1.5
 
 
 class TestRandomStrategy:
