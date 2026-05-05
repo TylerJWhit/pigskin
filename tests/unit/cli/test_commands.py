@@ -558,3 +558,427 @@ class TestCreateTestDraft:
         cp.config_manager.load_config.side_effect = RuntimeError("boom")
         result = cp._create_test_draft(10)
         assert result is None
+
+
+class TestRunEnhancedMockDraftSuccess:
+    """Cover the success path of run_enhanced_mock_draft (lines 101-147)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_single_strategy_success_path(self):
+        """Cover run_enhanced_mock_draft with single valid strategy (lines 101-147)."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        mock_config.data_path = "/fake"
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_player = MagicMock()
+        mock_player.projected_points = 300.0
+
+        mock_team = MagicMock()
+        mock_team.team_name = "Team 1"
+        mock_team.strategy.name = "Balanced"
+        mock_team.roster = [mock_player]
+        mock_team.budget = 100.0
+
+        mock_draft = MagicMock()
+        mock_draft.teams = [mock_team]
+
+        mock_simulation = {'completed': True}
+
+        with patch('cli.commands.FantasyProsLoader') as MockLoader:
+            MockLoader.return_value.load_all_players.return_value = [mock_player]
+            cp._create_mock_draft = MagicMock(return_value=mock_draft)
+            cp._run_detailed_simulation = MagicMock(return_value=mock_simulation)
+
+            result = cp.run_enhanced_mock_draft('balanced', 10)
+
+        assert result['success'] is True
+        assert 'draft' in result
+
+    def test_list_strategy_success_path(self):
+        """Cover run_enhanced_mock_draft with list of valid strategies."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_player = MagicMock()
+        mock_player.projected_points = 200.0
+
+        mock_team = MagicMock()
+        mock_team.team_name = "Team 1"
+        mock_team.strategy.name = "Balanced"
+        mock_team.roster = [mock_player]
+        mock_team.budget = 150.0
+
+        mock_draft = MagicMock()
+        mock_draft.teams = [mock_team]
+
+        with patch('cli.commands.FantasyProsLoader') as MockLoader:
+            MockLoader.return_value.load_all_players.return_value = [mock_player]
+            cp._create_mock_draft = MagicMock(return_value=mock_draft)
+            cp._run_detailed_simulation = MagicMock(return_value={})
+
+            result = cp.run_enhanced_mock_draft(['balanced', 'aggressive'], 10)
+
+        assert result['success'] is True
+
+    def test_winner_determination_path(self):
+        """Cover best team winner determination loop (lines 115-133)."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        cp.config_manager.load_config.return_value = mock_config
+
+        p1 = MagicMock(); p1.projected_points = 300.0
+        p2 = MagicMock(); p2.projected_points = 100.0
+
+        team1 = MagicMock()
+        team1.team_name = "Team 1"
+        team1.strategy.name = "Balanced"
+        team1.roster = [p1]
+        team1.budget = 100.0
+
+        team2 = MagicMock()
+        team2.team_name = "Team 2"
+        team2.strategy.name = "Aggressive"
+        team2.roster = [p2]
+        team2.budget = 150.0
+
+        mock_draft = MagicMock()
+        mock_draft.teams = [team1, team2]
+
+        with patch('cli.commands.FantasyProsLoader') as MockLoader:
+            MockLoader.return_value.load_all_players.return_value = [p1]
+            cp._create_mock_draft = MagicMock(return_value=mock_draft)
+            cp._run_detailed_simulation = MagicMock(return_value={'data': True})
+
+            result = cp.run_enhanced_mock_draft('balanced', 10)
+
+        assert result['success'] is True
+        assert result.get('winner_strategy') == 'Balanced'
+
+
+class TestRunEliminationTournamentFull:
+    """Cover _run_elimination_tournament (lines 604-696)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_two_strategy_single_round(self):
+        """Cover _run_elimination_tournament with 2 strategies → 1 round."""
+        cp = self._make_cp()
+
+        mock_winner_team = MagicMock()
+        mock_winner_team.strategy.name = "balanced"
+        mock_winner_team.get_projected_points.return_value = 1200.0
+        mock_winner_team.get_total_spent.return_value = 150.0
+
+        mock_pool_result = {
+            'success': True,
+            'winner': {'strategy': 'balanced', 'points': 1200.0, 'efficiency': 8.0},
+            'all_teams': []
+        }
+
+        cp._run_elimination_draft = MagicMock(return_value=mock_pool_result)
+
+        result = cp._run_elimination_tournament(['balanced', 'aggressive'], 10)
+
+        assert result['success'] is True
+        assert result['champion'] == 'balanced'
+
+    def test_failure_pool_path(self):
+        """Cover failed pool result path (lines 644-645)."""
+        cp = self._make_cp()
+
+        mock_pool_fail = {'success': False, 'error': 'Draft failed'}
+        cp._run_elimination_draft = MagicMock(return_value=mock_pool_fail)
+
+        result = cp._run_elimination_tournament(['balanced', 'aggressive'], 10)
+
+        assert result['success'] is True  # Tournament still succeeds even if pool fails
+
+
+class TestRunMockDraftTournamentFull:
+    """Cover _run_mock_draft_tournament (lines 700-789)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_two_strategies(self):
+        """Cover _run_mock_draft_tournament with 2 strategies."""
+        cp = self._make_cp()
+
+        winner_team = MagicMock()
+        winner_team.strategy.name = "Balanced"
+        winner_team.get_projected_points.return_value = 1200.0
+        winner_team.get_total_spent.return_value = 150.0
+
+        loser_team = MagicMock()
+        loser_team.strategy.name = "Aggressive"
+        loser_team.get_projected_points.return_value = 900.0
+        loser_team.get_total_spent.return_value = 180.0
+
+        mock_draft = MagicMock()
+        mock_draft.teams = [winner_team, loser_team]
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value={
+            'success': True,
+            'draft': mock_draft,
+            'winner_strategy': 'Balanced'
+        })
+        cp._map_strategy_name_to_key = MagicMock(return_value='balanced')
+
+        result = cp._run_mock_draft_tournament(['balanced', 'aggressive'], 10)
+
+        assert result['success'] is True
+        assert result['champion'] is not None
+
+    def test_failed_mock_draft(self):
+        """Cover failed mock draft path (lines 760-762)."""
+        cp = self._make_cp()
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value={
+            'success': False,
+            'error': 'Load failed'
+        })
+
+        result = cp._run_mock_draft_tournament(['balanced', 'aggressive'], 10)
+
+        # Even if all drafts fail, method should complete
+        assert result['success'] is True
+
+
+class TestRunEliminationDraft:
+    """Cover _run_elimination_draft (lines 874-973)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_no_draft_returns_error(self):
+        """Cover _create_test_draft returns None → error (lines 881-884)."""
+        cp = self._make_cp()
+        cp._create_test_draft = MagicMock(return_value=None)
+
+        result = cp._run_elimination_draft(['balanced', 'aggressive'])
+
+        assert result['success'] is False
+        assert 'error' in result
+
+    def test_exception_returns_error(self):
+        """Cover exception path (lines 969-972)."""
+        cp = self._make_cp()
+        cp._create_test_draft = MagicMock(side_effect=RuntimeError("test error"))
+
+        result = cp._run_elimination_draft(['balanced'])
+
+        assert result['success'] is False
+        assert 'error' in result
+
+
+class TestCreateMockDraft:
+    """Cover _create_mock_draft (lines 1075-1122)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_single_strategy_creates_draft(self):
+        """Cover single strategy path (lines 1075-1122)."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        mock_config.budget_per_team = 200
+        mock_config.roster_positions = {'QB': 1, 'RB': 2}
+        mock_player = MagicMock()
+        mock_player.name = "Test Player"
+        mock_player.position = "QB"
+
+        with patch('cli.commands.Draft') as MockDraft, \
+             patch('cli.commands.Team') as MockTeam, \
+             patch('cli.commands.Owner') as MockOwner, \
+             patch('cli.commands.create_strategy') as MockCreate:
+            mock_strategy = MagicMock()
+            mock_strategy.name = "Balanced"
+            MockCreate.return_value = mock_strategy
+            MockDraft.return_value = MagicMock()
+
+            result = cp._create_mock_draft(mock_config, [mock_player], 'balanced', 2)
+
+        assert result is not None
+
+    def test_list_strategies_creates_draft(self):
+        """Cover list strategies path (lines 1077-1079)."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        mock_config.budget_per_team = 200
+        mock_config.roster_positions = {'QB': 1, 'RB': 2}
+        mock_player = MagicMock()
+
+        with patch('cli.commands.Draft') as MockDraft, \
+             patch('cli.commands.Team') as MockTeam, \
+             patch('cli.commands.Owner') as MockOwner, \
+             patch('cli.commands.create_strategy') as MockCreate:
+            mock_strategy = MagicMock()
+            mock_strategy.name = "Balanced"
+            MockCreate.return_value = mock_strategy
+
+            result = cp._create_mock_draft(mock_config, [mock_player], ['balanced', 'aggressive'], 2)
+
+        assert result is not None
+
+
+class TestRunComprehensiveStatisticalTournament:
+    """Cover _run_comprehensive_statistical_tournament (lines 308-586)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_basic_run(self):
+        """Cover statistical tournament with mocked drafts."""
+        cp = self._make_cp()
+
+        mock_draft_result = {
+            'success': True,
+            'team_results': [
+                {'strategy': 'balanced', 'total_points': 1200, 'final_budget': 50, 'roster_size': 15},
+                {'strategy': 'aggressive', 'total_points': 900, 'final_budget': 10, 'roster_size': 14},
+            ],
+            'winner_strategy': 'balanced',
+            'winner_points': 1200
+        }
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value=mock_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive'], teams_per_draft=2, verbose=False
+        )
+
+        assert result['success'] is True
+
+    def test_verbose_mode(self):
+        """Cover verbose output path (line 848, 855-856)."""
+        cp = self._make_cp()
+
+        mock_draft_result = {
+            'success': True,
+            'team_results': [
+                {'strategy': 'balanced', 'total_points': 1200, 'final_budget': 50, 'roster_size': 15},
+            ],
+            'winner_strategy': 'balanced',
+            'winner_points': 1200
+        }
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value=mock_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive'], teams_per_draft=2, verbose=True
+        )
+
+        assert result['success'] is True
+
+
+class TestRunEliminationRounds:
+    """Cover _run_elimination_rounds (lines 193-263)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_two_strategies_one_round(self):
+        """Cover main while loop and winner selection (lines 193-263)."""
+        cp = self._make_cp()
+
+        mock_draft_result = {
+            'success': True,
+            'winner_strategy': 'balanced',
+            'winner_points': 1200.0,
+            'team_results': [
+                {'strategy': 'balanced', 'total_points': 1200},
+                {'strategy': 'aggressive', 'total_points': 900},
+            ]
+        }
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value=mock_draft_result)
+
+        result = cp._run_elimination_rounds(
+            ['balanced', 'aggressive'],
+            rounds_per_group=1,
+            teams_per_draft=2,
+            verbose=False
+        )
+
+        assert result['success'] is True
+        assert result.get('tournament_winner') == 'balanced'
+
+    def test_verbose_mode(self):
+        """Cover verbose output (line 227)."""
+        cp = self._make_cp()
+
+        mock_draft_result = {
+            'success': True,
+            'winner_strategy': 'balanced',
+            'winner_points': 1200.0,
+            'team_results': [
+                {'strategy': 'balanced', 'total_points': 1200},
+            ]
+        }
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value=mock_draft_result)
+
+        result = cp._run_elimination_rounds(
+            ['balanced', 'aggressive'],
+            rounds_per_group=1,
+            teams_per_draft=2,
+            verbose=True
+        )
+
+        assert result['success'] is True
+
+    def test_failed_draft_path(self):
+        """Cover failed draft → 'Failed: ...' print path (line 244)."""
+        cp = self._make_cp()
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value={
+            'success': False,
+            'error': 'Load failed'
+        })
+
+        result = cp._run_elimination_rounds(
+            ['balanced', 'aggressive'],
+            rounds_per_group=1,
+            teams_per_draft=2,
+            verbose=False
+        )
+
+        assert result['success'] is True
