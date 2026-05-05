@@ -163,6 +163,22 @@ class TestGetBidRecommendationDetailed:
             result = cp.get_bid_recommendation_detailed('Josh Allen')
         mock_service.recommend_bid.assert_called_once()
 
+    def test_exception_in_config_load_is_ignored(self):
+        """Cover lines 36-37: exception in config load is silently caught."""
+        cp = self._make_cp()
+        cp.config_manager.load_config.side_effect = Exception("config error")
+
+        mock_service = MagicMock()
+        mock_service.recommend_bid.return_value = {
+            'success': True,
+            'bid_difference': 5.0,
+            'recommended_bid': 20.0,
+            'auction_value': 25.0,
+        }
+        with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
+            result = cp.get_bid_recommendation_detailed('Josh Allen')
+        assert result['success'] is True
+
 
 class TestMapStrategyNameToKey:
     """Cover lines 798-817: _map_strategy_name_to_key."""
@@ -1106,3 +1122,83 @@ class TestCommandsExtraCoverage:
             result = cp._create_test_draft(2)
 
         assert result is None
+
+
+class TestRunDetailedSimulation:
+    """Cover _run_detailed_simulation (lines 1126-1555)."""
+
+    def _make_cp(self):
+        with patch('cli.commands.ConfigManager'), \
+             patch('cli.commands.SleeperAPI'), \
+             patch('cli.commands.SleeperDraftService'):
+            from cli.commands import CommandProcessor
+            return CommandProcessor()
+
+    def test_simulation_completes_with_full_rosters(self):
+        """Cover main path: draft.status not 'started' so while loop skipped."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        mock_config.roster_positions = {'QB': 1, 'RB': 2}
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_team = MagicMock()
+        mock_team.strategy = MagicMock()
+        mock_team.strategy.name = 'balanced'
+        mock_team.owner_id = 'owner_1'
+        mock_team.roster = []
+        mock_team.budget = 200.0
+        mock_team.get_projected_points.return_value = 500.0
+        mock_team.get_starter_projected_points.return_value = 500.0
+        mock_team.get_total_spent.return_value = 0.0
+
+        mock_draft = MagicMock()
+        # draft.status is 'completed', so while loop won't run
+        mock_draft.status = 'completed'
+        mock_draft.teams = [mock_team]
+        mock_draft.available_players = [MagicMock(), MagicMock()]
+
+        mock_auction = MagicMock()
+
+        with patch('classes.auction.Auction', return_value=mock_auction):
+            result = cp._run_detailed_simulation(mock_draft, 'balanced')
+
+        assert 'total_players_drafted' in result
+        assert result['primary_strategy'] == 'balanced'
+
+    def test_simulation_all_rosters_complete(self):
+        """Cover line 1202-1204: all teams have complete rosters → break."""
+        cp = self._make_cp()
+
+        mock_config = MagicMock()
+        mock_config.roster_positions = {'QB': 1}  # 1 slot
+        cp.config_manager.load_config.return_value = mock_config
+
+        mock_player = MagicMock()
+        mock_player.position = 'QB'
+        mock_player.name = 'Test Player'
+        mock_player.auction_price = 10.0
+        mock_player.projected_points = 25.0
+
+        mock_team = MagicMock()
+        mock_team.strategy = MagicMock()
+        mock_team.strategy.name = 'balanced'
+        mock_team.owner_id = 'owner_1'
+        mock_team.budget = 200.0
+        mock_team.get_projected_points.return_value = 500.0
+        mock_team.get_starter_projected_points.return_value = 500.0
+        mock_team.get_total_spent.return_value = 0.0
+        # Roster already has the 1 slot filled
+        mock_team.roster = [mock_player]
+
+        mock_draft = MagicMock()
+        mock_draft.status = 'started'
+        mock_draft.teams = [mock_team]
+        mock_draft.available_players = [MagicMock()]
+
+        mock_auction = MagicMock()
+
+        with patch('classes.auction.Auction', return_value=mock_auction):
+            result = cp._run_detailed_simulation(mock_draft, 'balanced')
+
+        assert 'total_players_drafted' in result
