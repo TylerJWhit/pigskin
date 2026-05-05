@@ -843,3 +843,348 @@ class TestSigmoidStrategy:
         owner = _make_owner()
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
+
+
+class TestHybridStrategiesExtended:
+    """Additional tests covering uncovered branches in hybrid_strategies.py."""
+
+    def test_value_random_low_priority_high_bid(self):
+        """Cover position_priority <= 0.1 with current_bid >= 5 → 0.0 (line 66)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(position="QB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.05):
+            bid = s.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_value_random_random_adjustment_applied(self):
+        """Cover randomness branch (lines 110-118)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy(randomness=1.0)  # Force random branch
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        with patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.side_effect = [0.0, 0.9]  # first < randomness → apply; second factor
+            bid = s.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_random_random_nomination(self):
+        """Cover random nomination branch (lines 139-140)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy(randomness=1.0)
+        player = _make_player(auction_value=5.0)  # low value, low priority
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.0  # 0.0 < randomness*0.5
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_value_random_expensive_affordable_nomination(self):
+        """Cover player_value > 20 and affordable → True (line 112)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(auction_value=25.0)  # > 20
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9  # won't trigger random
+            result = s.should_nominate(player, team, _make_owner(), 200.0)  # 25 < 80
+        assert result is True
+
+    def test_value_random_no_nomination(self):
+        """Cover should_nominate returns False (line 118)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9  # >= randomness*0.5
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is False
+
+    def test_value_random_position_full(self):
+        """Cover _calculate_position_priority returns 0.2 when position is full (line 156)."""
+        from strategies.hybrid_strategies import ValueRandomStrategy
+        s = ValueRandomStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        rbs = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        team.roster = rbs
+        priority = s._calculate_position_priority(player, team)
+        assert priority == 0.2
+
+    def test_value_smart_low_priority_high_bid(self):
+        """Cover ValueSmartStrategy position_priority <= 0.1 with high bid (line 222)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(position="QB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.05):
+            bid = s.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_value_smart_position_count_zero(self):
+        """Cover position_count == 0 → boost bid (lines 239-240)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(position="TE", auction_value=30.0)
+        team = _make_team()
+        team.roster = []  # No TE on roster
+        bid = s.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_smart_position_count_high(self):
+        """Cover position_count >= 2 → reduce bid (lines 241-242)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(position="RB", auction_value=30.0)
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(3)]
+        bid = s.calculate_bid(player, team, _make_owner(), 5.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_value_smart_position_full(self):
+        """Cover _calculate_position_priority returns 0.2 in ValueSmart (line 282)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        priority = s._calculate_position_priority(player, team)
+        assert priority == 0.2
+
+    def test_value_smart_random_nomination(self):
+        """Cover ValueSmart random nomination (lines 303-304)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.0  # < 0.15
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_value_smart_expensive_affordable_nomination(self):
+        """Cover ValueSmart player_value > 20 and affordable → True (line 276)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(auction_value=25.0)  # > 20
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9
+            result = s.should_nominate(player, team, _make_owner(), 200.0)  # 25 < 80
+        assert result is True
+
+    def test_value_smart_no_random_nomination(self):
+        """Cover ValueSmart should_nominate returns False (line 320 area)."""
+        from strategies.hybrid_strategies import ValueSmartStrategy
+        s = ValueSmartStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9  # >= 0.15
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is False
+
+    def test_improved_value_position_full(self):
+        """Cover _calculate_position_priority returns 0.2 in ImprovedValue (line 376)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(position="RB")
+        team = _make_team()
+        team.roster = [_make_player(f"RB{i}", "RB") for i in range(4)]
+        priority = s._calculate_position_priority(player, team)
+        assert priority == 0.2
+
+    def test_improved_value_low_priority_high_bid(self):
+        """Cover ImprovedValue position_priority <= 0.1 with high bid (line 383)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(position="QB", auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.05):
+            bid = s.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert bid == 0.0
+
+    def test_improved_value_budget_guard(self):
+        """Cover conservative bid when budget is tight (line 376)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=30.0)
+        team = _make_team()
+        # 15 slots remaining → min_needed=15, budget=18 → 18 <= 15+5=20
+        bid = s.calculate_bid(player, team, _make_owner(), 5.0, 18.0, [])
+        assert bid >= 6.0  # max(current_bid+1, 1.0) = 6
+
+    def test_improved_value_random_nomination(self):
+        """Cover ImprovedValue random nomination (lines 421-429 area)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.0  # < 0.2
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_improved_value_high_priority_nomination(self):
+        """Cover ImprovedValue high-priority nomination (lines 421-429)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(position="RB", auction_value=30.0)
+        team = _make_team()
+        team.roster = []
+        result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_improved_value_expensive_affordable_nomination(self):
+        """Cover ImprovedValue expensive+affordable nomination (lines 450-451)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=30.0)  # > 25
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9  # won't trigger random
+            result = s.should_nominate(player, team, _make_owner(), 200.0)  # 30 < 200*0.4=80
+        assert result is True
+
+    def test_improved_value_no_nomination(self):
+        """Cover ImprovedValue no nomination fallback (line 467)."""
+        from strategies.hybrid_strategies import ImprovedValueStrategy
+        s = ImprovedValueStrategy()
+        player = _make_player(auction_value=5.0)
+        team = _make_team()
+        with patch.object(s, '_calculate_position_priority', return_value=0.3), \
+             patch('strategies.hybrid_strategies.random') as mock_random:
+            mock_random.random.return_value = 0.9  # >= 0.2
+            result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is False
+
+
+class TestGridironSageStrategy:
+    """Tests for GridironSageStrategy covering key branches."""
+
+    def test_init(self):
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        assert s.name is not None
+
+    def test_calculate_bid_basic(self):
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        bid = s.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_bid_no_mcts(self):
+        """Cover use_mcts=False path (else branch)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy(use_mcts=False)
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        bid = s.calculate_bid(player, team, _make_owner(), 10.0, 200.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_calculate_bid_budget_guard(self):
+        """Cover budget guard returning 0 (line 562-563)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(auction_value=40.0)
+        team = _make_team()
+        # Make get_remaining_roster_slots return 50 so budget - bid <= reserve
+        team.get_remaining_roster_slots = lambda: 50
+        bid = s.calculate_bid(player, team, _make_owner(), 10.0, 60.0, [])
+        assert bid == 0
+
+    def test_should_nominate_elite_player(self):
+        """Cover elite player nomination (line 621)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(auction_value=35.0)
+        player.vor = 10.0
+        team = _make_team()
+        result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_mid_tier_vor(self):
+        """Cover mid-tier VOR nomination (line 631)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(auction_value=10.0)
+        player.vor = 8.0  # > 5.0
+        team = _make_team()
+        result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is True
+
+    def test_should_nominate_low_budget(self):
+        """Cover should_nominate returns False with critical budget (line 617-618)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(auction_value=10.0)
+        player.vor = 3.0
+        team = _make_team()
+        result = s.should_nominate(player, team, _make_owner(), 4.0)  # <= 5.0
+        assert result is False
+
+    def test_should_nominate_low_priority(self):
+        """Cover should_nominate low priority returns False (line 606-608)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy()
+        player = _make_player(position="QB")
+        player.vor = 1.0
+        team = _make_team()
+        team.calculate_position_priority = lambda pos: 0.05  # < 0.1
+        result = s.should_nominate(player, team, _make_owner(), 200.0)
+        assert result is False
+
+    def test_mcts_search_max_bid_low(self):
+        """Cover MCTS search returning 0.0 when max_bid <= current_bid (line 364)."""
+        from strategies.gridiron_sage_strategy import GridironSageStrategy
+        s = GridironSageStrategy(use_mcts=True)
+        player = _make_player(auction_value=10.0)
+        team = _make_team()
+        # Very low budget so max_bid <= current_bid
+        team.get_remaining_roster_slots = lambda: 200
+        bid = s.calculate_bid(player, team, _make_owner(), 5.0, 10.0, [])
+        assert isinstance(bid, (int, float))
+
+    def test_extract_features_with_team_methods(self):
+        """Cover feature extraction with callable team methods (lines 92-93, 125-126, 148-149)."""
+        from strategies.gridiron_sage_strategy import _extract_features, FEATURE_DIM
+        player = _make_player(position="RB", auction_value=30.0)
+        player.vor = 10.0
+        team = _make_team()
+        team.max_roster_size = {"QB": 2, "RB": 4, "WR": 4, "TE": 2, "K": 1, "DST": 1}
+        team.roster = [_make_player(f"P{i}", "RB") for i in range(2)]
+        team.calculate_position_priority = lambda pos: 0.7
+        team.roster_config = {"QB": 2, "RB": 4, "WR": 4, "TE": 2, "K": 1, "DST": 1}
+        team.get_position_count = lambda pos: 2
+        team.get_remaining_roster_slots = lambda: 8
+        remaining = [_make_player(f"P{i}") for i in range(10)]
+        features = _extract_features(player, team, 10.0, 200.0, remaining)
+        assert len(features) == FEATURE_DIM
+
+    def test_mcts_build_bid_candidates_zero_span(self):
+        """Cover empty candidates when span <= 0 (line 422)."""
+        from strategies.gridiron_sage_strategy import _GridironSageMCTS, _GridironSageNetwork
+        net = _GridironSageNetwork()
+        mcts = _GridironSageMCTS(network=net, iterations=2)
+        candidates = mcts._build_bid_candidates(100.0, 100.0, 5)
+        assert candidates == []
+
+    def test_vor_heuristic_with_vor(self):
+        """Cover VOR premium branch (line 480)."""
+        from strategies.gridiron_sage_strategy import _vor_heuristic_bid
+        player = _make_player(auction_value=30.0)
+        player.vor = 15.0  # > 0 → premium applied
+        bid = _vor_heuristic_bid(player, 5.0, 200.0, [])
+        assert bid > 5.0
