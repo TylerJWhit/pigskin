@@ -335,3 +335,75 @@ class TestGetPlayerCacheSingleton:
             c1 = get_player_cache()
             c2 = get_player_cache()
             assert c1 is c2
+
+
+# ── path_utils tests ─────────────────────────────────────────────────────────
+
+class TestPathUtils:
+    def test_get_project_root(self):
+        from utils.path_utils import get_project_root
+        root = get_project_root()
+        assert root.is_dir()
+
+    def test_get_data_dir(self):
+        from utils.path_utils import get_data_dir
+        assert get_data_dir().name == "data"
+
+    def test_get_config_dir(self):
+        from utils.path_utils import get_config_dir
+        assert get_config_dir().name == "config"
+
+    def test_get_results_dir(self):
+        from utils.path_utils import get_results_dir
+        assert get_results_dir().name == "results"
+
+    def test_get_config_file(self):
+        from utils.path_utils import get_config_file
+        assert get_config_file().name == "config.json"
+
+    def test_ensure_dir_exists(self, tmp_path):
+        from utils.path_utils import ensure_dir_exists
+        new_dir = tmp_path / "new" / "nested"
+        result = ensure_dir_exists(new_dir)
+        assert result.is_dir()
+
+    def test_get_data_file_valid(self):
+        from utils.path_utils import get_data_file
+        result = get_data_file("models")
+        assert result.name == "models"
+
+    def test_get_data_file_traversal_raises(self):
+        from utils.path_utils import get_data_file
+        with pytest.raises(ValueError, match="Path traversal"):
+            get_data_file("../../etc/passwd")
+
+    def test_safe_file_path_valid(self, tmp_path):
+        from utils.path_utils import safe_file_path, get_project_root
+        valid = get_project_root() / "results" / "test_output.json"
+        result = safe_file_path(valid)
+        assert result.name == "test_output.json"
+
+    def test_safe_file_path_traversal_raises(self):
+        from utils.path_utils import safe_file_path
+        with pytest.raises(ValueError, match="Path traversal"):
+            safe_file_path("/etc/passwd")
+
+    def test_setup_project_path_adds_to_sys(self):
+        import sys
+        from utils.path_utils import setup_project_path, get_project_root
+        root = str(get_project_root())
+        # Remove it first to force re-add
+        if root in sys.path:
+            sys.path.remove(root)
+        setup_project_path()
+        assert root in sys.path
+
+    def test_setup_project_path_no_duplicate(self):
+        import sys
+        from utils.path_utils import setup_project_path, get_project_root
+        root = str(get_project_root())
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        count_before = sys.path.count(root)
+        setup_project_path()
+        assert sys.path.count(root) == count_before
