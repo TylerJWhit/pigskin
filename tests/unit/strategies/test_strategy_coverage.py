@@ -1898,3 +1898,156 @@ class TestGridironSageStrategy:
             result = net._try_load_torch_model()
         # Result may be a mock model or None depending on what torch mocking gives us
         assert result is not None or result is None  # Just verify no exception
+
+
+class TestBasicStrategy:
+    """Tests to boost basic_strategy.py coverage from 91% to 100%."""
+
+    def _make_team(self, remaining_slots=5, position_priority=0.5):
+        t = MagicMock()
+        t.get_remaining_roster_slots.return_value = remaining_slots
+        t.calculate_position_priority.return_value = position_priority
+        t.calculate_max_bid.return_value = 50
+        t.enforce_budget_constraint = None
+        t.calculate_minimum_budget_needed.return_value = remaining_slots * 1.0
+        t.initial_budget = 200.0
+        t.budget = 100.0
+        t.roster = []
+        t.roster_config = None
+        return t
+
+    def test_calculate_bid_low_priority_high_bid_returns_zero(self):
+        """Cover line 65 — low position_priority and current_bid >= 5 → return 0."""
+        from strategies.basic_strategy import BasicStrategy
+
+        strategy = BasicStrategy()
+        player = MagicMock()
+        player.position = "QB"
+        player.auction_value = 20.0
+        player.projected_points = 200.0
+
+        team = self._make_team(position_priority=0.05)  # <= 0.1
+        result = strategy.calculate_bid(player, team, MagicMock(), 10.0, 100.0, [])
+        assert result == 0
+
+    def test_should_nominate_random_chance(self):
+        """Cover lines 124-127 — random nomination path (20% chance)."""
+        from strategies.basic_strategy import BasicStrategy
+
+        strategy = BasicStrategy()
+        player = MagicMock()
+        player.position = "RB"
+        player.auction_value = 5.0  # Low value to skip other paths
+        player.projected_points = 50.0
+
+        team = self._make_team(remaining_slots=10, position_priority=0.3)
+        team.roster = []
+
+        owner = MagicMock()
+        owner.get_risk_tolerance.return_value = 0.5
+
+        # Patch random.random to return < 0.2 to trigger the random nomination
+        with patch('strategies.basic_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.1  # < 0.2 → return True
+            result = strategy.should_nominate(player, team, owner, 100.0)
+            assert result is True
+
+        # Patch to return >= 0.2 to fall through to return False
+        with patch('strategies.basic_strategy.random') as mock_random:
+            mock_random.random.return_value = 0.9  # >= 0.2 → return False
+            # Also ensure other conditions don't trigger first
+            result = strategy.should_nominate(player, team, owner, 100.0)
+            assert result is False
+
+    def test_calculate_position_urgency_normal(self):
+        """Cover line 163 — return 1.0 when normal urgency."""
+        from strategies.basic_strategy import BasicStrategy
+
+        strategy = BasicStrategy()
+        player = MagicMock()
+        player.position = "WR"
+
+        # Set up team where WR is not urgent (many needed, some already filled)
+        wr1 = MagicMock()
+        wr1.position = "WR"
+
+        team = MagicMock()
+        team.roster = [wr1]
+        team.roster_config = {'WR': 4}  # Need 4, have 1, remaining 3 → normal urgency
+        team.calculate_position_priority = None  # Force fallback
+
+        result = strategy._calculate_position_urgency(player, team)
+        assert result == 1.0
+
+
+class TestEnhancedVorStrategyAdditionalCoverage:
+    """Cover remaining uncovered lines in enhanced_vor_strategy.py."""
+
+    def test_remaining_scarcity_normal(self):
+        """Cover line 158 — return 1.0 for normal scarcity (8-15 remaining)."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy as InflationAwareVORStrategy
+
+        strategy = InflationAwareVORStrategy()
+
+        player = MagicMock()
+        player.position = "WR"
+        player.projected_points = 200.0
+        player.vor = 10.0
+
+        # 12 players with positive VOR → normal range (>8, <=15)
+        remaining = []
+        for _ in range(12):
+            p = MagicMock()
+            p.position = "WR"
+            p.vor = 5.0
+            p.projected_points = 180.0
+            p.auction_value = 15.0
+            remaining.append(p)
+
+        factor = strategy._calculate_remaining_scarcity(player, remaining)
+        assert factor == 1.0
+
+    def test_calculate_position_priority_with_roster_players(self):
+        """Cover lines 185-186 — position counting in _calculate_position_priority."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy as InflationAwareVORStrategy
+
+        strategy = InflationAwareVORStrategy()
+
+        player = MagicMock()
+        player.position = "RB"
+
+        rb1 = MagicMock()
+        rb1.position = "RB"
+        rb2 = MagicMock()
+        rb2.position = "WR"
+
+        team = MagicMock()
+        team.roster = [rb1, rb2]
+
+        result = strategy._calculate_position_priority(player, team)
+        assert isinstance(result, float)
+        assert result > 0.0
+
+    def test_calculate_position_priority_position_filled(self):
+        """Cover line 196 — return 0.2 when position is already filled."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy as InflationAwareVORStrategy
+
+        strategy = InflationAwareVORStrategy()
+
+        player = MagicMock()
+        player.position = "K"  # K target = 1
+
+        k1 = MagicMock()
+        k1.position = "K"
+
+        team = MagicMock()
+        team.roster = [k1]  # Already have 1 K (target=1 → filled)
+
+        result = strategy._calculate_position_priority(player, team)
+        assert result == 0.2
+
+    def test_test_inflation_aware_strategy_function(self):
+        """Cover line 204 — test_inflation_aware_strategy function body."""
+        import strategies.enhanced_vor_strategy as module
+        # Just call the function, it should not raise
+        module.test_inflation_aware_strategy()

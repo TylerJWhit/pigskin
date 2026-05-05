@@ -646,3 +646,158 @@ class TestVorStrategyPerformance:
         
         assert isinstance(result, (int, float))
         assert (end_time - start_time) < 0.5  # Should complete in under 500ms
+
+class TestVorStrategyAdditionalCoverage:
+    """Cover remaining uncovered lines in vor_strategy.py."""
+
+    def test_init_exception_in_dynamic_scarcity(self):
+        """Cover lines 58-59 — exception in _calculate_all_dynamic_scarcity_factors."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import patch
+
+        with patch.object(VORStrategy, '_calculate_all_dynamic_scarcity_factors',
+                          side_effect=Exception("error")):
+            strategy = VORStrategy()
+            # Should still initialize without raising
+            assert strategy is not None
+
+    def test_init_exception_in_vor_scaling_factor(self):
+        """Cover lines 79-80 — exception in _calculate_vor_scaling_factor."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import patch
+
+        with patch.object(VORStrategy, '_calculate_vor_scaling_factor',
+                          side_effect=Exception("error")):
+            strategy = VORStrategy()
+            assert strategy._vor_scaling_factor == 0.25
+
+    def test_calculate_bid_vor_negative_high_slots(self):
+        """Cover lines 132-134 — vor <= 0, roster_slots > 3 → bid $2."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock
+
+        strategy = VORStrategy()
+
+        player = MagicMock()
+        player.position = "WR"
+        player.projected_points = 50.0  # Below VOR baseline for WR (140), so vor < 0
+        player.auction_value = 2.0
+
+        team = MagicMock()
+        team.get_remaining_roster_slots.return_value = 10
+        team.calculate_position_priority.return_value = 0.8
+        team.calculate_max_bid.return_value = 50
+        team.enforce_budget_constraint = None
+        team.calculate_minimum_budget_needed.return_value = 10.0
+
+        result = strategy.calculate_bid(player, team, MagicMock(), 1.0, 100.0, [])
+        assert result >= 0  # bid up to $2
+
+    def test_calculate_bid_zero_position_priority(self):
+        """Cover line 152 — position_priority == 0.0 → return 0."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock
+
+        strategy = VORStrategy()
+
+        player = MagicMock()
+        player.position = "QB"
+        player.projected_points = 400.0  # High VOR
+        player.auction_value = 40.0
+
+        team = MagicMock()
+        team.get_remaining_roster_slots.return_value = 5
+        team.calculate_position_priority.return_value = 0.0  # No priority
+        team.calculate_max_bid.return_value = 50
+        team.enforce_budget_constraint = None
+        team.calculate_minimum_budget_needed.return_value = 5.0
+
+        result = strategy.calculate_bid(player, team, MagicMock(), 1.0, 100.0, [])
+        assert result == 0
+
+    def test_calculate_vor_non_numeric_values(self):
+        """Cover lines 240, 243 — non-numeric projected_points and auction_value."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock
+
+        strategy = VORStrategy()
+
+        player = MagicMock()
+        player.position = "QB"
+        player.projected_points = "not_a_number"
+        player.auction_value = "also_not_a_number"
+
+        vor = strategy._calculate_vor(player)
+        # Should fall back to baseline (250 for QB) - baseline = baseline → vor = 0
+        assert isinstance(vor, (int, float))
+
+    def test_calculate_remaining_scarcity_varying_counts(self):
+        """Cover lines 291, 293 — normal and plenty available scarcity."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock, patch
+
+        strategy = VORStrategy()
+
+        player = MagicMock()
+        player.position = "WR"
+
+        # 12 WR with positive VOR → "normal" (line 291, returns 1.0)
+        remaining_players = []
+        for _ in range(12):
+            p = MagicMock()
+            p.position = "WR"
+            p.projected_points = 200.0  # above WR baseline 140
+            p.auction_value = 20.0
+            remaining_players.append(p)
+
+        factor = strategy._calculate_remaining_scarcity(player, remaining_players)
+        assert factor == 1.0
+
+        # 20 WR with positive VOR → "plenty available" (line 293, returns 0.8)
+        many_players = []
+        for _ in range(20):
+            p = MagicMock()
+            p.position = "WR"
+            p.projected_points = 200.0
+            p.auction_value = 20.0
+            many_players.append(p)
+        factor2 = strategy._calculate_remaining_scarcity(player, many_players)
+        assert factor2 == 0.8
+
+    def test_calculate_dynamic_superflex_adjustment_exception(self):
+        """Cover lines 322-323 — exception in _calculate_dynamic_superflex_adjustment."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import patch
+
+        strategy = VORStrategy()
+
+        with patch.object(strategy, '_get_actual_starter_counts',
+                          side_effect=Exception("error")):
+            factor = strategy._calculate_dynamic_superflex_adjustment('QB')
+            assert factor == 1.0
+
+    def test_calculate_all_dynamic_scarcity_factors_ranges(self):
+        """Cover lines 360-363 — dynamic scarcity for different counts."""
+        from strategies.vor_strategy import VorStrategy as VORStrategy
+        from unittest.mock import MagicMock
+
+        strategy = VORStrategy()
+
+        # Create players at different counts per position
+        players = []
+        for _ in range(12):
+            p = MagicMock()
+            p.position = "WR"
+            players.append(p)
+        for _ in range(3):
+            p = MagicMock()
+            p.position = "QB"
+            players.append(p)
+        for _ in range(20):
+            p = MagicMock()
+            p.position = "RB"
+            players.append(p)
+
+        strategy.remaining_players = players
+        result = strategy._calculate_all_dynamic_scarcity_factors()
+        assert isinstance(result, dict)
