@@ -537,3 +537,506 @@ class TestPrintModulePerformance:
         
         # Should complete quickly
         assert end_time - start_time < 1.0
+
+class TestMockDraftPrinterUncoveredLines:
+    """Cover uncovered lines 134, 136, 178, 191-217, 248-263."""
+
+    def _make_player(self, position='QB', points=200.0, name='Test Player', cost=30):
+        p = Mock()
+        p.name = name
+        p.position = position
+        p.team = 'SF'
+        p.projected_points = points
+        p.drafted_price = cost
+        return p
+
+    def _make_team(self, strategy_name='Balanced', points=1200.0, spent=150.0, roster=None):
+        t = Mock()
+        t.team_name = 'Team 1'
+        t.get_projected_points.return_value = points
+        t.get_total_spent.return_value = spent
+        strategy = Mock()
+        strategy.name = strategy_name
+        t.get_strategy.return_value = strategy
+        t.strategy = strategy
+        t.roster = roster or []
+        t.budget = 200.0 - spent
+        t.initial_budget = 200.0
+        return t
+
+    def _make_draft(self, teams=None):
+        from datetime import datetime
+        draft = Mock()
+        draft.name = "Test Draft"
+        draft.status = "complete"
+        draft.teams = teams or []
+        draft.current_round = 3
+        draft.drafted_players = []
+        draft.started_at = datetime(2024, 1, 1, 12, 0, 0)
+        draft.completed_at = datetime(2024, 1, 1, 14, 0, 0)
+        return draft
+
+    def test_print_mock_draft_summary_with_timestamps(self):
+        """Cover lines 134, 136 — started_at and completed_at."""
+        from utils.print_module import MockDraftPrinter
+
+        draft = self._make_draft()
+        draft_result = {
+            'draft': draft,
+            'simulation_results': {'total_players_drafted': 10, 'rounds_completed': 5}
+        }
+        MockDraftPrinter.print_mock_draft_summary(draft_result)
+
+    def test_print_winning_roster_with_players(self):
+        """Cover lines 178, 191-217 — winning roster printing."""
+        from utils.print_module import MockDraftPrinter
+
+        rb = self._make_player('RB', 300.0)
+        qb = self._make_player('QB', 250.0)
+
+        team1 = self._make_team(roster=[rb, qb], points=1500.0)
+        team2 = self._make_team(strategy_name='Aggressive', points=1000.0, roster=[])
+
+        draft = self._make_draft(teams=[team1, team2])
+        draft_result = {'draft': draft, 'simulation_results': {}}
+
+        MockDraftPrinter.print_winning_roster(draft_result)
+
+    def test_print_all_team_rosters(self):
+        """Cover lines 248-263 — all team rosters."""
+        from utils.print_module import MockDraftPrinter
+
+        rb = self._make_player('RB', 200.0)
+        qb = self._make_player('QB', 180.0)
+
+        team = self._make_team(roster=[rb, qb], points=1200.0)
+        draft = self._make_draft(teams=[team])
+        draft_result = {'draft': draft, 'simulation_results': {}}
+
+        MockDraftPrinter.print_all_team_rosters(draft_result)
+
+    def test_print_all_team_rosters_empty_roster(self):
+        """Cover early return for empty roster."""
+        from utils.print_module import MockDraftPrinter
+
+        team = self._make_team(roster=[])
+        draft = self._make_draft(teams=[team])
+        draft_result = {'draft': draft, 'simulation_results': {}}
+
+        MockDraftPrinter.print_all_team_rosters(draft_result)
+
+
+class TestTournamentPrinterUncoveredLines:
+    """Cover uncovered lines 283, 286-290, 297-298, 333, 360-382, 386-392."""
+
+    def test_print_tournament_summary_with_execution_time(self):
+        """Cover lines 283, 286-290 — execution_time and created_at fields."""
+        from datetime import datetime
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'tournament_name': 'Test Tournament',
+            'champion': 'balanced',
+            'strategies_tested': 5,
+            'completed_simulations': 50,
+            'num_simulations': 50,
+            'rounds_completed': 3,
+            'execution_time': 12.5,
+            'created_at': datetime(2024, 1, 1, 12, 0, 0)
+        }
+        TournamentPrinter.print_tournament_summary(tournament)
+
+    def test_print_tournament_summary_created_at_string(self):
+        """Cover line 288 — created_at as string."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'tournament_name': 'Test Tournament',
+            'champion': 'balanced',
+            'strategies_tested': 3,
+            'completed_simulations': 30,
+            'num_simulations': 30,
+            'rounds_completed': 2,
+            'created_at': '2024-01-01 12:00:00'
+        }
+        TournamentPrinter.print_tournament_summary(tournament)
+
+    def test_print_tournament_rankings_with_data(self):
+        """Cover lines 297-298 — print_tournament_rankings."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'results': {
+                'balanced': {'wins': 3, 'simulations': 10, 'win_rate': 0.3, 'avg_points': 1200.0, 'avg_value_efficiency': 1.1},
+                'aggressive': {'wins': 2, 'simulations': 10, 'win_rate': 0.2, 'avg_points': 1100.0, 'avg_value_efficiency': 0.9},
+            }
+        }
+        TournamentPrinter.print_tournament_rankings(tournament)
+
+    def test_print_tournament_detailed_stats(self):
+        """Cover lines 333, 360-382 — detailed stats."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'results': {
+                'balanced': {
+                    'simulations': 10,
+                    'wins': 3,
+                    'win_rate': 0.3,
+                    'avg_points': 1200.0,
+                    'best_points': 1500.0,
+                    'worst_points': 900.0,
+                    'points_std': 150.0,
+                    'avg_spent': 175.0,
+                    'avg_remaining': 25.0,
+                    'avg_ranking': 2.0,
+                    'median_ranking': 2.0
+                }
+            }
+        }
+        TournamentPrinter.print_tournament_detailed_stats(tournament)
+
+    def test_print_elimination_tournament(self):
+        """Cover lines 386-392 — elimination bracket printing."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'tournament_type': 'elimination',
+            'champion': 'balanced',
+            'rounds_completed': 2,
+            'total_drafts': 4,
+            'tournament_bracket': {
+                'total_participants': 4,
+                'rounds': [
+                    {
+                        'round_number': 1,
+                        'participants': ['balanced', 'aggressive', 'conservative', 'value'],
+                        'winners': ['balanced', 'conservative'],
+                        'pools': [{'pool': 1}, {'pool': 2}]
+                    },
+                    {
+                        'round_number': 2,
+                        'participants': ['balanced', 'conservative'],
+                        'winners': ['balanced'],
+                        'pools': [{'pool': 1}]
+                    }
+                ]
+            }
+        }
+        tp = TournamentPrinter()
+        tp.print_tournament(tournament, detailed=False)
+
+    def test_print_tournament_no_bracket(self):
+        """Cover fallback to print_tournament_rankings when no bracket."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'tournament_type': 'elimination',
+            'champion': 'balanced',
+            'results': {}
+        }
+        # No tournament_bracket key → falls back to print_tournament_rankings
+        TournamentPrinter.print_elimination_tournament(tournament)
+
+
+class TestSleeperDraftPrinterUncoveredLines:
+    """Cover uncovered lines 418, 426, 436-456, 462-463."""
+
+    def test_print_sleeper_draft_summary_with_settings(self):
+        """Cover lines 418, 426 — settings and reversal_round."""
+        from utils.print_module import SleeperDraftPrinter
+
+        draft_info = {
+            'draft_id': 'abc123',
+            'league_id': 'league456',
+            'status': 'complete',
+            'type': 'auction',
+            'draft_order': {'user1': 1, 'user2': 2},
+            'settings': {
+                'rounds': 16,
+                'pick_timer': 60,
+                'reversal_round': 8
+            }
+        }
+        SleeperDraftPrinter.print_sleeper_draft_summary(draft_info)
+
+    def test_print_sleeper_draft_order_with_users(self):
+        """Cover lines 436-456 — draft order with user info."""
+        from utils.print_module import SleeperDraftPrinter
+
+        draft_info = {
+            'draft_order': {'user1': 1, 'user2': 2}
+        }
+        users_info = {
+            'user1': {'display_name': 'Alice', 'metadata': {'team_name': 'Team A'}},
+            'user2': {'username': 'bob', 'metadata': {}}
+        }
+        SleeperDraftPrinter.print_sleeper_draft_order(draft_info, users_info)
+
+    def test_print_sleeper_picks_with_data(self):
+        """Cover lines 462-463 — picks printing."""
+        from utils.print_module import SleeperDraftPrinter
+
+        picks = [
+            {'pick_no': 1, 'player_id': 'p1', 'picked_by': 'user1', 'metadata': {'first_name': 'Josh', 'last_name': 'Allen', 'position': 'QB', 'team': 'BUF'}},
+            {'pick_no': 2, 'player_id': 'p2', 'picked_by': 'user2', 'metadata': {'first_name': 'Davante', 'last_name': 'Adams', 'position': 'WR', 'team': 'LV'}}
+        ]
+        SleeperDraftPrinter.print_sleeper_picks(picks)
+
+
+class TestMockDraftPrinterLeaderboard:
+    """Cover lines 191-217 — print_mock_draft_leaderboard and related."""
+
+    def test_print_mock_draft_leaderboard(self):
+        """Cover the leaderboard printing with team results."""
+        from utils.print_module import MockDraftPrinter
+
+        p = Mock()
+        p.name = "Josh Allen"
+        p.position = "QB"
+        p.projected_points = 300.0
+        p.team = "BUF"
+
+        team = Mock()
+        team.team_name = "Team 1"
+        team.get_projected_points.return_value = 1200.0
+        team.get_total_spent.return_value = 150.0
+        team.strategy.name = "Balanced"
+        team.roster = [p]
+        strategy = Mock()
+        strategy.name = "Balanced"
+        team.get_strategy.return_value = strategy
+        team.budget = 50.0
+
+        draft_result = {
+            'draft': Mock(),
+            'simulation_results': {'rounds_completed': 5}
+        }
+        draft_result['draft'].teams = [team]
+        draft_result['draft'].name = "Test Draft"
+        draft_result['draft'].current_round = 3
+
+        MockDraftPrinter.print_mock_draft_leaderboard(draft_result)
+
+
+class TestMoreSleeperUncovered:
+    """Cover lines 477-478, 500-501, 527-528, 588, 600, 603-612, 634."""
+
+    def test_print_sleeper_rosters_basic(self):
+        """Cover SleeperDraftPrinter.print_sleeper_rosters."""
+        from utils.print_module import SleeperDraftPrinter
+
+        rosters = [
+            {
+                'roster_id': 1,
+                'owner_id': 'user1',
+                'players': ['p1', 'p2'],
+                'settings': {'wins': 5, 'losses': 3, 'fpts': 1200}
+            }
+        ]
+        users_info = {'user1': {'display_name': 'Alice', 'metadata': {'team_name': 'Team A'}}}
+        SleeperDraftPrinter.print_sleeper_rosters(rosters, users_info)
+
+    def test_print_sleeper_rosters_no_users(self):
+        """Cover fallback when no users_info provided."""
+        from utils.print_module import SleeperDraftPrinter
+
+        rosters = [
+            {'roster_id': 1, 'owner_id': 'user1', 'players': ['p1']}
+        ]
+        SleeperDraftPrinter.print_sleeper_rosters(rosters)
+
+    def test_print_sleeper_league_basic(self):
+        """Cover print_sleeper_league module function."""
+        from utils.print_module import print_sleeper_league
+
+        rosters = [
+            {'roster_id': 1, 'owner_id': 'user1', 'players': ['p1'],
+             'settings': {'wins': 5, 'losses': 3, 'fpts': 1200, 'fpts_against': 1000}}
+        ]
+        users_info = {'user1': {'display_name': 'Alice', 'metadata': {'team_name': 'Team A'}}}
+        print_sleeper_league(rosters, users_info)
+
+    def test_print_mock_draft_no_leaderboard(self):
+        """Cover print_mock_draft with detailed=False."""
+        from utils.print_module import print_mock_draft
+
+        p = Mock()
+        p.name = "Josh"
+        p.position = "QB"
+        p.projected_points = 300.0
+        p.team = "BUF"
+
+        team = Mock()
+        team.team_name = "Team 1"
+        team.get_projected_points.return_value = 1200.0
+        team.get_total_spent.return_value = 150.0
+        team.strategy.name = "Balanced"
+        team.roster = [p]
+        team.budget = 50.0
+        strategy = Mock()
+        strategy.name = "Balanced"
+        team.get_strategy.return_value = strategy
+
+        draft = Mock()
+        draft.name = "Test"
+        draft.status = "complete"
+        draft.teams = [team]
+        draft.current_round = 3
+        draft.drafted_players = [p]
+
+        draft_result = {
+            'draft': draft,
+            'simulation_results': {'total_players_drafted': 1, 'rounds_completed': 5},
+            'success': True
+        }
+
+        print_mock_draft(draft_result, detailed=False)
+
+
+class TestMoreUncoveredLines:
+    """Cover lines 178, 333, 386-392, 462-463, 477-478, 500-501, 527-528, 588, 600, 603-612, 634, 712-714, 721-722, 762-766, 778-779, 786-787."""
+
+    def test_print_winning_roster_empty_teams(self):
+        """Cover line 178 — early return when no teams."""
+        from utils.print_module import MockDraftPrinter
+
+        draft = Mock()
+        draft.teams = []
+        draft_result = {'draft': draft, 'simulation_results': {}}
+        MockDraftPrinter.print_winning_roster(draft_result)
+
+    def test_print_tournament_detailed_stats_empty(self):
+        """Cover line 333 — early return when no results."""
+        from utils.print_module import TournamentPrinter
+
+        TournamentPrinter.print_tournament_detailed_stats({'results': {}})
+
+    def test_print_tournament_non_elimination(self):
+        """Cover lines 386-392 — print_tournament with detailed=True non-elimination."""
+        from utils.print_module import TournamentPrinter
+
+        tournament = {
+            'tournament_type': 'standard',
+            'champion': 'balanced',
+            'strategies_tested': 2,
+            'completed_simulations': 20,
+            'num_simulations': 20,
+            'results': {
+                'balanced': {'wins': 2, 'simulations': 10, 'win_rate': 0.2, 'avg_points': 1200.0,
+                             'avg_value_efficiency': 1.0, 'simulations': 10, 'best_points': 1500.0,
+                             'worst_points': 900.0, 'points_std': 100.0, 'avg_spent': 170.0,
+                             'avg_remaining': 30.0, 'avg_ranking': 2.0, 'median_ranking': 2.0},
+            }
+        }
+        tp = TournamentPrinter()
+        tp.print_tournament(tournament, detailed=True)
+
+    def test_print_sleeper_picks_empty_picked_by(self):
+        """Cover lines 477-478 — picked_by is empty string, fallback to draft_slot."""
+        from utils.print_module import SleeperDraftPrinter
+
+        picks = [
+            {'pick_no': 1, 'player_id': 'p1', 'picked_by': '', 'draft_slot': 2,
+             'metadata': {'amount': '25', 'first_name': 'Josh', 'last_name': 'Allen', 'position': 'QB', 'team': 'BUF'}},
+        ]
+        SleeperDraftPrinter.print_sleeper_picks(picks)
+
+    def test_print_sleeper_picks_with_players_info(self):
+        """Cover lines 500-501 — player info lookup."""
+        from utils.print_module import SleeperDraftPrinter
+
+        picks = [
+            {'pick_no': 1, 'player_id': 'p1', 'picked_by': 'user1',
+             'metadata': {'amount': '30'}},
+        ]
+        players_info = {
+            'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        SleeperDraftPrinter.print_sleeper_picks(picks, players_info)
+
+    def test_print_sleeper_picks_detailed_board(self):
+        """Cover lines 527-528, 588, 600, 603-612, 634 — full draft board rendering."""
+        from utils.print_module import SleeperDraftPrinter
+
+        # Multiple picks across positions including FLEX / BN
+        picks = [
+            {'pick_no': 1, 'player_id': 'p1', 'picked_by': 'user1', 'metadata': {'amount': '50'}},
+            {'pick_no': 2, 'player_id': 'p2', 'picked_by': 'user1', 'metadata': {'amount': '40'}},
+            {'pick_no': 3, 'player_id': 'p3', 'picked_by': 'user1', 'metadata': {'amount': '30'}},
+            {'pick_no': 4, 'player_id': 'p4', 'picked_by': 'user1', 'metadata': {'amount': '20'}},
+            {'pick_no': 5, 'player_id': 'p5', 'picked_by': 'user1', 'metadata': {'amount': '15'}},
+            {'pick_no': 6, 'player_id': 'p6', 'picked_by': 'user1', 'metadata': {'amount': '10'}},
+        ]
+        players_info = {
+            'p1': {'full_name': 'QB Player One Long Name', 'position': 'QB', 'team': 'BUF'},
+            'p2': {'full_name': 'RB Player One', 'position': 'RB', 'team': 'KC'},
+            'p3': {'full_name': 'RB Player Two', 'position': 'RB', 'team': 'SF'},
+            'p4': {'full_name': 'WR Player One', 'position': 'WR', 'team': 'DAL'},
+            'p5': {'full_name': 'WR Player Two', 'position': 'WR', 'team': 'NYG'},
+            'p6': {'full_name': 'TE Player One', 'position': 'TE', 'team': 'LAC'},
+        }
+        SleeperDraftPrinter.print_sleeper_picks(picks, players_info)
+
+    def test_print_sleeper_rosters_with_players_info(self):
+        """Cover lines 712-714, 721-722 — roster with player details."""
+        from utils.print_module import SleeperDraftPrinter
+
+        rosters = [
+            {'roster_id': 1, 'owner_id': 'user1', 'players': ['p1', 'p2'],
+             'settings': {'wins': 5, 'losses': 3, 'fpts': 1200, 'fpts_against': 900}}
+        ]
+        users_info = {'user1': {'display_name': 'Alice', 'metadata': {'team_name': 'Alice Squad'}}}
+        players_info = {
+            'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'},
+            'p2': {'full_name': 'Davante Adams', 'position': 'WR', 'team': 'LV'},
+        }
+        SleeperDraftPrinter.print_sleeper_rosters(rosters, users_info, players_info)
+
+    def test_print_sleeper_draft_with_picks(self):
+        """Cover lines 762-766 — print_sleeper_draft with picks."""
+        from utils.print_module import print_sleeper_draft
+
+        draft_info = {
+            'draft_id': 'abc123',
+            'league_id': 'league456',
+            'status': 'complete',
+            'type': 'auction',
+            'draft_order': {'user1': 1},
+            'settings': {'rounds': 16, 'pick_timer': 60}
+        }
+        picks = [
+            {'pick_no': 1, 'player_id': 'p1', 'picked_by': 'user1', 'metadata': {'amount': '30'}}
+        ]
+        print_sleeper_draft(draft_info, picks=picks)
+
+    def test_print_tournament_function(self):
+        """Cover lines 778-779 — print_tournament convenience function."""
+        from utils.print_module import print_tournament
+
+        tournament = {
+            'tournament_type': 'standard',
+            'champion': 'balanced',
+            'strategies_tested': 1,
+            'completed_simulations': 10,
+            'num_simulations': 10,
+            'results': {
+                'balanced': {'wins': 1, 'simulations': 10, 'win_rate': 0.1, 'avg_points': 1200.0,
+                             'avg_value_efficiency': 1.0, 'best_points': 1500.0, 'worst_points': 900.0,
+                             'points_std': 100.0, 'avg_spent': 170.0, 'avg_remaining': 30.0,
+                             'avg_ranking': 2.0, 'median_ranking': 2.0},
+            }
+        }
+        print_tournament(tournament)
+
+    def test_print_sleeper_league_function(self):
+        """Cover lines 786-787 — print_sleeper_league convenience function."""
+        from utils.print_module import print_sleeper_league
+
+        rosters = [
+            {'roster_id': 1, 'owner_id': 'user1', 'players': ['p1'],
+             'settings': {'wins': 5, 'losses': 3, 'fpts': 1200, 'fpts_against': 900}}
+        ]
+        users_info = {'user1': {'display_name': 'Alice', 'metadata': {'team_name': 'Alice Squad'}}}
+        print_sleeper_league(rosters, users_info)
+
