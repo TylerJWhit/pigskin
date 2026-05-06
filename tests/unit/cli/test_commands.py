@@ -1014,6 +1014,23 @@ class TestCreateMockDraftExtraCoverage:
 
         assert result is not None
 
+    def test_single_element_list_strategy(self):
+        """Cover line 1078 — single-element list uses strategies[0].title()."""
+        cp = self._make_cp()
+        mock_config = MagicMock()
+        mock_config.budget_per_team = 200
+        mock_config.roster_positions = {'QB': 1}
+        mock_player = MagicMock()
+        mock_strategy = MagicMock()
+
+        with patch('cli.commands.Draft'), \
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'), \
+             patch('cli.commands.create_strategy', return_value=mock_strategy):
+            result = cp._create_mock_draft(mock_config, [mock_player], ['balanced'], 2)
+
+        assert result is not None
+
 
 class TestRunComprehensiveStatisticalTournament:
     """Cover _run_comprehensive_statistical_tournament (lines 308-586)."""
