@@ -1,12 +1,12 @@
 [build-system]
-requires = ["setuptools>=68"]
-build-backend = "setuptools.backends.legacy:build"
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "pigskin-lab"
 version = "0.1.0"
 description = "Experimental research lab for pigskin auction strategies and backtesting"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 dependencies = [
     "pigskin-auction-draft",
     "sqlalchemy[asyncio]>=2.0",

@@ -65,6 +65,7 @@ jobs:
           pip install -r requirements-dev.txt
           # Install lab package in editable mode once lab/ exists (post ADR-001 Sprint 5 migration)
           if [ -f "lab/pyproject.toml" ]; then
+            pip install -e . --no-deps
             pip install -e lab/
           else
             echo "lab/ not yet migrated (ADR-001, Sprint 5) — skipping lab install"
@@ -119,6 +120,7 @@ jobs:
         run: |
           pip install -r requirements-dev.txt
           if [ -f "lab/pyproject.toml" ]; then
+            pip install -e . --no-deps
             pip install -e lab/
           else
             echo "lab/ not yet migrated — skipping lab install"

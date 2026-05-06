@@ -1,7 +1,10 @@
 """Tests for FantasyPros data loading (#241 - replace vacuous print-only tests)."""
 
+import os
 import unittest
 from data import FantasyProsLoader, load_fantasypros_players, get_position_rankings
+
+_DATA_FILES_PRESENT = os.path.exists(os.path.join("data", "sheets", "QB.csv"))
 
 
 class TestFantasyProsLoader(unittest.TestCase):
@@ -15,6 +18,7 @@ class TestFantasyProsLoader(unittest.TestCase):
         summary = loader.get_data_summary()
         self.assertIsInstance(summary, dict)
 
+    @unittest.skipUnless(_DATA_FILES_PRESENT, "data/sheets CSV files not present")
     def test_load_position_data_returns_list_for_each_position(self):
         loader = FantasyProsLoader()
         for pos in ["QB", "RB", "WR", "TE", "K", "DST"]:
@@ -25,6 +29,7 @@ class TestFantasyProsLoader(unittest.TestCase):
         players = load_fantasypros_players()
         self.assertIsInstance(players, list)
 
+    @unittest.skipUnless(_DATA_FILES_PRESENT, "data/sheets CSV files not present")
     def test_get_position_rankings_returns_list(self):
         rankings = get_position_rankings("QB", top_n=5)
         self.assertIsInstance(rankings, list)
