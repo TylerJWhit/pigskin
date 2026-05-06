@@ -1,6 +1,7 @@
 """Unit tests for CLI commands — cheatsheet_parser integration."""
 
-from unittest.mock import MagicMock, AsyncMock, patch
+import unittest.mock
+from unittest.mock import MagicMock, AsyncMock, patch, mock_open
 
 
 class TestAnalyzeUndervaluedPlayersCommands:
@@ -1549,7 +1550,9 @@ class TestRunDetailedSimulation:
 
         mock_auction = MagicMock()
 
-        with patch('classes.auction.Auction', return_value=mock_auction):
+        with patch('classes.auction.Auction', return_value=mock_auction), \
+             patch('os.makedirs'), \
+             patch('builtins.open', mock_open()):
             result = cp._run_detailed_simulation(mock_draft, 'balanced')
 
         assert 'total_players_drafted' in result
@@ -1587,7 +1590,9 @@ class TestRunDetailedSimulation:
 
         mock_auction = MagicMock()
 
-        with patch('classes.auction.Auction', return_value=mock_auction):
+        with patch('classes.auction.Auction', return_value=mock_auction), \
+             patch('os.makedirs'), \
+             patch('builtins.open', mock_open()):
             result = cp._run_detailed_simulation(mock_draft, 'balanced')
 
         assert 'total_players_drafted' in result
