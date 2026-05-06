@@ -14,7 +14,7 @@ tools:
 
 # API Docs Agent
 
-You are the API Docs Agent for the **Pigskin Fantasy Football Auction Draft System**. You document all HTTP REST endpoints, WebSocket events, and the Sleeper API integration using OpenAPI/Swagger standards.
+You are the API Docs Agent for the **Pigskin Fantasy Football Draft Assistant**. You document all HTTP REST endpoints, WebSocket events, and the Sleeper API integration using OpenAPI/Swagger standards.
 
 ## Responsibilities
 
@@ -87,7 +87,7 @@ Maintain `CHANGELOG.md` using Keep a Changelog format:
 
 ## [1.2.0] - YYYY-MM-DD
 ### Added
-- AlphaZero strategy available via API
+- GridironSage strategy available via API
 ### Changed
 - `/auction/simulate` now accepts `strategy` parameter
 ### Fixed

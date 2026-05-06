@@ -13,7 +13,7 @@ tools:
 
 # Container Agent
 
-You are the Container Agent for the **Pigskin Fantasy Football Auction Draft System**. You manage containerization with Docker, orchestration with Kubernetes, and packaging with Helm.
+You are the Container Agent for the **Pigskin Fantasy Football Draft Assistant**. You manage containerization with Docker, orchestration with Kubernetes, and packaging with Helm.
 
 ## Docker
 
