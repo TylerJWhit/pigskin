@@ -1,13 +1,6 @@
 """Test cases for core classes (Player, Team, Owner, etc.)."""
 
 import unittest
-import sys
-import os
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from test_base import BaseTestCase, TestDataGenerator
 
@@ -228,8 +221,7 @@ class TestDraft(BaseTestCase):
         
         draft = Draft(name="Test Draft", budget_per_team=200, roster_size=9)
         team = self.create_mock_team()
-        owner = self.create_mock_owner()
-        
+
         draft.add_team(team)
         self.assertEqual(len(draft.teams), 1)
         self.assertIn(team, draft.teams)
@@ -261,14 +253,13 @@ class TestAuction(BaseTestCase):
         from classes.draft import Draft
         
         draft = Draft(name="Test Draft", budget_per_team=200, roster_size=9)
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         self.assertEqual(auction.draft, draft)
-        self.assertEqual(auction.bid_timer, 60)
         self.assertFalse(auction.is_active)
         
     def test_auction_nomination(self):
-        """Test player nomination in auction."""
+        """Test player nomination resolves immediately via sealed bid."""
         from classes.auction import Auction
         from classes.draft import Draft
         from classes.team import Team
@@ -277,18 +268,22 @@ class TestAuction(BaseTestCase):
         players = TestDataGenerator.create_test_players(5)
         draft.add_players(players)
         
-        auction = Auction(draft, bid_timer=60)
+        auction = Auction(draft)
         
         # Start the draft first
-        draft.add_team(Team("team1", "owner1", "Test Team"))
-        draft.add_team(Team("team2", "owner2", "Test Team 2"))
+        team1 = Team("team1", "owner1", "Test Team")
+        team2 = Team("team2", "owner2", "Test Team 2")
+        draft.add_team(team1)
+        draft.add_team(team2)
         draft.start_draft()
         
-        # Test nomination
+        # Nomination immediately resolves (sealed bid) — player is drafted
         player = players[0]
-        auction.nominate_player(player, "Test Owner")
+        result = auction.nominate_player(player, "owner1")
         
-        self.assertEqual(auction.draft.current_player, player)
+        # nominate_player returns True and the player is no longer available
+        self.assertTrue(result)
+        self.assertNotIn(player, draft.available_players)
 
 
 class TestTournament(BaseTestCase):
@@ -344,6 +339,57 @@ class TestTournament(BaseTestCase):
         tournament.add_players(players)
         
         self.assertEqual(len(tournament.base_players), 20)
+
+
+class TestTournamentStrategyRegistration(BaseTestCase):
+    """Regression tests for #109 — strategy set on team in _run_single_simulation."""
+
+    def test_simulation_teams_have_strategy_set(self):
+        """After _run_single_simulation, each team must have a non-None strategy."""
+        from classes.tournament import Tournament
+        from classes.player import Player
+
+        players = [
+            Player(f"p{i}", f"Player {i}", ["RB","WR","QB","TE"][i % 4], "XX",
+                   projected_points=float(200 - i), auction_value=float(50 - i))
+            for i in range(20)
+        ]
+        tournament = Tournament(name="Test", num_simulations=1, budget_per_team=200)
+        tournament.add_players(players)
+        tournament.add_strategy_config("basic", "Bot", num_teams=2)
+        draft = tournament._run_single_simulation(0)
+        self.assertIsNotNone(draft)
+        for team in draft.teams:
+            self.assertIsNotNone(
+                team.strategy,
+                f"team {team.team_id} has no strategy set — #109 regression"
+            )
+
+
+class TestBidRecommendationTeamBudget(BaseTestCase):
+    """Regression tests for #125 — Team constructor args misordered in bid_recommendation_service."""
+
+    def test_create_team_from_sleeper_context_uses_correct_budget(self):
+        """Team created from Sleeper context must have budget from user_budget, not default 200."""
+        from services.bid_recommendation_service import BidRecommendationService
+        service = BidRecommendationService.__new__(BidRecommendationService)
+        sleeper_context = {"user_budget": 143, "user_roster": []}
+        team = service._create_team_from_sleeper_context(sleeper_context, None)
+        self.assertEqual(
+            team.budget, 143,
+            f"Team budget should be 143 (from user_budget) but got {team.budget} — #125 regression"
+        )
+
+    def test_create_team_from_sleeper_context_team_name_is_string(self):
+        """Team name must be a string, not the integer budget value."""
+        from services.bid_recommendation_service import BidRecommendationService
+        service = BidRecommendationService.__new__(BidRecommendationService)
+        sleeper_context = {"user_budget": 180, "user_roster": []}
+        team = service._create_team_from_sleeper_context(sleeper_context, None)
+        self.assertIsInstance(
+            team.team_name, str,
+            f"team_name should be str but got {type(team.team_name)} — #125 regression"
+        )
 
 
 if __name__ == '__main__':

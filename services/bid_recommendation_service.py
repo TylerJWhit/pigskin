@@ -1,13 +1,7 @@
 """Bid recommendation service for the auction draft tool."""
 
-import os
-import sys
+import asyncio
 from typing import Optional, Dict, Any, List
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from classes import Player, Team, Owner, Strategy, create_strategy, Draft
 from config.config_manager import ConfigManager
@@ -71,13 +65,13 @@ class BidRecommendationService:
             # Try to get Sleeper draft context first
             sleeper_context = None
             if self.sleeper_available and sleeper_draft_id:
-                sleeper_context = self._get_sleeper_draft_context(sleeper_draft_id, player_name)
+                sleeper_context = asyncio.run(self._get_sleeper_draft_context(sleeper_draft_id, player_name))
             
             # If no sleeper_draft_id provided, try to get from config
             if self.sleeper_available and not sleeper_context and not sleeper_draft_id:
                 default_draft_id = getattr(config, 'sleeper_draft_id', None)
                 if default_draft_id:
-                    sleeper_context = self._get_sleeper_draft_context(default_draft_id, player_name)
+                    sleeper_context = asyncio.run(self._get_sleeper_draft_context(default_draft_id, player_name))
             
             # Use Sleeper context if available, otherwise fallback to local draft
             if sleeper_context and sleeper_context.get('success'):
@@ -415,16 +409,16 @@ class BidRecommendationService:
             'should_bid': False
         }
     
-    def _get_sleeper_draft_context(self, draft_id: str, player_name: str) -> Dict[str, Any]:
+    async def _get_sleeper_draft_context(self, draft_id: str, player_name: str) -> Dict[str, Any]:
         """Get context from a live Sleeper draft."""
         try:
             # Get draft info
-            draft_info = self.sleeper_api.get_draft(draft_id)
+            draft_info = await self.sleeper_api.get_draft(draft_id)
             if not draft_info:
                 return {'success': False, 'error': 'Draft not found'}
             
             # Get draft picks to see what's already been drafted
-            picks = self.sleeper_api.get_draft_picks(draft_id)
+            picks = await self.sleeper_api.get_draft_picks(draft_id)
             drafted_player_ids = {pick.get('player_id') for pick in picks if pick.get('player_id')}
             
             # Get player data from cache
@@ -456,7 +450,7 @@ class BidRecommendationService:
             
             # Get user's team info if available
             user_id = getattr(self.config_manager.load_config(), 'sleeper_user_id', None)
-            user_budget = 200  # Default auction budget
+            user_budget = self.config_manager.load_config().budget
             user_roster = []
             
             if user_id and picks:
@@ -663,9 +657,9 @@ class BidRecommendationService:
         position = sleeper_player.get('position', 'UNK')
         team = sleeper_player.get('team', 'UNK')
         
-        # Use basic projections - could be enhanced with real projection data
-        projected_points = 100.0  # Default projection
-        auction_value = 10.0     # Default auction value
+        # Use actual projection data when available, falling back to defaults only if absent
+        projected_points = float(sleeper_player.get('projected_points') or 100.0)
+        auction_value = float(sleeper_player.get('auction_value') or 10.0)
         
         # Create Player object
         player = Player(
@@ -692,7 +686,12 @@ class BidRecommendationService:
             budget = team_context.get('budget', budget)
         
         # Create team
-        team = Team(team_name, "user_id", budget)
+        team = Team(
+            team_id="sleeper_user",
+            owner_id="user_id",
+            team_name=team_name,
+            budget=budget,
+        )
         
         # Add existing roster from Sleeper
         user_roster = sleeper_context.get('user_roster', [])

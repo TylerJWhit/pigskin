@@ -1,205 +1,268 @@
 """Sleeper API wrapper for fantasy football data."""
 
-import requests
+import asyncio
+import random
+import httpx
 from typing import Dict, List, Optional, Any
 import time
-from datetime import datetime, timedelta
+from urllib.parse import quote
+
+
+def _safe_path(value: str) -> str:
+    """URL-encode a path segment so user-supplied values cannot alter the URL structure."""
+    return quote(str(value), safe="")
 
 
 class SleeperAPIError(Exception):
     """Custom exception for Sleeper API errors."""
-    pass
 
 
 class SleeperAPI:
-    """Wrapper for the Sleeper Fantasy Football API."""
+    """Async wrapper for the Sleeper Fantasy Football API."""
     
     BASE_URL = "https://api.sleeper.app/v1"
     
-    def __init__(self, rate_limit_delay: float = 0.1):
+    def __init__(self, rate_limit_delay: float = 0.1, max_retries: int = 5,
+                 backoff_base: float = 2.0, backoff_jitter: float = 0.5):
         """
         Initialize Sleeper API wrapper.
-        
+
         Args:
-            rate_limit_delay: Delay between API calls to respect rate limits
+            rate_limit_delay: Minimum delay between API calls (seconds).
+            max_retries: Maximum number of retry attempts on 429 or transient errors.
+            backoff_base: Exponential backoff base multiplier (seconds).
+            backoff_jitter: Maximum random jitter added to each backoff delay (seconds).
         """
         self.rate_limit_delay = rate_limit_delay
-        self.session = requests.Session()
-        self.session.headers.update({
-            'User-Agent': 'PigskinAuctionDraft/1.0'
-        })
+        self.min_request_interval = rate_limit_delay  # alias for tests
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
+        self.backoff_jitter = backoff_jitter
+        self._headers = {'User-Agent': 'PigskinAuctionDraft/1.0'}
         self.last_request_time = 0
         
-    def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Any:
-        """Make a request to the Sleeper API with rate limiting."""
+    async def _make_request(self, endpoint: str, params: Optional[Dict] = None) -> Any:
+        """Make an async request to the Sleeper API with rate limiting and exponential backoff.
+
+        Only HTTP 429 (rate-limited) responses trigger retries with exponential backoff.
+        All other non-200 responses raise SleeperAPIError immediately.
+        """
         # Rate limiting
         current_time = time.time()
         time_since_last = current_time - self.last_request_time
         if time_since_last < self.rate_limit_delay:
-            time.sleep(self.rate_limit_delay - time_since_last)
-            
+            await asyncio.sleep(self.rate_limit_delay - time_since_last)
+
         url = f"{self.BASE_URL}{endpoint}"
-        
-        try:
-            response = self.session.get(url, params=params)
-            self.last_request_time = time.time()
-            
-            if response.status_code == 200:
-                return response.json()
-            elif response.status_code == 429:
-                # Rate limited, wait and retry once
-                time.sleep(1)
-                response = self.session.get(url, params=params)
+
+        for attempt in range(self.max_retries + 1):
+            try:
+                async with httpx.AsyncClient(headers=self._headers) as client:
+                    response = await client.get(url, params=params)
+                self.last_request_time = time.time()
+
                 if response.status_code == 200:
                     return response.json()
-                    
-            response.raise_for_status()
-            
-        except requests.RequestException as e:
-            raise SleeperAPIError(f"API request failed: {e}")
+
+                if response.status_code == 429:
+                    if attempt < self.max_retries:
+                        delay = (
+                            self.backoff_base * (2 ** attempt)
+                            + random.uniform(0, self.backoff_jitter)
+                        )
+                        await asyncio.sleep(delay)
+                        continue
+                    raise SleeperAPIError(
+                        f"Rate limited after {self.max_retries} retries: {url}"
+                    )
+
+                # Non-429 HTTP errors are not retried
+                response.raise_for_status()
+
+            except httpx.HTTPStatusError as e:
+                raise SleeperAPIError(f"API request failed: {e}") from e
+            except httpx.RequestError as e:
+                raise SleeperAPIError(f"API request failed: {e}") from e
             
     # User methods
-    def get_user(self, username: str) -> Optional[Dict]:
+    async def get_user(self, username: str) -> Optional[Dict]:
         """Get user information by username."""
         try:
-            return self._make_request(f"/user/{username}")
+            return await self._make_request(f"/user/{_safe_path(username)}")
         except SleeperAPIError:
             return None
-            
-    def get_user_by_id(self, user_id: str) -> Optional[Dict]:
+
+    async def get_user_by_id(self, user_id: str) -> Optional[Dict]:
         """Get user information by user ID."""
         try:
-            return self._make_request(f"/user/{user_id}")
+            return await self._make_request(f"/user/{_safe_path(user_id)}")
         except SleeperAPIError:
             return None
-            
+
     # League methods
-    def get_user_leagues(self, user_id: str, season: str = "2024") -> List[Dict]:
+    async def get_user_leagues(self, user_id: str, season: str = "2024") -> List[Dict]:
         """Get leagues for a user in a specific season."""
         try:
-            return self._make_request(f"/user/{user_id}/leagues/nfl/{season}") or []
+            return await self._make_request(
+                f"/user/{_safe_path(user_id)}/leagues/nfl/{_safe_path(season)}"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_league(self, league_id: str) -> Optional[Dict]:
+
+    async def get_league(self, league_id: str) -> Optional[Dict]:
         """Get league information."""
         try:
-            return self._make_request(f"/league/{league_id}")
+            return await self._make_request(f"/league/{_safe_path(league_id)}")
         except SleeperAPIError:
             return None
-            
-    def get_league_rosters(self, league_id: str) -> List[Dict]:
+
+    async def get_league_rosters(self, league_id: str) -> List[Dict]:
         """Get all rosters in a league."""
         try:
-            return self._make_request(f"/league/{league_id}/rosters") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/rosters"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_league_users(self, league_id: str) -> List[Dict]:
+
+    async def get_league_users(self, league_id: str) -> List[Dict]:
         """Get all users in a league."""
         try:
-            return self._make_request(f"/league/{league_id}/users") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/users"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_league_matchups(self, league_id: str, week: int) -> List[Dict]:
+
+    async def get_league_matchups(self, league_id: str, week: int) -> List[Dict]:
         """Get matchups for a specific week."""
         try:
-            return self._make_request(f"/league/{league_id}/matchups/{week}") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/matchups/{_safe_path(week)}"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_league_transactions(self, league_id: str, week: int) -> List[Dict]:
+
+    async def get_league_transactions(self, league_id: str, week: int) -> List[Dict]:
         """Get transactions for a specific week."""
         try:
-            return self._make_request(f"/league/{league_id}/transactions/{week}") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/transactions/{_safe_path(week)}"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_traded_picks(self, league_id: str) -> List[Dict]:
+
+    async def get_traded_picks(self, league_id: str) -> List[Dict]:
         """Get traded draft picks for a league."""
         try:
-            return self._make_request(f"/league/{league_id}/traded_picks") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/traded_picks"
+            ) or []
         except SleeperAPIError:
             return []
-            
+
     # Draft methods
-    def get_league_drafts(self, league_id: str) -> List[Dict]:
+    async def get_league_drafts(self, league_id: str) -> List[Dict]:
         """Get all drafts for a league."""
         try:
-            return self._make_request(f"/league/{league_id}/drafts") or []
+            return await self._make_request(
+                f"/league/{_safe_path(league_id)}/drafts"
+            ) or []
         except SleeperAPIError:
             return []
-            
-    def get_draft(self, draft_id: str) -> Optional[Dict]:
+
+    async def get_draft(self, draft_id: str) -> Optional[Dict]:
         """Get draft information."""
         try:
-            return self._make_request(f"/draft/{draft_id}")
+            return await self._make_request(f"/draft/{_safe_path(draft_id)}")
         except SleeperAPIError:
             return None
-            
-    def get_draft_picks(self, draft_id: str) -> List[Dict]:
+
+    async def get_draft_picks(self, draft_id: str) -> List[Dict]:
         """Get all picks for a draft."""
         try:
-            return self._make_request(f"/draft/{draft_id}/picks") or []
+            return await self._make_request(
+                f"/draft/{_safe_path(draft_id)}/picks"
+            ) or []
         except SleeperAPIError:
             return []
             
     # Player methods
-    def get_all_players(self, sport: str = "nfl") -> Dict[str, Dict]:
+    async def get_all_players(self, sport: str = "nfl") -> Dict[str, Dict]:
         """Get all players. Warning: This is a large response."""
         try:
-            return self._make_request(f"/players/{sport}") or {}
+            return await self._make_request(f"/players/{sport}") or {}
         except SleeperAPIError:
             return {}
+
+    async def get_nfl_players(self, sport: str = "nfl") -> Dict[str, Dict]:
+        """Alias for get_all_players for backward-compatibility."""
+        return await self.get_all_players(sport)
             
-    def get_trending_players(self, sport: str = "nfl", type_: str = "add", 
-                           hours: int = 24, limit: int = 25) -> List[Dict]:
+    async def get_trending_players(
+        self,
+        sport: str = "nfl",
+        type_: str = "add",
+        hours: int = 24,
+        limit: int = 25,
+    ) -> List[Dict]:
         """Get trending players (adds/drops)."""
         try:
-            params = {
-                'type': type_,
-                'hours': hours,
-                'limit': limit
-            }
-            return self._make_request(f"/players/{sport}/trending/{type_}", params) or []
+            params = {'type': type_, 'hours': hours, 'limit': limit}
+            return await self._make_request(
+                f"/players/{sport}/trending/{type_}", params
+            ) or []
         except SleeperAPIError:
             return []
             
     # Stats methods
-    def get_player_stats(self, season: str = "2024", week: Optional[int] = None) -> Dict[str, Dict]:
+    async def get_player_stats(
+        self, season: str = "2024", week: Optional[int] = None
+    ) -> Dict[str, Dict]:
         """Get player stats for season or specific week."""
         try:
             if week:
-                return self._make_request(f"/stats/nfl/regular/{season}/{week}") or {}
+                return await self._make_request(
+                    f"/stats/nfl/regular/{season}/{week}"
+                ) or {}
             else:
-                return self._make_request(f"/stats/nfl/regular/{season}") or {}
+                return await self._make_request(
+                    f"/stats/nfl/regular/{season}"
+                ) or {}
         except SleeperAPIError:
             return {}
             
-    def get_player_projections(self, season: str = "2024", week: Optional[int] = None) -> Dict[str, Dict]:
+    async def get_player_projections(
+        self, season: str = "2024", week: Optional[int] = None
+    ) -> Dict[str, Dict]:
         """Get player projections for season or specific week."""
         try:
             if week:
-                return self._make_request(f"/projections/nfl/regular/{season}/{week}") or {}
+                return await self._make_request(
+                    f"/projections/nfl/regular/{season}/{week}"
+                ) or {}
             else:
-                return self._make_request(f"/projections/nfl/regular/{season}") or {}
+                return await self._make_request(
+                    f"/projections/nfl/regular/{season}"
+                ) or {}
         except SleeperAPIError:
             return {}
             
     # State methods
-    def get_nfl_state(self) -> Optional[Dict]:
+    async def get_nfl_state(self) -> Optional[Dict]:
         """Get current NFL state (week, season, etc.)."""
         try:
-            return self._make_request("/state/nfl")
+            return await self._make_request("/state/nfl")
         except SleeperAPIError:
             return None
             
-    # Utility methods
-    def search_players(self, query: str, players_data: Optional[Dict] = None) -> List[Dict]:
-        """Search for players by name."""
+    # Utility methods (sync — no HTTP calls; operate on already-fetched data)
+    def search_players(
+        self, query: str, players_data: Optional[Dict] = None
+    ) -> List[Dict]:
+        """Search for players by name (synchronous — operates on provided data)."""
         if not players_data:
-            players_data = self.get_all_players()
+            return []  # callers must await get_all_players() first
             
         results = []
         query_lower = query.lower()
@@ -221,10 +284,12 @@ class SleeperAPI:
                 
         return results[:50]  # Limit results
         
-    def get_player_by_name(self, name: str, players_data: Optional[Dict] = None) -> Optional[Dict]:
-        """Get a specific player by exact name match."""
+    def get_player_by_name(
+        self, name: str, players_data: Optional[Dict] = None
+    ) -> Optional[Dict]:
+        """Get a specific player by exact name match (synchronous — operates on provided data)."""
         if not players_data:
-            players_data = self.get_all_players()
+            return None  # callers must await get_all_players() first
             
         name_lower = name.lower()
         
@@ -239,9 +304,11 @@ class SleeperAPI:
                 
         return None
         
-    def get_fantasy_relevant_players(self, position_filter: Optional[List[str]] = None) -> Dict[str, Dict]:
+    async def get_fantasy_relevant_players(
+        self, position_filter: Optional[List[str]] = None
+    ) -> Dict[str, Dict]:
         """Get fantasy football relevant players."""
-        all_players = self.get_all_players()
+        all_players = await self.get_all_players()
         relevant_players = {}
         
         fantasy_positions = position_filter or ['QB', 'RB', 'WR', 'TE', 'K', 'DEF']
@@ -258,15 +325,16 @@ class SleeperAPI:
                     
         return relevant_players
         
-    def convert_to_auction_player(self, sleeper_player: Dict, projections: Optional[Dict] = None) -> Dict:
-        """Convert Sleeper player data to auction tool Player format."""
+    def convert_to_auction_player(
+        self, sleeper_player: Dict, projections: Optional[Dict] = None
+    ) -> Dict:
+        """Convert Sleeper player data to auction tool Player format (synchronous)."""
         player_id = sleeper_player.get('player_id', '')
         
         # Get projections if available
         projected_points = 0.0
         if projections and player_id in projections:
             proj_data = projections[player_id]
-            # Sum up relevant scoring categories (customize based on your scoring)
             projected_points = (
                 proj_data.get('pts_ppr', 0) or
                 proj_data.get('pts_std', 0) or
@@ -280,7 +348,7 @@ class SleeperAPI:
             'position': sleeper_player.get('position', ''),
             'team': sleeper_player.get('team', ''),
             'projected_points': float(projected_points),
-            'auction_value': 0.0,  # Will need to be calculated separately
+            'auction_value': 0.0,
             'bye_week': sleeper_player.get('bye_week'),
             'age': sleeper_player.get('age'),
             'height': sleeper_player.get('height'),
@@ -290,10 +358,12 @@ class SleeperAPI:
             'injury_status': sleeper_player.get('injury_status')
         }
         
-    def bulk_convert_players(self, position_filter: Optional[List[str]] = None) -> List[Dict]:
+    async def bulk_convert_players(
+        self, position_filter: Optional[List[str]] = None
+    ) -> List[Dict]:
         """Convert all relevant Sleeper players to auction tool format."""
-        sleeper_players = self.get_fantasy_relevant_players(position_filter)
-        projections = self.get_player_projections()
+        sleeper_players = await self.get_fantasy_relevant_players(position_filter)
+        projections = await self.get_player_projections()
         
         converted_players = []
         for player_id, player_data in sleeper_players.items():
@@ -303,12 +373,12 @@ class SleeperAPI:
             
         return converted_players
         
-    def get_league_auction_data(self, league_id: str) -> Dict:
+    async def get_league_auction_data(self, league_id: str) -> Dict:
         """Get comprehensive auction-relevant data for a league."""
-        league_info = self.get_league(league_id)
-        rosters = self.get_league_rosters(league_id)
-        users = self.get_league_users(league_id)
-        drafts = self.get_league_drafts(league_id)
+        league_info = await self.get_league(league_id)
+        rosters = await self.get_league_rosters(league_id)
+        users = await self.get_league_users(league_id)
+        drafts = await self.get_league_drafts(league_id)
         
         return {
             'league': league_info,
@@ -318,3 +388,5 @@ class SleeperAPI:
             'scoring_settings': league_info.get('scoring_settings', {}) if league_info else {},
             'roster_positions': league_info.get('roster_positions', []) if league_info else []
         }
+
+

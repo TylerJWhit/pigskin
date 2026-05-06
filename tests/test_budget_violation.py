@@ -1,74 +1,67 @@
-#!/usr/bin/env python3
-"""Test to identify when teams violate budget constraints."""
+"""Budget violation guard assertions (#241)."""
 
-import sys
-sys.path.append('.')
-
+import unittest
 from classes.team import Team
 from classes.player import Player
 from strategies.value_based_strategy import ValueBasedStrategy
-from config.config_manager import ConfigManager
 
-def test_budget_constraint_violation():
-    """Simulate a scenario where a team should run out of budget."""
-    print("=== Testing Budget Constraint Violation ===")
-    
-    # Create team with proper config
-    config = ConfigManager()
-    roster_config = {
-        "QB": 1, "RB": 2, "WR": 2, "TE": 1, 
-        "FLEX": 2, "K": 1, "DST": 1, "BN": 5
-    }
-    
-    team = Team("test_team", "owner1", "Test Team", 200, roster_config)
-    strategy = ValueBasedStrategy()
-    
-    print(f"Team starts with ${team.budget} budget")
-    print(f"Roster config: {team.roster_config}")
-    print(f"Total slots: {sum(team.roster_config.values())}")
-    
-    # Simulate buying expensive players
-    expensive_players = [
-        ("Josh Allen", "QB", 45),
-        ("Christian McCaffrey", "RB", 65),
-        ("Cooper Kupp", "WR", 55),
-        ("Davante Adams", "WR", 50),
-        ("Travis Kelce", "TE", 40),
-    ]
-    
-    for name, pos, price in expensive_players:
-        player = Player(f"player_{name}", name, pos, "SEA")
-        player.auction_value = price
-        
-        # Check what the strategy would allow before buying
-        remaining_budget = team.budget
-        max_bid = strategy.calculate_max_bid(team, remaining_budget)
-        
-        print(f"\nAttempting to buy {name} ({pos}) for ${price}")
-        print(f"Strategy max bid allowed: ${max_bid}")
-        
-        if price <= max_bid:
-            team.add_player(player, price)
-            print(f"✅ Purchase allowed - budget now ${team.budget}")
-        else:
-            print(f"❌ Purchase blocked by budget constraint")
-            break
-    
-    # Show final state
-    current_roster_size = len(team.roster)
-    total_slots = sum(team.roster_config.values())
-    remaining_slots = total_slots - current_roster_size
-    
-    print(f"\n=== Final State ===")
-    print(f"Roster: {current_roster_size}/{total_slots}")
-    print(f"Budget: ${team.budget}")
-    print(f"Remaining slots: {remaining_slots}")
-    print(f"Budget per remaining slot: ${team.budget / max(1, remaining_slots):.2f}")
-    
-    if team.budget >= remaining_slots:
-        print("✅ Team can complete roster")
-    else:
-        print("❌ Team CANNOT complete roster!")
+
+class TestBudgetConstraintViolation(unittest.TestCase):
+
+    def _make_team(self):
+        roster_config = {"QB": 1, "RB": 2, "WR": 2, "TE": 1,
+                         "FLEX": 2, "K": 1, "DST": 1, "BN": 5}
+        return Team("t", "o", "Test Team", 200, roster_config)
+
+    def test_strategy_blocks_purchase_when_budget_too_low(self):
+        """calculate_max_bid must block purchases that would prevent roster completion."""
+        team = self._make_team()
+        strategy = ValueBasedStrategy()
+        roster_config = team.roster_config
+        total_slots = sum(roster_config.values())
+
+        expensive_players = [
+            ("Josh Allen", "QB", 45),
+            ("CMC", "RB", 65),
+            ("Cooper Kupp", "WR", 55),
+            ("Davante Adams", "WR", 50),
+            ("Travis Kelce", "TE", 40),
+        ]
+        for name, pos, price in expensive_players:
+            max_bid = strategy.calculate_max_bid(team, team.budget)
+            if price <= max_bid:
+                team.add_player(Player(f"p_{name}", name, pos, "XX"), price)
+
+        remaining_slots = total_slots - len(team.roster)
+        self.assertGreaterEqual(
+            team.budget, remaining_slots,
+            f"Budget ${team.budget} cannot cover {remaining_slots} remaining slots after purchases"
+        )
+
+    def test_budget_never_negative_after_expensive_purchases(self):
+        team = self._make_team()
+        for i in range(5):
+            team.add_player(Player(f"p{i}", f"P{i}", "RB", "X"), 30)
+        self.assertGreaterEqual(team.budget, 0)
+
+    def test_team_can_complete_roster_after_splurge(self):
+        team = self._make_team()
+        roster_config = team.roster_config
+        total_slots = sum(roster_config.values())
+        strategy = ValueBasedStrategy()
+
+        # Buy until strategy says stop
+        for i in range(12):
+            max_bid = strategy.calculate_max_bid(team, team.budget)
+            if max_bid <= 0:
+                break
+            p = Player(f"p{i}", f"P{i}", "WR", "X")
+            bid = min(max_bid, 10)
+            team.add_player(p, bid)
+
+        remaining = total_slots - len(team.roster)
+        self.assertGreaterEqual(team.budget, remaining)
+
 
 if __name__ == "__main__":
-    test_budget_constraint_violation()
+    unittest.main()

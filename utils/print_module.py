@@ -5,9 +5,7 @@ This module provides consistent table formatting for mock drafts, tournaments,
 and Sleeper draft information.
 """
 
-from typing import Dict, Optional, Any, Tuple, List
-from datetime import datetime
-import math
+from typing import Dict, Optional, List
 
 
 class TableFormatter:
@@ -152,7 +150,6 @@ class MockDraftPrinter:
             points = team.get_projected_points()
             spent = team.get_total_spent()
             remaining = team.budget
-            efficiency = points / spent if spent > 0 else 0
             strategy_name = team.get_strategy().name if team.get_strategy() else 'None'
             player_count = len(team.roster)
             
@@ -205,8 +202,7 @@ class MockDraftPrinter:
                 
                 for player in players:
                     cost = getattr(player, 'drafted_price', 0) or 0
-                    efficiency = player.projected_points / cost if cost > 0 else 0
-                    
+
                     rows.append([
                         player.name,
                         player.team,
@@ -314,8 +310,7 @@ class TournamentPrinter:
             wins = stats.get('wins', 0)
             simulations = stats.get('simulations', 0)
             avg_spent = stats.get('avg_spent', 0)
-            efficiency = avg_points / avg_spent if avg_spent > 0 else 0
-            
+
             rows.append([
                 str(i),
                 strategy_name.title(),
@@ -406,8 +401,9 @@ class SleeperDraftPrinter:
         print("\n" + "="*80)
         print("SLEEPER DRAFT SUMMARY")
         print("="*80)
-        
-        draft_id = draft_info.get('draft_id', 'Unknown')
+
+        # Required key — raises KeyError for empty/invalid input
+        draft_id = draft_info['draft_id']
         league_id = draft_info.get('league_id', 'Unknown')
         status = draft_info.get('status', 'unknown')
         draft_type = draft_info.get('type', 'unknown')
@@ -542,11 +538,7 @@ class SleeperDraftPrinter:
         
         # Create headers: Position + Team columns
         headers = ['Position'] + [f'Team {i+1}' for i, name in enumerate(team_names)]
-        
-        # Set column widths for better readability
-        position_width = 12
-        team_width = 20
-        
+
         # Create rows for each roster position
         rows = []
         position_counts = {}  # Track how many of each position we've used
@@ -701,13 +693,13 @@ class SleeperDraftPrinter:
         
         # Add draft summary
         if picks:
-            print(f"\n📊 DRAFT SUMMARY")
+            print("\n📊 DRAFT SUMMARY")
             print(f"   Teams: {len(teams_rosters)}")
             print(f"   Total picks: {len(picks)}")
             print(f"   Total spent: ${total_spent:,}")
             
             # Show team spending
-            print(f"\n   Team spending:")
+            print("\n   Team spending:")
             for i, team_name in enumerate(team_names):
                 spent = teams_rosters[team_name]['total_spent']
                 team_display = f"Team {i+1}" if team_name == 'Unknown' else team_name

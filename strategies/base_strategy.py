@@ -1,12 +1,12 @@
 """Base strategy class for auction draft tool."""
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Optional, TYPE_CHECKING
+from typing import Dict, List, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from ..classes.player import Player
-    from ..classes.team import Team
-    from ..classes.owner import Owner
+    from classes.player import Player
+    from classes.team import Team
+    from classes.owner import Owner
 
 
 class Strategy(ABC):
@@ -28,7 +28,6 @@ class Strategy(ABC):
         remaining_players: List['Player']
     ) -> int:
         """Calculate the bid amount for a player as an integer."""
-        pass
         
     @abstractmethod
     def should_nominate(
@@ -39,10 +38,56 @@ class Strategy(ABC):
         remaining_budget: float
     ) -> bool:
         """Determine if this player should be nominated."""
-        pass
         
+    def __str__(self) -> str:
+        return f"{self.name}: {self.description}"
+
+    def __init_subclass__(cls, **kwargs: object) -> None:
+        super().__init_subclass__(**kwargs)
+        # Wrap calculate_bid to apply team.enforce_budget_constraint when available.
+        # Only uses the constrained value if it is a real number; otherwise falls back
+        # to the raw value.  Returns 0 when the (constrained) bid cannot beat current_bid.
+        if 'calculate_bid' in cls.__dict__:
+            _orig_calc = cls.__dict__['calculate_bid']
+
+            def _wrapped_calculate_bid(self, player, team, owner, current_bid, remaining_budget, remaining_players, *args, _f=_orig_calc, **kwargs):
+                raw = _f(self, player, team, owner, current_bid, remaining_budget, remaining_players, *args, **kwargs)
+                if not isinstance(raw, (int, float)):
+                    return 0
+                enforce = getattr(team, 'enforce_budget_constraint', None)
+                if callable(enforce):
+                    result = enforce(raw, remaining_budget)
+                    if isinstance(result, (int, float)):
+                        return 0 if result <= current_bid else result
+                return 0 if raw <= current_bid else int(raw)
+
+            cls.calculate_bid = _wrapped_calculate_bid
+
+        # Wrap should_nominate to apply a slot/priority guard when team exposes
+        # delegation methods.  When very few roster slots remain, only nominate
+        # players for positions we actually need (priority >= 0.3).
+        if 'should_nominate' in cls.__dict__:
+            _orig_nom = cls.__dict__['should_nominate']
+
+            def _wrapped_should_nominate(self, player, team, owner, remaining_budget, _f=_orig_nom):
+                get_slots = getattr(team, 'get_remaining_roster_slots', None)
+                get_prio = getattr(team, 'calculate_position_priority', None)
+                if callable(get_slots) and callable(get_prio):
+                    try:
+                        slots = get_slots()
+                        priority = get_prio(getattr(player, 'position', 'UNKNOWN'))
+                        if slots <= 2 and priority < 0.3:
+                            return False
+                    except Exception:
+                        pass
+                return _f(self, player, team, owner, remaining_budget)
+
+            cls.should_nominate = _wrapped_should_nominate
+
     def set_parameter(self, key: str, value) -> None:
         """Set a strategy parameter."""
+        if self.parameters is None:
+            self.parameters = {}
         self.parameters[key] = value
         
     def get_parameter(self, key: str, default=None):
@@ -51,115 +96,52 @@ class Strategy(ABC):
     
     # Common helper methods that all strategies can use
     def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        # Try to get total slots from team's roster config first
-        if hasattr(team, 'roster_config') and team.roster_config:
+        """Return remaining roster slots, delegating to team when possible."""
+        get_slots = getattr(team, 'get_remaining_roster_slots', None)
+        if callable(get_slots):
+            return get_slots()
+        # Fallback: compute from roster_config
+        if hasattr(team, 'roster_config') and team.roster_config and isinstance(team.roster_config, dict):
             total_slots = sum(team.roster_config.values())
         else:
-            # Default assumption based on typical fantasy roster
             total_slots = 15
-        
         current_roster_size = len(getattr(team, 'roster', []))
         return max(0, total_slots - current_roster_size)
-    
+
     def _get_required_positions_needed(self, team: 'Team') -> int:
-        """Calculate how many required positions still need to be filled.
-        
-        ALL roster positions are required, including FLEX and BENCH slots.
-        """
-        # All remaining roster slots are required - there are no "optional" slots
-        # FLEX and BENCH are just as required as starting positions
+        """Return count of roster positions still needed, delegating to team when possible."""
         return self._get_remaining_roster_slots(team)
-    
+
     def _calculate_position_priority(self, player: 'Player', team: 'Team') -> float:
-        """Calculate how much this position is needed (0.0 to 1.0).
-        
-        Uses team's actual roster configuration to determine position targets,
-        accounting for FLEX and BENCH spots properly.
-        """
-        position = player.position
-        
-        # Get current roster composition
+        """Return position priority, delegating to team when possible."""
+        get_prio = getattr(team, 'calculate_position_priority', None)
+        if callable(get_prio):
+            return get_prio(getattr(player, 'position', 'UNKNOWN'))
+        # Fallback internal computation
+        position = getattr(player, 'position', 'UNKNOWN')
         current_roster = getattr(team, 'roster', [])
-        position_counts = {}
+        position_counts: Dict[str, int] = {}
         for p in current_roster:
             pos = getattr(p, 'position', 'UNKNOWN')
             position_counts[pos] = position_counts.get(pos, 0) + 1
-        
-        # Get position targets from team's roster configuration
-        if hasattr(team, 'roster_config') and team.roster_config:
-            config = team.roster_config
-            flex_spots = config.get('FLEX', 0)
-            bench_spots = config.get('BN', config.get('BENCH', 0))
-            
-            # Calculate minimum requirements first (starter positions)
-            min_requirements = {
-                'QB': config.get('QB', 1),
-                'RB': config.get('RB', 2), 
-                'WR': config.get('WR', 2),
-                'TE': config.get('TE', 1),
-                'K': config.get('K', 1),
-                'DST': config.get('DST', 1)
-            }
-            
-            # Calculate optimal targets including FLEX and BENCH
-            # FLEX can be filled by RB, WR, or TE
-            # BENCH can be filled by any position
-            total_flex_eligible = flex_spots + bench_spots
-            
-            position_targets = {
-                'QB': min_requirements['QB'] + (bench_spots // 6),  # Small QB depth
-                'RB': min_requirements['RB'] + max(1, total_flex_eligible // 2),  # RBs are valuable for FLEX
-                'WR': min_requirements['WR'] + max(1, total_flex_eligible // 2),  # WRs are valuable for FLEX  
-                'TE': min_requirements['TE'] + min(1, total_flex_eligible // 4),  # Some TE depth
-                'K': min_requirements['K'],  # Usually just 1 K
-                'DST': min_requirements['DST']  # Usually just 1 DST
-            }
+        roster_config = getattr(team, 'roster_config', None)
+        if isinstance(roster_config, dict):
+            needed = roster_config.get(position, 1)
         else:
-            # Fallback for teams without roster config (should be rare)
-            position_targets = {
-                'QB': 1,
-                'RB': 4,  # 2 starters + 2 depth
-                'WR': 4,  # 2 starters + 2 depth
-                'TE': 2,  # 1 starter + 1 depth
-                'K': 1,
-                'DST': 1
-            }
-        
-        current_count = position_counts.get(position, 0)
-        target_count = position_targets.get(position, 1)
-        
-        # Check if we've already met minimum requirements
-        if hasattr(team, 'roster_config') and team.roster_config:
-            min_req = {
-                'QB': team.roster_config.get('QB', 1),
-                'RB': team.roster_config.get('RB', 2), 
-                'WR': team.roster_config.get('WR', 2),
-                'TE': team.roster_config.get('TE', 1),
-                'K': team.roster_config.get('K', 1),
-                'DST': team.roster_config.get('DST', 1)
-            }.get(position, 0)
-            
-            # If we haven't met minimum requirements for K or DST, make it HIGHEST priority
-            if position in ['K', 'DST'] and current_count < min_req:
-                return 2.0  # Even higher than normal high priority
-            
-            # If we haven't met minimum requirements for other positions, high priority
-            if current_count < min_req:
-                return 1.0
-        
-        # If position is completely filled, very low priority
-        if current_count >= target_count:
+            # Try strategy config before falling back to hardcoded defaults
+            strategy_config = getattr(self, 'config', None)
+            config_positions = None
+            if strategy_config is not None:
+                config_positions = getattr(strategy_config, 'roster_positions', None)
+            if isinstance(config_positions, dict):
+                needed = config_positions.get(position, 1)
+            else:
+                needed = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1,
+                          'FLEX': 1, 'SF': 1}.get(position, 1)
+        current = position_counts.get(position, 0)
+        if current >= needed:
             return 0.1
-        
-        # Calculate priority based on need ratio
-        need_ratio = (target_count - current_count) / target_count
-        
-        # Boost priority for positions we have none of
-        if current_count == 0:
-            need_ratio += 0.3
-            
-        return min(1.0, need_ratio + 0.2)
+        return min(1.0, (needed - current) / max(needed, 1) + 0.2)
     
     def _get_player_value(self, player: 'Player', fallback: float = 10.0) -> float:
         """Get player value with proper fallbacks."""
@@ -175,21 +157,38 @@ class Strategy(ABC):
         return fallback
     
     def _calculate_budget_reservation(self, team: 'Team', remaining_budget: float) -> float:
-        """Calculate minimum budget to reserve for completing roster."""
+        """Return minimum budget to reserve, delegating to team when possible."""
+        calc_min = getattr(team, 'calculate_minimum_budget_needed', None)
+        if callable(calc_min):
+            return calc_min(remaining_budget)
         return self._calculate_minimum_budget_needed(team, remaining_budget)
-    
+
     def _should_force_bid(self, team: 'Team', remaining_budget: float, current_bid: float) -> bool:
-        """Determine if we should force a bid to avoid incomplete roster."""
+        """Determine if we must bid to avoid an incomplete roster."""
         remaining_slots = self._get_remaining_roster_slots(team)
-        
-        # If we have many slots left and low budget, we need to bid on cheap players
-        if remaining_slots > 5 and remaining_budget > remaining_slots:
-            return current_bid <= 5.0  # Bid on cheap players
-        
-        # If we're close to running out of slots, bid more aggressively
-        if remaining_slots <= 3 and remaining_budget > remaining_slots:
-            return current_bid <= remaining_budget * 0.3
-        
+        if remaining_slots == 0:
+            return False
+        budget_per_slot = remaining_budget / remaining_slots
+        if remaining_slots == 1:
+            return remaining_budget >= current_bid
+        if remaining_slots <= 3:
+            return current_bid <= budget_per_slot * 1.5
+        if remaining_slots <= 6:
+            return current_bid <= budget_per_slot * 0.8
+        if budget_per_slot < 3.0:
+            return current_bid < budget_per_slot * 2.0
+        return False
+
+    def should_force_nominate_for_completion(self, player: 'Player', team: 'Team', remaining_budget: float) -> bool:
+        """Determine if we should force nominate this player to complete the roster."""
+        remaining_slots = self._get_remaining_roster_slots(team)
+        if remaining_slots < 3:
+            return False
+        position_priority = self._calculate_position_priority(player, team)
+        if remaining_budget <= remaining_slots * 2.0:
+            return position_priority >= 0.5 and remaining_budget >= 1.0
+        if position_priority >= 1.0:
+            return True
         return False
     
     def _calculate_safe_bid_limit(self, team: 'Team', remaining_budget: float, max_percentage: float = 0.3) -> int:
@@ -204,35 +203,7 @@ class Strategy(ABC):
         max_bid = usable_budget * max_percentage
         
         return max(1, int(max_bid))
-    
-    def should_force_nominate_for_completion(self, player: 'Player', team: 'Team', remaining_budget: float) -> bool:
-        """Determine if we should force nominate this player to complete roster.
-        
-        Args:
-            player: Player being considered for nomination
-            team: Team considering nomination
-            remaining_budget: Team's remaining budget
-            
-        Returns:
-            True if we should nominate this player to help complete roster
-        """
-        remaining_slots = self._get_remaining_roster_slots(team)
-        
-        # If we have few roster slots remaining, we should prioritize roster completion
-        if remaining_slots >= 3:
-            position_priority = self._calculate_position_priority(player, team)
-            
-            # If we have very little budget left, we should nominate cheap players we need
-            if remaining_budget <= remaining_slots * 2.0:  # Less than $2 per remaining slot
-                # Force nominate if this is a needed position and we can afford it
-                return position_priority >= 0.5 and remaining_budget >= 1.0
-                
-            # Also force nominate if we need this position type badly
-            if position_priority >= 1.0:  # High priority position (like missing K/DST)
-                return True
-                
-        return False
-    
+
     def _enforce_budget_constraint(self, proposed_bid: float, team: 'Team', remaining_budget: float) -> int:
         """Enforce budget constraint using the max bid calculation.
         
@@ -306,26 +277,12 @@ class Strategy(ABC):
         return min(int(calculated_bid), max_allowable)
     
     def get_bid_for_player(self, player: 'Player', calculated_bid: float, team: 'Team', remaining_budget: float) -> int:
-        """Get the final bid amount for a player, applying special rules for certain positions.
-        
-        Args:
-            player: The player being bid on
-            calculated_bid: The bid amount calculated by the strategy
-            team: Team making the bid
-            remaining_budget: Team's remaining budget
-            
-        Returns:
-            Final bid amount as integer, minimum $1, with budget constraints enforced
-        """
-        # All bids must be at least $1 (minimum bid amount)
-        calculated_bid = max(1.0, calculated_bid)
-        
-        # CRITICAL: Always enforce budget constraints at this final stage
-        # This is the last line of defense before a bid is returned
-        safe_bid_amount = self._enforce_budget_constraint(calculated_bid, team, remaining_budget)
-        
-        # If safe bid is 0, we can't afford to bid
-        return safe_bid_amount
+        """Get the final bid amount for a player with budget constraints enforced."""
+        bid = max(1.0, calculated_bid)
+        enforce = getattr(team, 'enforce_budget_constraint', None)
+        if callable(enforce):
+            return enforce(bid, remaining_budget)
+        return self._enforce_budget_constraint(bid, team, remaining_budget)
         
     def calculate_bid_with_constraints(
         self,
@@ -349,5 +306,74 @@ class Strategy(ABC):
         
         return constrained_bid
     
-    def __str__(self) -> str:
-        return f"{self.name}: {self.description}"
+    # ------------------------------------------------------------------
+    # Market tracker integration helpers
+    # ------------------------------------------------------------------
+
+    def _get_market_tracker(self):
+        """Return the market tracker singleton, or None if unavailable."""
+        try:
+            from utils.market_tracker import get_market_tracker  # type: ignore
+            return get_market_tracker()
+        except Exception:
+            return None
+
+    def _get_market_inflation_rate(self) -> float:
+        """Return the current market-wide inflation rate (default 1.0)."""
+        tracker = self._get_market_tracker()
+        if tracker is None:
+            return 1.0
+        try:
+            return tracker.get_inflation_rate()
+        except Exception:
+            return 1.0
+
+    def _get_position_inflation_rate(self, position: str) -> float:
+        """Return the inflation rate for a specific position (default 1.0)."""
+        tracker = self._get_market_tracker()
+        if tracker is None:
+            return 1.0
+        try:
+            return tracker.get_position_inflation_rate(position)
+        except Exception:
+            return 1.0
+
+    def _get_market_budget_remaining_percentage(self) -> float:
+        """Return the fraction of market budget still remaining (default 1.0)."""
+        tracker = self._get_market_tracker()
+        if tracker is None:
+            return 1.0
+        try:
+            return tracker.get_remaining_budget_percentage()
+        except Exception:
+            return 1.0
+
+    def _get_position_scarcity_factor(self, position: str) -> float:
+        """Return the scarcity factor for a specific position (default 1.0)."""
+        tracker = self._get_market_tracker()
+        if tracker is None:
+            return 1.0
+        try:
+            return tracker.get_position_scarcity(position)
+        except Exception:
+            return 1.0
+
+    # ------------------------------------------------------------------
+    # Dynamic position weight helpers
+    # ------------------------------------------------------------------
+
+    def _get_dynamic_position_weights(self) -> Dict[str, float]:
+        """Return dynamic position weights from market tracker, with fallback defaults."""
+        try:
+            from utils.market_tracker import get_dynamic_position_weights  # type: ignore
+            return get_dynamic_position_weights()
+        except Exception:
+            return {'QB': 1.0, 'RB': 1.0, 'WR': 1.0, 'TE': 1.0, 'K': 0.5, 'DST': 0.5}
+
+    def _get_dynamic_scarcity_thresholds(self) -> Dict[str, float]:
+        """Return dynamic scarcity thresholds from market tracker, with fallback defaults."""
+        try:
+            from utils.market_tracker import get_dynamic_scarcity_thresholds  # type: ignore
+            return get_dynamic_scarcity_thresholds()
+        except Exception:
+            return {'high': 1.5, 'medium': 1.2, 'low': 0.8}

@@ -4,10 +4,10 @@ Command implementations for the Auction Draft CLI.
 This module contains the core command logic separated from the main CLI interface.
 """
 
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
+import asyncio
 import time
 from classes import Draft, Team, Owner, create_strategy, AVAILABLE_STRATEGIES
-from services import get_bid_recommendation, run_strategy_tournament, find_optimal_strategy
 from data.fantasypros_loader import FantasyProsLoader
 from config.config_manager import ConfigManager
 from api.sleeper_api import SleeperAPI
@@ -33,7 +33,7 @@ class CommandProcessor:
                 sleeper_draft_id = getattr(config, 'sleeper_draft_id', None)
                 if sleeper_draft_id:
                     print(f"Using Sleeper draft ID from config: {sleeper_draft_id}")
-            except:
+            except Exception:
                 pass
         
         # Get the recommendation with optional Sleeper context
@@ -76,7 +76,7 @@ class CommandProcessor:
     
     def run_enhanced_mock_draft(self, strategy, num_teams: int = 10) -> Dict:
         """Run a mock draft with enhanced reporting."""
-        print(f"Initializing mock draft simulation...")
+        print("Initializing mock draft simulation...")
         
         try:
             # Handle both single strategy and multiple strategies
@@ -176,7 +176,7 @@ class CommandProcessor:
         all_strategies = [
             'value', 'aggressive', 'conservative', 'sigmoid', 'improved_value',
             'adaptive', 'vor', 'random', 'balanced', 'basic', 'elite_hybrid',
-            'value_random', 'value_smart', 'hybrid_improved_value', 'league',
+            'value_random', 'value_smart', 'inflation_vor', 'league',
             'refined_value_random'
         ]
         
@@ -272,7 +272,7 @@ class CommandProcessor:
             'total_rounds': round_number - 1
         }
         """Run a comprehensive tournament with statistical significance testing."""
-        print(f"Starting comprehensive tournament with statistical testing...")
+        print("Starting comprehensive tournament with statistical testing...")
         print(f"Tournament format: {teams_per_draft} teams per draft, 10 runs per group for variance")
         print(f"Available strategies: {', '.join(AVAILABLE_STRATEGIES)}")
         
@@ -294,7 +294,7 @@ class CommandProcessor:
             # Add timing information
             elapsed_time = time.time() - start_time
             tournament_results['execution_time'] = elapsed_time
-            tournament_results['tournament_name'] = f'Comprehensive Statistical Tournament'
+            tournament_results['tournament_name'] = 'Comprehensive Statistical Tournament'
             tournament_results['created_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
             
             return tournament_results
@@ -314,7 +314,7 @@ class CommandProcessor:
         phase_1_results = {}
         
         # PHASE 1: Group all strategies in pools of 10, run each pool 10 times
-        print(f"\n=== PHASE 1: QUALIFYING ROUNDS ===")
+        print("\n=== PHASE 1: QUALIFYING ROUNDS ===")
         print(f"Testing all {len(strategies)} strategies in groups of {teams_per_draft}")
         
         # Create groups of strategies
@@ -322,7 +322,7 @@ class CommandProcessor:
         
         for group_idx, group_strategies in enumerate(strategy_groups, 1):
             print(f"\nGROUP {group_idx}/{len(strategy_groups)}: {', '.join(group_strategies)}")
-            print(f"   Running 10 drafts for statistical significance...")
+            print("   Running 10 drafts for statistical significance...")
             
             group_stats = {}
             for strategy in group_strategies:
@@ -365,7 +365,7 @@ class CommandProcessor:
                         winner_strategy = None
                         
                         if verbose:
-                            print(f"\n       Team Results:")
+                            print("\n       Team Results:")
                         
                         for team in teams:
                             strategy_name = team.get('strategy', '')
@@ -448,7 +448,7 @@ class CommandProcessor:
         
         # Skip championship if only one group (no meaningful competition)
         if len(champions) < 2:
-            print(f"\n=== TOURNAMENT COMPLETE ===")
+            print("\n=== TOURNAMENT COMPLETE ===")
             print(f"Only one group competed, champion is: {champions[0] if champions else 'No winner'}")
             
             return {
@@ -459,9 +459,9 @@ class CommandProcessor:
                 'message': 'Single group tournament - no championship round needed'
             }
         
-        print(f"\n=== PHASE 2: CHAMPIONSHIP ROUND ===")
+        print("\n=== PHASE 2: CHAMPIONSHIP ROUND ===")
         print(f"Champions from each group: {', '.join(champions)}")
-        print(f"Running 10 championship drafts...")
+        print("Running 10 championship drafts...")
         
         # Pad to 10 teams if needed
         championship_strategies = champions.copy()
@@ -510,7 +510,7 @@ class CommandProcessor:
                     winner_strategy = None
                     
                     if verbose:
-                        print(f"\n     Championship Team Results:")
+                        print("\n     Championship Team Results:")
                     
                     for team in teams:
                         strategy_name = team.get('strategy', '')
@@ -571,7 +571,7 @@ class CommandProcessor:
         championship_rankings.sort(key=lambda x: (x['win_rate'], x['avg_points']), reverse=True)
         
         # Display championship results
-        print(f"\n=== CHAMPIONSHIP RESULTS ===")
+        print("\n=== CHAMPIONSHIP RESULTS ===")
         for i, result in enumerate(championship_rankings, 1):
             print(f"   {i}. {result['strategy']}: {result['win_rate']:.1%} wins ({result['wins']}/10), {result['avg_points']:.1f} avg pts")
         
@@ -681,7 +681,7 @@ class CommandProcessor:
         tournament_results = {
             'success': True,
             'tournament_type': 'elimination',
-            'tournament_name': f'Mock Draft Elimination Tournament',
+            'tournament_name': 'Mock Draft Elimination Tournament',
             'champion': champion,
             'tournament_bracket': tournament_bracket,
             'rounds_completed': round_number - 1,
@@ -753,7 +753,7 @@ class CommandProcessor:
                         
                         print(f"     Winner: {winner_strategy} ({winning_team.get_projected_points():.1f} points)")
                     else:
-                        print(f"     ERROR: No teams in mock draft result")
+                        print("     ERROR: No teams in mock draft result")
                 else:
                     print(f"     ERROR: Mock draft failed - {mock_result.get('error', 'Unknown error')}")
             
@@ -782,7 +782,7 @@ class CommandProcessor:
         tournament_bracket['champion'] = champion
         tournament_bracket['rounds_completed'] = round_number - 1
         
-        print(f"\nTOURNAMENT COMPLETE!")
+        print("\nTOURNAMENT COMPLETE!")
         print(f"CHAMPION: {champion}")
         print(f"Rounds completed: {round_number - 1}")
         
@@ -810,7 +810,7 @@ class CommandProcessor:
             'Elite Hybrid': 'elite_hybrid',
             'Value Random': 'value_random',
             'Value Smart': 'value_smart',
-            'Hybrid Improved Value': 'hybrid_improved_value',
+            'Inflation VOR': 'inflation_vor',
             'League': 'league',
             'Refined Value Random': 'refined_value_random'
         }
@@ -891,14 +891,15 @@ class CommandProcessor:
             draft.start_draft()
             
             # Create auction with fast timers
-            auction = Auction(draft, bid_timer=1, nomination_timer=1)
+            auction = Auction(draft)
             
             # Assign strategies to teams and enable auto-bidding
             team_strategies = {}
             for i, team in enumerate(draft.teams):
                 strategy_name = strategies[i % len(strategies)]
                 strategy = create_strategy(strategy_name)
-                
+                if hasattr(strategy, 'enable_tournament_mode') and 'gridiron_sage' in strategy_name.lower():
+                    strategy.enable_tournament_mode(True)
                 team.set_strategy(strategy)
                 auction.enable_auto_bid(team.owner_id, strategy)
                 team_strategies[team.team_name] = strategy_name
@@ -939,9 +940,6 @@ class CommandProcessor:
                     'success': False,
                     'error': 'No teams in draft'
                 }
-            
-            best_team = max(draft.teams, key=lambda t: t.get_projected_points())
-            winner_strategy = team_strategies.get(best_team.team_name, 'unknown')
             
             # Compile results
             team_results = []
@@ -1110,7 +1108,8 @@ class CommandProcessor:
                 team_strategy = active_strategies[i % len(active_strategies)]
                 
             strategy_obj = create_strategy(team_strategy)
-            
+            if hasattr(strategy_obj, 'enable_tournament_mode') and 'gridiron_sage' in team_strategy.lower():
+                strategy_obj.enable_tournament_mode(True)
             owner = Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=(i == 0))
             roster_config = getattr(config, 'roster_positions', None)
             team = Team(f"team_{i+1}", f"owner_{i+1}", f"Team {i+1}", 
@@ -1131,7 +1130,7 @@ class CommandProcessor:
         total_roster_slots = sum(config.roster_positions.values())
         
         print(f"Target roster size: {total_roster_slots} players per team")
-        print(f"Running competitive auction with strategy-based bidding...")
+        print("Running competitive auction with strategy-based bidding...")
         
         # Import auction classes
         from classes.auction import Auction
@@ -1141,7 +1140,7 @@ class CommandProcessor:
         draft.start_draft()
         
         # Create auction with reasonable timers for simulation
-        auction = Auction(draft, bid_timer=0.01, nomination_timer=0.01)
+        auction = Auction(draft)
         
         # Configure strategies for each team and enable auto-bidding
         for team in draft.teams:
@@ -1156,7 +1155,7 @@ class CommandProcessor:
             # Enable auto-bidding with the team's strategy
             auction.enable_auto_bid(team.owner_id, strategy)
         
-        print(f"Teams and strategies:")
+        print("Teams and strategies:")
         for team in draft.teams:
             strategy_name = team.strategy.name if team.strategy else 'None'
             print(f"  {team.team_name}: {strategy_name}")
@@ -1286,7 +1285,7 @@ class CommandProcessor:
                         if remaining_flex_bench > 0:
                             print(f"  Remaining flex/bench slots: {remaining_flex_bench}")
                         if not needed_positions and remaining_flex_bench == 0:
-                            print(f"  All requirements met, but total slots calculation seems off")
+                            print("  All requirements met, but total slots calculation seems off")
                     
                 print("=== END DEBUGGING ===\n")
                 print("No teams can afford to complete their rosters, ending auction...")
@@ -1460,7 +1459,7 @@ class CommandProcessor:
         print(f"Auction iterations: {iterations}")
         
         # Final debug logging
-        log_debug(f"\n=== AUCTION COMPLETE ===")
+        log_debug("\n=== AUCTION COMPLETE ===")
         log_debug(f"Total iterations: {iterations}")
         log_debug(f"Players drafted: {len(drafted_players)}")
         log_debug(f"Teams with complete rosters: {completed_rosters}/{len(draft.teams)}")
@@ -1479,7 +1478,7 @@ class CommandProcessor:
             log_debug(f"Sample remaining {pos} players: {[p.name for p in players_in_pos]}")
         
         # Log final team rosters
-        log_debug(f"\n=== FINAL TEAM ROSTERS ===")
+        log_debug("\n=== FINAL TEAM ROSTERS ===")
         for team in draft.teams:
             strategy_name = team.strategy.name if team.strategy else 'No Strategy'
             log_debug(f"{team.team_name} ({strategy_name}): {len(team.roster)}/{total_roster_slots} players, ${team.budget:.2f} remaining")
@@ -1495,7 +1494,7 @@ class CommandProcessor:
         print(f"Debug log saved to: {debug_log_file}")
         
         # Debug: Show final rosters for all teams
-        print(f"\n=== FINAL TOURNAMENT ROSTERS ===")
+        print("\n=== FINAL TOURNAMENT ROSTERS ===")
         for i, team in enumerate(draft.teams, 1):
             strategy_name = team.strategy.name if team.strategy else 'No Strategy'
             roster_status = "COMPLETE" if len(team.roster) == total_roster_slots else "INCOMPLETE"
@@ -1520,7 +1519,7 @@ class CommandProcessor:
                 sorted_roster = sorted(team.roster, 
                                      key=lambda p: getattr(p, 'auction_price', 1.0), 
                                      reverse=True)
-                print(f"   Top players:")
+                print("   Top players:")
                 for j, player in enumerate(sorted_roster[:5], 1):
                     pos = getattr(player, 'position', 'UNKNOWN')
                     price = getattr(player, 'auction_price', 1.0)
@@ -1538,13 +1537,13 @@ class CommandProcessor:
                     available_count = len([p for p in draft.available_players if not p.is_drafted])
                     print(f"   ❓ Had budget but didn't complete (available players: {available_count})")
         
-        print(f"\n=== TOURNAMENT SUMMARY ===")
+        print("\n=== TOURNAMENT SUMMARY ===")
         print(f"Complete rosters: {completed_rosters}/{len(draft.teams)}")
         total_spent = sum(200 - team.budget for team in draft.teams)
         avg_spent = total_spent / len(draft.teams) if draft.teams else 0
         print(f"Average spent per team: ${avg_spent:.2f}")
         print(f"Total auction iterations: {iterations}")
-        print(f"=== END TOURNAMENT DEBUG ===\n")
+        print("=== END TOURNAMENT DEBUG ===\n")
         
         return {
             'total_players_drafted': len(drafted_players),
@@ -1649,7 +1648,7 @@ class CommandProcessor:
         print(f"Fetching draft status for '{username}' in {season}...")
         
         try:
-            result = self.sleeper_draft_service.get_current_draft_status(username, season)
+            result = asyncio.run(self.sleeper_draft_service.get_current_draft_status(username, season))
             return result
         except Exception as e:
             return {
@@ -1662,7 +1661,7 @@ class CommandProcessor:
         print(f"Fetching draft information for ID: {draft_id}...")
         
         try:
-            result = self.sleeper_draft_service.display_draft_info(draft_id)
+            result = asyncio.run(self.sleeper_draft_service.display_draft_info(draft_id))
             return result
         except Exception as e:
             return {
@@ -1675,7 +1674,7 @@ class CommandProcessor:
         print(f"Fetching league rosters for ID: {league_id}...")
         
         try:
-            result = self.sleeper_draft_service.display_league_rosters(league_id)
+            result = asyncio.run(self.sleeper_draft_service.display_league_rosters(league_id))
             return result
         except Exception as e:
             return {
@@ -1688,7 +1687,7 @@ class CommandProcessor:
         print(f"Fetching leagues for '{username}' in {season}...")
         
         try:
-            result = self.sleeper_draft_service.list_user_leagues(username, season)
+            result = asyncio.run(self.sleeper_draft_service.list_user_leagues(username, season))
             return result
         except Exception as e:
             return {
@@ -1714,7 +1713,6 @@ class CommandProcessor:
             }
         
         # Process all draft results
-        total_drafts = len(all_results)
         for draft_result in all_results:
             # Extract team data from draft result
             teams = draft_result.get('draft_data', {}).get('teams', [])

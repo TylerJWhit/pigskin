@@ -1,0 +1,146 @@
+name: Release
+
+# Triggered manually from GitHub UI or CLI:
+#   gh workflow run release.yml -f version=v1.2.3
+#
+# Also triggers on pushed version tags:
+#   git tag -a v1.2.3 -m "Release v1.2.3" && git push origin v1.2.3
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag (e.g. v1.2.3)"
+        required: true
+        type: string
+      release_notes:
+        description: "Release notes (one line per bullet)"
+        required: false
+        type: string
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  release-gates:
+    name: Verify Release Gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint
+        run: |
+          flake8 . --max-line-length=120 \
+            --exclude=venv,pigskin_auction_draft.egg-info \
+            --count --show-source --statistics
+
+      - name: Type check
+        run: mypy . --ignore-missing-imports --exclude venv
+
+      - name: Security scan (fail on MEDIUM+)
+        run: bandit -r . -ll --exclude ./venv,./tests,./pigskin_auction_draft.egg-info
+
+      - name: Unit tests + coverage gate
+        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=85 --cov-omit="venv/*,tests/*,setup.py"
+
+      - name: Integration tests
+        run: pytest tests/test_integration.py -v --timeout=120
+
+  build:
+    name: Build Distribution
+    needs: release-gates
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build tools
+        run: pip install build wheel
+
+      - name: Build package
+        run: python -m build
+
+      - name: Upload distribution artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  create-release:
+    name: Create GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine version tag
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Download distribution artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Generate changelog from git log
+        id: changelog
+        run: |
+          PREV_TAG=$(git describe --tags --abbrev=0 HEAD^ 2>/dev/null || echo "")
+          if [[ -n "$PREV_TAG" ]]; then
+            LOG=$(git log "${PREV_TAG}..HEAD" --oneline --no-merges)
+          else
+            LOG=$(git log --oneline --no-merges -20)
+          fi
+          echo "changelog<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$LOG" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "Pigskin ${{ steps.version.outputs.tag }}"
+          body: |
+            ## What's New
+
+            ${{ inputs.release_notes || 'See commit log below.' }}
+
+            ## Commits Since Last Release
+
+            ```
+            ${{ steps.changelog.outputs.changelog }}
+            ```
+
+            ## Installation
+
+            ```bash
+            git pull && pip install -r requirements.txt && pip install -e .
+            ```
+          files: dist/*
+          draft: false
+          prerelease: false

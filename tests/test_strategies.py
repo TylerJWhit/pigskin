@@ -1,24 +1,13 @@
 """Test cases for auction draft strategies."""
 
 import unittest
-import sys
-import os
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from test_base import BaseTestCase, TestDataGenerator
 from strategies import (
     create_strategy, 
     list_available_strategies,
-    get_strategy_info,
-    AVAILABLE_STRATEGIES
+    get_strategy_info
 )
-from classes.player import Player
-from classes.team import Team
-from classes.owner import Owner
 
 
 class TestStrategies(BaseTestCase):
@@ -54,7 +43,7 @@ class TestStrategies(BaseTestCase):
         expected_strategies = [
             'value', 'aggressive', 'conservative', 'sigmoid', 'improved_value',
             'adaptive', 'vor', 'random', 'balanced', 'basic', 'elite_hybrid',
-            'value_random', 'value_smart', 'hybrid_improved_value', 
+            'value_random', 'value_smart', 'inflation_vor',
             'league', 'refined_value_random'
         ]
         
@@ -418,8 +407,8 @@ class TestStrategyComparison(BaseTestCase):
                     remaining_players=self.remaining_players
                 )
                 
-                self.assertIsInstance(bid, float)
-                self.assertGreaterEqual(bid, 0.0)
+                self.assertIsInstance(bid, (int, float))
+                self.assertGreaterEqual(bid, 0)
                 
     def test_strategy_nomination_differences(self):
         """Test that strategies have different nomination behaviors."""
@@ -447,5 +436,53 @@ class TestStrategyComparison(BaseTestCase):
                 self.assertEqual(strategy.get_parameter('nonexistent_param', 'default'), 'default')
 
 
+class TestInflationAwareVorStrategy(BaseTestCase):
+    """Regression tests for #141 — InflationAwareVorStrategy missing should_nominate."""
+
+    def test_instantiation_does_not_raise(self):
+        """InflationAwareVorStrategy() must not raise TypeError (missing abstract method)."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()  # would raise TypeError before fix
+        self.assertIsNotNone(strategy)
+
+    def test_should_nominate_returns_bool(self):
+        """should_nominate must return a bool for any player."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        result = strategy.should_nominate(player, team, owner, 150.0)
+        self.assertIsInstance(result, bool)
+
+    def test_should_nominate_true_for_positive_vor(self):
+        """should_nominate returns True when player has positive VOR."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        player.vor = 25.0
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        self.assertTrue(strategy.should_nominate(player, team, owner, 150.0))
+
+    def test_should_nominate_false_for_zero_vor(self):
+        """should_nominate returns False when player VOR is zero."""
+        from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
+        strategy = InflationAwareVorStrategy()
+        player = self.create_mock_player()
+        player.vor = 0.0
+        team = self.create_mock_team()
+        owner = self.create_mock_owner()
+        self.assertFalse(strategy.should_nominate(player, team, owner, 150.0))
+
+
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestGetStrategyInfoInvalidType(unittest.TestCase):
+    def test_get_strategy_info_unknown_raises(self):
+        """Cover line 65 — raises ValueError for unknown strategy type."""
+        from strategies import get_strategy_info
+        with self.assertRaises(ValueError):
+            get_strategy_info("nonexistent_strategy_xyz")

@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pigskin-lab"
+version = "0.1.0"
+description = "Experimental research lab for pigskin auction strategies and backtesting"
+requires-python = ">=3.11"
+dependencies = [
+    "pigskin-auction-draft",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiosqlite>=0.19",
+    "alembic>=1.13",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lab*"]

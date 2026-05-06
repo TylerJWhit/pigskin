@@ -1,0 +1,93 @@
+# app-ci.yml — PR-triggered pipeline for the production app
+#
+# Runs: flake8 (lint) → mypy (type check) → bandit (security scan)
+#       → pytest unit tests + 85% coverage gate → integration tests
+#
+# Idempotent: all steps are stateless and safe to re-run.
+# Python: 3.11+ (per setup.py python_requires=">=3.11")
+# Ubuntu-latest ships SQLite ≥ 3.38.0 (ADR-004 requirement satisfied).
+#
+# Excludes lab/ paths — those are covered by lab-ci.yml.
+
+name: App CI
+
+on:
+  push:
+    branches: ["**"]
+    paths-ignore:
+      - "lab/**"
+      - "docs/**"
+      - "checkpoints/**"
+      - "*.md"
+      - "INSTALL.md"
+      - "README.md"
+  pull_request:
+    paths-ignore:
+      - "lab/**"
+      - "docs/**"
+      - "checkpoints/**"
+      - "*.md"
+
+jobs:
+  lint:
+    name: Lint & Static Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Lint (flake8)
+        run: |
+          flake8 . --max-line-length=120 \
+            --select=F401,F811,F541,F841,E9,W6 \
+            --exclude=venv,pigskin_auction_draft.egg-info,lab \
+            --count --show-source --statistics
+
+      - name: Type check (mypy)
+        run: mypy . --ignore-missing-imports --exclude venv --exclude lab
+
+      - name: Security scan (bandit — fail on MEDIUM+ severity)
+        run: |
+          bandit -r . -ll \
+            --exclude ./venv,./tests,./pigskin_auction_draft.egg-info,./lab
+
+  test:
+    name: Tests & Coverage Gate
+    runs-on: ubuntu-latest
+    needs: lint
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dev dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Unit tests + coverage gate (≥ 85%)
+        run: |
+          pytest tests/ -x -q --timeout=60 \
+            --cov=. --cov-fail-under=85 \
+            --cov-report=xml
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report-${{ github.run_id }}
+          path: coverage.xml
+          retention-days: 14
+
+      - name: Integration tests
+        run: pytest tests/test_integration.py -v --timeout=120

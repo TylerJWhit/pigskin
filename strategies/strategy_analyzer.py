@@ -5,12 +5,7 @@ Strategy Analysis Tool
 Analyzes strategies to identify issues preventing them from bidding effectively.
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from classes import create_strategy, AVAILABLE_STRATEGIES
-from classes.player import Player
+from strategies import create_strategy, AVAILABLE_STRATEGIES
 from classes.team import Team  
 from classes.owner import Owner
 from data.fantasypros_loader import FantasyProsLoader
@@ -71,7 +66,7 @@ def test_strategy_bidding():
             print(f"  ✓ Would nominate: {should_nominate}")
             
             if bid == 0:
-                print(f"  ⚠️  WARNING: Strategy bids $0 - may not participate in auctions")
+                print("  ⚠️  WARNING: Strategy bids $0 - may not participate in auctions")
             
         except Exception as e:
             print(f"  ❌ ERROR: {str(e)}")
@@ -108,7 +103,7 @@ def analyze_winning_strategies():
             if key_features:
                 print(f"  Key features: {', '.join(key_features)}")
             else:
-                print(f"  Key features: None identified")
+                print("  Key features: None identified")
                 
         except Exception as e:
             print(f"  ERROR: {str(e)}")

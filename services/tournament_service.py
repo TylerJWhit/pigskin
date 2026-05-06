@@ -1,20 +1,16 @@
 """Tournament service for testing auction draft strategies."""
 
+import logging
 import os
-import sys
 from typing import Optional, Dict, Any, List, Tuple
 import json
 from datetime import datetime
 
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
-from classes import Tournament, DraftSetup, create_strategy, AVAILABLE_STRATEGIES
+from classes import Tournament, AVAILABLE_STRATEGIES
 from config.config_manager import ConfigManager
 from data.fantasypros_loader import load_fantasypros_players
-from utils.print_module import print_tournament
+
+logger = logging.getLogger(__name__)
 
 
 class TournamentService:
@@ -92,9 +88,9 @@ class TournamentService:
                 )
             
             # Run tournament
-            print(f"Running tournament with {num_simulations} simulations...")
-            print(f"Testing strategies: {', '.join(strategies_to_test)}")
-            print(f"Teams per strategy: {teams_per_strategy}")
+            logger.info("Running tournament with %d simulations...", num_simulations)
+            logger.info("Testing strategies: %s", ', '.join(strategies_to_test))
+            logger.info("Teams per strategy: %d", teams_per_strategy)
             
             results = self.current_tournament.run_tournament(parallel=True)
             
@@ -300,13 +296,13 @@ class TournamentService:
                 return players
             elif config.data_source == "sleeper":
                 # Could implement Sleeper loading here
-                print("Sleeper data source not yet implemented for tournaments")
+                logger.warning("Sleeper data source not yet implemented for tournaments")
                 return []
             else:
-                print(f"Unknown data source: {config.data_source}")
+                logger.warning("Unknown data source: %s", config.data_source)
                 return []
         except Exception as e:
-            print(f"Error loading players: {e}")
+            logger.error("Error loading players: %s", e)
             return []
     
     def _generate_strategy_variants(
@@ -386,11 +382,16 @@ class TournamentService:
                 'avg_points': rankings[-1][1]['results']['avg_points']
             }
             
-            # Most consistent (lowest std deviation)
-            most_consistent = min(rankings, key=lambda x: x[1]['results']['points_std'])
+            # Most consistent (lowest std deviation).
+            # Use .get() with float('inf') so strategies that lack points_std
+            # (e.g. completed only 1 simulation) don't raise KeyError (#132).
+            most_consistent = min(
+                rankings,
+                key=lambda x: x[1]['results'].get('points_std', float('inf'))
+            )
             analysis['most_consistent'] = {
                 'name': most_consistent[0],
-                'std_dev': most_consistent[1]['results']['points_std'],
+                'std_dev': most_consistent[1]['results'].get('points_std', 0.0),
                 'avg_points': most_consistent[1]['results']['avg_points']
             }
             
@@ -429,12 +430,13 @@ class TournamentService:
         recommendation = f"The {strategy_name} strategy performed best with a {results['win_rate']:.1%} win rate "
         recommendation += f"and {results['avg_points']:.1f} average points. "
         
-        if results['points_std'] < 50:
+        points_std = results.get('points_std', 0.0)
+        if points_std < 50:
             recommendation += "This strategy showed good consistency. "
-        elif results['points_std'] > 100:
+        elif points_std > 100:
             recommendation += "This strategy was volatile but had high upside. "
         
-        recommendation += f"Consider using this strategy for similar league conditions."
+        recommendation += "Consider using this strategy for similar league conditions."
         
         return recommendation
     
@@ -452,10 +454,10 @@ class TournamentService:
             with open(filepath, 'w', encoding='utf-8') as f:
                 json.dump(results, f, indent=2, default=str)
             
-            print(f"Tournament results saved to {filepath}")
+            logger.info("Tournament results saved to %s", filepath)
             
         except Exception as e:
-            print(f"Error saving tournament results: {e}")
+            logger.error("Error saving tournament results: %s", e)
 
 
 # Convenience functions

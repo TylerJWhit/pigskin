@@ -1,9 +1,6 @@
 #!/usr/bin/env python3
 """Quick test to verify integer budgets and bidding are working correctly."""
 
-import sys
-sys.path.append('.')
-
 from classes.team import Team
 from classes.player import Player
 

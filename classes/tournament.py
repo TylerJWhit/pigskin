@@ -1,16 +1,20 @@
 """Tournament class for auction draft tool."""
 
+import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
 import copy
 import statistics
+import threading
 import concurrent.futures
 from .draft import Draft
 from .auction import Auction
 from .player import Player
 from .team import Team
 from .owner import Owner
-from .strategy import Strategy, create_strategy, AVAILABLE_STRATEGIES
+from .strategy import create_strategy
+
+logger = logging.getLogger(__name__)
 
 
 class Tournament:
@@ -39,6 +43,7 @@ class Tournament:
         self.results: Dict[str, Dict] = {}
         self.is_running = False
         self.progress = 0
+        self._lock = threading.Lock()  # Protect shared state across parallel threads
         
     def add_players(self, players: List[Player]) -> None:
         """Add base player pool for simulations."""
@@ -99,11 +104,14 @@ class Tournament:
                 try:
                     draft = future.result()
                     if draft:
-                        self.completed_drafts.append(draft)
-                    self.progress += 1
+                        with self._lock:
+                            self.completed_drafts.append(draft)
+                    with self._lock:
+                        self.progress += 1
                 except Exception as e:
-                    print(f"Simulation failed: {e}")
-                    self.progress += 1
+                    logger.error("Simulation failed: %s", e)
+                    with self._lock:
+                        self.progress += 1
                     
     def _run_sequential_simulations(self) -> None:
         """Run simulations sequentially."""
@@ -113,7 +121,7 @@ class Tournament:
                 if draft:
                     self.completed_drafts.append(draft)
             except Exception as e:
-                print(f"Simulation {i} failed: {e}")
+                logger.error("Simulation %d failed: %s", i, e)
             finally:
                 self.progress += 1
                 
@@ -159,21 +167,25 @@ class Tournament:
         # Start draft
         draft.start_draft()
         
-        # Create auction with strategies
-        auction = Auction(draft, bid_timer=1, nomination_timer=1)  # Fast timers for simulation
+        # Create auction with strategies (sealed-bid model has no timer params)
+        auction = Auction(draft)
         
-        # Configure strategies for each owner
+        # Configure strategies for each owner.
+        # Each team receives its OWN strategy instance to prevent mutable state
+        # from leaking across teams within the same simulation (#116).
         for config in self.strategy_configs:
-            strategy = create_strategy(config['strategy_type'])
-            
-            # Apply custom parameters
-            for param, value in config['strategy_params'].items():
-                strategy.set_parameter(param, value)
-                
-            # Enable auto-bid for all teams of this strategy type
             for i in range(config['num_teams']):
+                strategy = create_strategy(config['strategy_type'])
+
+                # Apply custom parameters to this team's instance
+                for param, value in config['strategy_params'].items():
+                    strategy.set_parameter(param, value)
+
                 owner_id = f"{config['owner_name']}_{simulation_id}_{i}"
                 auction.enable_auto_bid(owner_id, strategy)
+                team_obj = draft._get_team_by_owner(owner_id)
+                if team_obj is not None:
+                    team_obj.set_strategy(strategy)
                 
         # Run the simulation
         auction.start_auction()
@@ -281,8 +293,13 @@ class Tournament:
             # Normalize points (assume max reasonable is 1500)
             points_score = min(results['avg_points'] / 1500, 1.0) * 30
             
-            # Ranking score (lower ranking is better, so invert)
-            ranking_score = (1 - (results['avg_ranking'] - 1) / (len(self.strategy_configs) - 1)) * 20
+            # Ranking score (lower ranking is better, so invert).
+            # Guard against division by zero when only one strategy is configured (#113).
+            num_strategies = len(self.strategy_configs)
+            if num_strategies > 1:
+                ranking_score = (1 - (results['avg_ranking'] - 1) / (num_strategies - 1)) * 20
+            else:
+                ranking_score = 20  # sole strategy always ranks first
             
             # Consistency score (lower std deviation is better)
             consistency_score = max(0, 1 - results['points_std'] / 100) * 10

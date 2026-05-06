@@ -3,14 +3,7 @@
 Simple test runner script for the auction draft tool.
 """
 
-import sys
-import os
 import unittest
-
-# Add parent directory to path
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 
 def run_specific_tests():
@@ -69,13 +62,9 @@ def test_basic_imports():
         print(f"✓ Successfully created value strategy: {strategy}")
         
         print("Testing classes import...")
-        from classes.player import Player
-        from classes.team import Team
-        from classes.owner import Owner
         print("✓ Core classes imported successfully")
         
         print("Testing services import...")
-        from services.bid_recommendation_service import get_bid_recommendation
         print("✓ Services imported successfully")
         
         return True

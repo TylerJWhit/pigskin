@@ -1,14 +1,14 @@
 """Improved Value-based draft strategy."""
 
-from typing import List, Optional, TYPE_CHECKING
+from typing import List, TYPE_CHECKING
 import random
 
 from .base_strategy import Strategy
 
 if TYPE_CHECKING:
-    from ..classes.player import Player
-    from ..classes.team import Team
-    from ..classes.owner import Owner
+    from classes.player import Player
+    from classes.team import Team
+    from classes.owner import Owner
 
 
 class ImprovedValueStrategy(Strategy):

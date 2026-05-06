@@ -9,15 +9,18 @@ from .improved_value_strategy import ImprovedValueStrategy
 from .adaptive_strategy import AdaptiveStrategy
 from .vor_strategy import VorStrategy
 from .random_strategy import RandomStrategy
-# from .smart_strategy import SmartStrategy  # Temporarily disabled
+from .smart_strategy import SmartStrategy
 
 # New imported strategies
 from .balanced_strategy import BalancedStrategy
 from .basic_strategy import BasicStrategy
 from .elite_hybrid_strategy import EliteHybridStrategy
-from .hybrid_strategies import ValueRandomStrategy, ValueSmartStrategy, ImprovedValueStrategy as HybridImprovedValueStrategy
+from .enhanced_vor_strategy import InflationAwareVorStrategy
+from .hybrid_strategies import ValueRandomStrategy, ValueSmartStrategy
 from .league_strategy import LeagueStrategy
 from .refined_value_random_strategy import RefinedValueRandomStrategy
+from .strategy_config import StrategyConfig
+from .strategy_registry import StrategyRegistry
 
 # Strategy factory
 AVAILABLE_STRATEGIES = {
@@ -29,15 +32,15 @@ AVAILABLE_STRATEGIES = {
     'adaptive': AdaptiveStrategy,
     'vor': VorStrategy,
     'random': RandomStrategy,
-    # 'smart': SmartStrategy  # Temporarily disabled
+    'smart': SmartStrategy,
     
     # New imported strategies
     'balanced': BalancedStrategy,
     'basic': BasicStrategy,
     'elite_hybrid': EliteHybridStrategy,
+    'inflation_vor': InflationAwareVorStrategy,
     'value_random': ValueRandomStrategy,
     'value_smart': ValueSmartStrategy,
-    'hybrid_improved_value': HybridImprovedValueStrategy,
     'league': LeagueStrategy,
     'refined_value_random': RefinedValueRandomStrategy,
 }
@@ -89,9 +92,11 @@ __all__ = [
     'EliteHybridStrategy',
     'ValueRandomStrategy',
     'ValueSmartStrategy',
-    'HybridImprovedValueStrategy',
+    'InflationAwareVorStrategy',
     'LeagueStrategy',
     'RefinedValueRandomStrategy',
+    'StrategyConfig',
+    'StrategyRegistry',
     
     'AVAILABLE_STRATEGIES',
     'create_strategy',

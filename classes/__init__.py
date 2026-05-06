@@ -22,7 +22,7 @@ Relationships:
 from .player import Player
 from .team import Team
 from .owner import Owner
-from .strategy import Strategy, ValueBasedStrategy, AggressiveStrategy, ConservativeStrategy, create_strategy, AVAILABLE_STRATEGIES
+from .strategy import Strategy, ValueBasedStrategy, AggressiveStrategy, ConservativeStrategy, create_strategy, AVAILABLE_STRATEGIES  # noqa: F401
 from .draft import Draft
 from .auction import Auction
 from .tournament import Tournament, run_strategy_comparison

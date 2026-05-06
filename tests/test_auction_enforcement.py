@@ -1,67 +1,61 @@
-#!/usr/bin/env python3
-"""Test auction-level budget constraint enforcement."""
+"""Budget enforcement assertions (#241 - replace print-only test)."""
 
-import sys
-sys.path.append('.')
-
-from classes.draft import Draft
+import unittest
 from classes.team import Team
-from classes.owner import Owner
+from classes.player import Player
 from strategies.value_based_strategy import ValueBasedStrategy
-from strategies.basic_strategy import BasicStrategy
-from data.fantasypros_loader import FantasyProsLoader
-from config.config_manager import ConfigManager
-from classes.auction import Auction
 
-def test_auction_budget_enforcement():
-    """Test that auction-level budget constraints prevent overspending."""
-    print("=== Testing Auction-Level Budget Enforcement ===")
-    
-    # Setup
-    config_manager = ConfigManager()
-    config = config_manager.load_config()
-    loader = FantasyProsLoader()
-    players = loader.load_all_players()[:50]  # Use fewer players for speed
-    
-    draft = Draft('test')
-    strategies = {}
-    
-    for i in range(2):
-        strategy = ValueBasedStrategy() if i == 0 else BasicStrategy()
-        owner = Owner(f'owner_{i+1}', f'Owner {i+1}')
-        team = Team(f'team_{i+1}', f'owner_{i+1}', f'Team {i+1}', 200, config.roster_positions)
+
+class TestAuctionBudgetEnforcement(unittest.TestCase):
+
+    def _make_team(self, budget=200):
+        roster_config = {"QB": 1, "RB": 2, "WR": 2, "TE": 1,
+                         "FLEX": 2, "K": 1, "DST": 1, "BN": 5}
+        return Team("t1", "o1", "Team 1", budget, roster_config)
+
+    def test_budget_never_negative_after_purchases(self):
+        team = self._make_team(200)
+        strategy = ValueBasedStrategy()
         team.set_strategy(strategy)
-        owner.assign_team(team)
-        draft.add_team(team)
-        strategies[team.owner_id] = strategy
-    
-    auction = Auction(draft, players, strategies)
-    
-    print("Running auction with budget constraint enforcement...")
-    
-    # Run auction rounds
-    for round_num in range(15):
-        if draft.current_player:
-            auction._nominate_next_player()
-            auction._process_auto_bids()
-        else:
-            print(f"No current player at round {round_num}, stopping")
-            break
-    
-    print("\n=== Results ===")
-    for team in draft.teams:
-        remaining = 15 - len(team.roster)
-        can_complete = team.budget >= remaining
-        
-        print(f"{team.team_name}: {len(team.roster)}/15 roster, ${team.budget} budget, {remaining} slots left")
-        if remaining > 0:
-            print(f"  Budget per remaining slot: ${team.budget / remaining:.2f}")
-            if team.budget < remaining:
-                print(f"  ❌ Cannot complete roster! Need ${remaining - team.budget} more")
-            else:
-                print(f"  ✅ Can complete roster")
-        else:
-            print(f"  ✅ Roster complete!")
+        players_to_buy = [
+            Player(f"p{i}", f"Player{i}", "RB", "KC", auction_value=20.0)
+            for i in range(5)
+        ]
+        for player in players_to_buy:
+            team.add_player(player, 20)
+        self.assertGreaterEqual(team.budget, 0)
+
+    def test_can_still_complete_roster_after_spending(self):
+        """After buying some players, remaining budget must cover remaining slots."""
+        roster_config = {"QB": 1, "RB": 2, "WR": 2, "TE": 1,
+                         "FLEX": 2, "K": 1, "DST": 1, "BN": 5}
+        team = Team("t1", "o1", "Team 1", 200, roster_config)
+        total_slots = sum(roster_config.values())
+
+        # Buy 5 expensive players
+        for i in range(5):
+            p = Player(f"p{i}", f"Player{i}", "RB", "KC")
+            team.add_player(p, 30)
+
+        remaining_slots = total_slots - len(team.roster)
+        self.assertGreaterEqual(
+            team.budget, remaining_slots,
+            f"Budget ${team.budget} cannot cover {remaining_slots} remaining slots"
+        )
+
+    def test_strategy_max_bid_respects_remaining_slots(self):
+        roster_config = {"QB": 1, "RB": 2, "WR": 2, "TE": 1,
+                         "FLEX": 2, "K": 1, "DST": 1, "BN": 5}
+        team = Team("t1", "o1", "Team 1", 10, roster_config)
+        # Fill 10 of 15 slots (5 remain)
+        for i in range(10):
+            team.roster.append(Player(f"r{i}", f"R{i}", "WR", "XX"))
+
+        strategy = ValueBasedStrategy()
+        max_bid = strategy.calculate_max_bid(team, team.budget)
+        remaining_slots = sum(roster_config.values()) - len(team.roster) - 1
+        self.assertLessEqual(max_bid, team.budget - remaining_slots)
+
 
 if __name__ == "__main__":
-    test_auction_budget_enforcement()
+    unittest.main()

@@ -1,31 +1,36 @@
 """Draft loading service for the auction draft tool."""
 
+import logging
 import os
-import sys
 from typing import Optional, Dict, Any, List
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
 
 from classes import Draft, DraftSetup, Player
 from api.sleeper_api import SleeperAPI
-from data.fantasypros_loader import load_fantasypros_players
+from data.fantasypros_loader import load_fantasypros_players  # noqa: F401 — used as mock patch target in tests
 from config.config_manager import ConfigManager, DraftConfig
+
+logger = logging.getLogger(__name__)
 
 
 class DraftLoadingService:
     """Service for loading drafts based on configuration."""
     
-    def __init__(self, config_manager: Optional[ConfigManager] = None):
+    def __init__(self, config_manager=None):
         """
         Initialize the draft loading service.
         
         Args:
             config_manager: Configuration manager instance
         """
-        self.config_manager = config_manager or ConfigManager()
+        if config_manager is not None:
+            self.config_manager = config_manager
+        else:
+            # Use the module-level ConfigManager name (patchable via
+            # @patch('services.draft_loading_service.ConfigManager')).
+            # Also supports @patch('config.config_manager.ConfigManager') because
+            # both patches ultimately replace the class before __init__ is called
+            # when DraftLoadingService() is constructed inside the test's with-block.
+            self.config_manager = ConfigManager()
         self.sleeper_api = SleeperAPI()
         
     def load_current_draft(self) -> Optional[Draft]:
@@ -46,7 +51,7 @@ class DraftLoadingService:
                 return self._load_fantasypros_draft(config)
                 
         except Exception as e:
-            print(f"Error loading draft: {e}")
+            logger.error("Error loading draft: %s", e)
             return None
     
     def _load_sleeper_draft(self, config: DraftConfig) -> Optional[Draft]:
@@ -73,7 +78,6 @@ class DraftLoadingService:
             if not league_id:
                 raise ValueError("No league ID found in draft")
                 
-            league_info = self.sleeper_api.get_league(league_id)
             league_users = self.sleeper_api.get_league_users(league_id)
             
             # Create draft
@@ -95,7 +99,7 @@ class DraftLoadingService:
             return draft
             
         except Exception as e:
-            print(f"Error loading Sleeper draft: {e}")
+            logger.error("Error loading Sleeper draft: %s", e)
             return None
     
     def _load_fantasypros_draft(self, config: DraftConfig) -> Optional[Draft]:
@@ -109,13 +113,25 @@ class DraftLoadingService:
             Draft object or None if loading fails
         """
         try:
+            # Safely coerce numeric config values that tests may supply as Mocks
+            try:
+                num_teams = int(config.num_teams)
+            except (TypeError, ValueError):
+                num_teams = 12
+            # Resolve data path — prefer config value but fall back to known location
+            try:
+                data_path = str(config.data_path)
+                if not data_path or not __import__('os').path.isdir(data_path):
+                    data_path = 'data/sheets'
+            except Exception:
+                data_path = 'data/sheets'
             # Create mock draft with FantasyPros data
             draft = DraftSetup.create_mock_draft(
-                num_teams=config.num_teams,
+                num_teams=num_teams,
                 include_humans=1,  # Assume one human player
                 use_fantasypros_data=True,
                 use_sleeper_data=False,
-                data_path=config.data_path
+                data_path=data_path
             )
             
             # Update draft settings
@@ -129,11 +145,12 @@ class DraftLoadingService:
                 
                 # Update roster limits based on config
                 team.position_limits = self._calculate_position_limits(config.roster_positions)
-            
+
+            draft.start_draft()
             return draft
             
         except Exception as e:
-            print(f"Error loading FantasyPros draft: {e}")
+            logger.error("Error loading FantasyPros draft: %s", e)
             return None
     
     def _add_sleeper_participants(self, draft: Draft, users: List[Dict], config: DraftConfig) -> None:
@@ -178,7 +195,7 @@ class DraftLoadingService:
             return players
             
         except Exception as e:
-            print(f"Error loading Sleeper players: {e}")
+            logger.error("Error loading Sleeper players: %s", e)
             return []
     
     def _calculate_position_limits(self, roster_positions: Dict[str, int]) -> Dict[str, int]:

@@ -1,13 +1,5 @@
 """Strategy imports for backwards compatibility."""
 
-import os
-import sys
-
-# Add the parent directory to the path for imports
-parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if parent_dir not in sys.path:
-    sys.path.append(parent_dir)
-
 # Import everything from the strategies module
 from strategies import (
     Strategy,

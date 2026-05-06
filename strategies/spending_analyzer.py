@@ -5,16 +5,6 @@ Strategy Spending Analysis Tool
 Analyzes strategies to identify those that are underspending their budgets.
 """
 
-import sys
-import os
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
-from classes import create_strategy, AVAILABLE_STRATEGIES
-from classes.player import Player
-from classes.team import Team  
-from classes.owner import Owner
-from data.fantasypros_loader import FantasyProsLoader
-from config.config_manager import ConfigManager
 
 def analyze_spending_patterns():
     """Analyze strategies based on the recent tournament data."""
@@ -106,7 +96,7 @@ def analyze_spending_patterns():
         print(f"  • {strategy.upper()}: Currently spending ~${spending_data[strategy]['avg_spent']}/200")
         print(f"    - Has ${200-spending_data[strategy]['avg_spent']} unused budget")
         print(f"    - Only getting {spending_data[strategy]['typical_players']} players")
-        print(f"    - Should increase bid multipliers by 50-100%")
+        print("    - Should increase bid multipliers by 50-100%")
         print()
     
     print("🟡 MODERATE UNDERSPENDERS (need moderate aggression increase):")
@@ -114,14 +104,14 @@ def analyze_spending_patterns():
         print(f"  • {strategy.upper()}: Currently spending ~${spending_data[strategy]['avg_spent']}/200")
         print(f"    - Has ${200-spending_data[strategy]['avg_spent']} unused budget") 
         print(f"    - Getting {spending_data[strategy]['typical_players']} players")
-        print(f"    - Should increase bid multipliers by 20-30%")
+        print("    - Should increase bid multipliers by 20-30%")
         print()
     
     print("🟢 EFFICIENT SPENDERS (minor tweaks only):")
     for strategy in efficient_spenders:
         print(f"  • {strategy.upper()}: Currently spending ~${spending_data[strategy]['avg_spent']}/200")
         print(f"    - Getting {spending_data[strategy]['typical_players']} players") 
-        print(f"    - Well balanced, minor adjustments may help")
+        print("    - Well balanced, minor adjustments may help")
         print()
 
 def suggest_specific_improvements():
@@ -158,7 +148,7 @@ def suggest_specific_improvements():
         print(f"  Issue: {data['reason']}")
         print(f"  Current: {data['current_multiplier']}")
         print(f"  Suggested: {data['suggested_multiplier']}")
-        print(f"  Expected outcome: Increase spending by $50-100, get 3-5 more players")
+        print("  Expected outcome: Increase spending by $50-100, get 3-5 more players")
 
 if __name__ == "__main__":
     analyze_spending_patterns()

@@ -13,7 +13,7 @@ tools:
 
 # Bug Triage Agent
 
-You are the Bug Triage Agent for the **Pigskin Fantasy Football Auction Draft System**. You classify incoming bugs, assess their severity and priority, identify root causes, and route them to the correct agent for resolution.
+You are the Bug Triage Agent for the **Pigskin Fantasy Football Draft Assistant**. You classify incoming bugs, assess their severity and priority, identify root causes, and route them to the correct agent for resolution.
 
 ## Severity Classification
 
@@ -55,7 +55,7 @@ Determine:
 | Subsystem | Responsible Agent |
 |-----------|------------------|
 | `strategies/` | Backend Agent |
-| `strategies/alphazero/` | Backend Agent (ML) |
+| `strategies/gridiron_sage_strategy.py` | Backend Agent (ML) |
 | `classes/` | Backend Agent |
 | `services/tournament_service.py` | Backend Agent |
 | `ui/` | Frontend Agent |

@@ -12,7 +12,7 @@ tools:
 
 # Analytics Agent
 
-You are the Analytics Agent for the **Pigskin Fantasy Football Auction Draft System**. You track DORA engineering metrics, strategy performance analytics, and produce data-driven reports for continuous improvement.
+You are the Analytics Agent for the **Pigskin Fantasy Football Draft Assistant**. You track DORA engineering metrics, strategy performance analytics, and produce data-driven reports for continuous improvement.
 
 ## DORA Metrics
 
@@ -61,11 +61,11 @@ ls results/
 | Budget utilization | % of budget spent per team |
 | Position fill rate | % of target positions filled |
 
-### AlphaZero-Specific Analytics
+### GridironSage-Specific Analytics
 ```python
 # From tournament service results
 {
-    "strategy": "alphazero",
+    "strategy": "gridiron_sage",
     "win_rate": 0.67,
     "avg_efficiency": 1.23,
     "avg_bid_roi": 0.18,
@@ -92,7 +92,7 @@ ls results/
 ### Strategy Tournament Results
 | Strategy | Win Rate | Avg Efficiency | Rank |
 |----------|----------|---------------|------|
-| AlphaZero | 67% | 1.23 | 1st |
+| GridironSage | 67% | 1.23 | 1st |
 | Enhanced VOR | 58% | 1.18 | 2nd |
 | ... | | | |
 

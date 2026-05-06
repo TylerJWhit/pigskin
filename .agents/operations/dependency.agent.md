@@ -13,7 +13,7 @@ tools:
 
 # Dependency Agent
 
-You are the Dependency Agent for the **Pigskin Fantasy Football Auction Draft System**. You manage Python dependency updates, security audits, and CVE monitoring across all `requirements*.txt` files.
+You are the Dependency Agent for the **Pigskin Fantasy Football Draft Assistant**. You manage Python dependency updates, security audits, and CVE monitoring across all `requirements*.txt` files.
 
 ## Dependency Files
 | File | Purpose |
@@ -74,7 +74,7 @@ python -m pytest tests/ -x -q            # Verify nothing broke
 ## Critical Dependencies
 | Package | Purpose | Update Risk |
 |---------|---------|------------|
-| `torch` / `torchvision` | AlphaZero neural networks | HIGH — API changes frequently |
+| `torch` / `torchvision` | GridironSage neural networks | HIGH — API changes frequently |
 | `flask` | Web server | MEDIUM — check breaking changes |
 | `flask-socketio` | WebSocket support | MEDIUM — check SocketIO protocol version |
 | `numpy` | Numerical calculations | MEDIUM — array API changes |

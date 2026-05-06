@@ -5,9 +5,9 @@ from typing import List, TYPE_CHECKING
 from .base_strategy import Strategy
 
 if TYPE_CHECKING:
-    from ..classes.player import Player
-    from ..classes.team import Team
-    from ..classes.owner import Owner
+    from classes.player import Player
+    from classes.team import Team
+    from classes.owner import Owner
 
 
 class ValueBasedStrategy(Strategy):
@@ -41,6 +41,8 @@ class ValueBasedStrategy(Strategy):
         remaining_players: List['Player']
     ) -> float:
         """Calculate bid based on player value with roster completion logic."""
+        if player is None:
+            return 0.0
         # Get minimum needed budget to complete roster
         budget_reservation = self._calculate_budget_reservation(team, remaining_budget)
         usable_budget = max(0, remaining_budget - budget_reservation)

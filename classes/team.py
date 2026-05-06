@@ -1,10 +1,25 @@
 """Team class for auction draft tool."""
 
+import logging
 from typing import Dict, List, Optional, TYPE_CHECKING
+from pydantic import BaseModel, Field
 from .player import Player
+
+logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
     from .strategy import Strategy
+
+
+class TeamState(BaseModel):
+    """Serializable snapshot of a Team's state."""
+
+    team_id: str
+    owner_id: str
+    team_name: str
+    budget: int = Field(ge=0)
+    initial_budget: int = Field(ge=0)
+    roster_player_ids: List[str] = Field(default_factory=list)
 
 
 class Team:
@@ -18,6 +33,8 @@ class Team:
         budget: int = 200,
         roster_config: Optional[dict] = None
     ):
+        if int(budget) < 0:
+            raise ValueError(f"budget cannot be negative, got {budget}")
         self.team_id = team_id
         self.owner_id = owner_id
         self.team_name = team_name
@@ -61,7 +78,6 @@ class Team:
             return False
             
         # Track budget depletion only for teams that are running low
-        old_budget = self.budget
         self.roster.append(player)
         self.budget -= int(price)  # Ensure integer operation
         player.mark_as_drafted(int(price), self.owner_id)
@@ -73,7 +89,8 @@ class Team:
         
         # Only warn when budget gets critically low
         if remaining_slots > 0 and self.budget < remaining_slots:
-            print(f"⚠️  {self.team_name}: Budget (${self.budget}) < remaining slots ({remaining_slots}) after paying ${int(price)} for {player.name}")
+            logger.warning("%s: Budget ($%d) < remaining slots (%d) after paying $%d for %s",
+                          self.team_name, self.budget, remaining_slots, int(price), player.name)
         
         return True
         
@@ -97,6 +114,44 @@ class Team:
         """Get all players at a specific position."""
         return [player for player in self.roster if player.position == position]
         
+    def get_remaining_roster_slots(self) -> int:
+        """Return the number of roster slots not yet filled."""
+        total_slots = sum(self.roster_config.values()) if self.roster_config else 15
+        return max(0, total_slots - len(self.roster))
+
+    def get_remaining_roster_slots_by_position(self) -> Dict[str, int]:
+        """Return unfilled slots per position keyed by position string."""
+        if not self.roster_config:
+            return {}
+        return {
+            pos: max(0, capacity - self.get_position_count(pos))
+            for pos, capacity in self.roster_config.items()
+        }
+
+    def calculate_position_priority(self, position: str) -> float:
+        """Return priority for filling a position (0.0 – 2.0)."""
+        if not self.roster_config:
+            return 1.0
+        needed = self.roster_config.get(position, 0)
+        current = self.get_position_count(position)
+        if current >= needed:
+            return 0.1
+        remaining_fraction = (needed - current) / max(needed, 1)
+        return min(2.0, remaining_fraction + 0.2)
+
+    def calculate_minimum_budget_needed(self, remaining_budget: float) -> float:
+        """Estimate the minimum budget required to complete the roster."""
+        slots = self.get_remaining_roster_slots()
+        return max(0.0, float(slots))
+
+    def enforce_budget_constraint(self, proposed_bid: float, remaining_budget: float) -> int:
+        """Clamp a proposed bid so the team can still complete its roster."""
+        slots = self.get_remaining_roster_slots()
+        # Reserve $1 per remaining slot (after the current pick)
+        reservation = max(0, slots - 1)
+        usable = max(0.0, remaining_budget - reservation)
+        return max(0, min(int(proposed_bid), int(usable)))
+
     def get_total_spent(self) -> float:
         """Get total amount spent on players."""
         return self.initial_budget - self.budget
@@ -154,33 +209,21 @@ class Team:
         return starter_points
         
     def is_roster_complete(self) -> bool:
-        """Check if roster meets minimum requirements."""
-        required_positions = {
-            'QB': 1,
-            'RB': 2,
-            'WR': 2,
-            'TE': 1,
-            'K': 1,
-            'DST': 1
+        """Check if roster meets minimum requirements from roster_config."""
+        required_positions = self.roster_config if self.roster_config else {
+            'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1
         }
-        
         for position, min_count in required_positions.items():
             if self.get_position_count(position) < min_count:
                 return False
         return True
-        
+
     def get_needs(self) -> List[str]:
         """Get list of positions that still need to be filled."""
         needs = []
-        required_positions = {
-            'QB': 1,
-            'RB': 2,
-            'WR': 2,
-            'TE': 1,
-            'K': 1,
-            'DST': 1
+        required_positions = self.roster_config if self.roster_config else {
+            'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1
         }
-        
         for position, min_count in required_positions.items():
             current_count = self.get_position_count(position)
             if current_count < min_count:
@@ -198,44 +241,67 @@ class Team:
     def calculate_bid(
         self,
         player: Player,
-        current_bid: float,
-        remaining_players: List[Player],
-        owner_data: Optional[Dict] = None
-    ) -> float:
+        current_bid_or_owner=None,
+        remaining_players_or_bid=None,
+        owner_data_or_players=None,
+        owner_data: Optional[Dict] = None,
+        current_bid: Optional[float] = None,
+        remaining_players: Optional[List] = None,
+    ) -> int:
         """
         Calculate bid for a player using the team's strategy.
-        If no strategy is assigned, returns 0 (no bid).
+        If no strategy is assigned, returns 0.
+
+        Accepts two calling conventions:
+          Old (kwargs): calculate_bid(player, current_bid=X, remaining_players=Y, owner_data=Z)
+          Old (positional): calculate_bid(player, current_bid, remaining_players, owner_data)
+          New: calculate_bid(player, owner, current_bid, remaining_players)
         """
+        from .owner import Owner as _Owner
+        # Handle explicit keyword args (old convention via keyword)
+        if current_bid is not None or remaining_players is not None:
+            _current_bid = current_bid if current_bid is not None else (current_bid_or_owner if isinstance(current_bid_or_owner, (int, float)) else 0.0)
+            _remaining = remaining_players if remaining_players is not None else (remaining_players_or_bid if isinstance(remaining_players_or_bid, list) else [])
+            _owner_data = owner_data if owner_data is not None else (owner_data_or_players if isinstance(owner_data_or_players, dict) else None)
+            mock_owner = self._build_owner(_owner_data)
+        elif isinstance(current_bid_or_owner, _Owner):
+            # New positional convention: (player, owner, current_bid, remaining_players)
+            mock_owner = current_bid_or_owner
+            _current_bid = remaining_players_or_bid if isinstance(remaining_players_or_bid, (int, float)) else 0.0
+            _remaining = owner_data_or_players if isinstance(owner_data_or_players, list) else []
+        else:
+            # Old positional convention: (player, current_bid, remaining_players[, owner_data])
+            _current_bid = current_bid_or_owner if isinstance(current_bid_or_owner, (int, float)) else 0.0
+            _remaining = remaining_players_or_bid if isinstance(remaining_players_or_bid, list) else []
+            _owner_data = owner_data_or_players if isinstance(owner_data_or_players, dict) else owner_data
+            mock_owner = self._build_owner(_owner_data)
+
         if not self.strategy:
-            return 0.0
-            
-        # Create a mock owner object if owner_data is provided
+            return 0
+
+        result = self.strategy.calculate_bid(
+            player=player,
+            team=self,
+            owner=mock_owner,
+            current_bid=_current_bid,
+            remaining_budget=self.budget,
+            remaining_players=_remaining if _remaining is not None else []
+        )
+        return int(result) if isinstance(result, (int, float)) else 0
+
+    def _build_owner(self, owner_data=None):
+        """Build an Owner object from owner_data dict or return a default."""
         from .owner import Owner
-        if owner_data:
-            mock_owner = Owner(
+        if owner_data and isinstance(owner_data, dict):
+            o = Owner(
                 owner_id=self.owner_id,
                 name=owner_data.get('name', 'Unknown'),
                 is_human=owner_data.get('is_human', True)
             )
-            # Update preferences if provided
             if 'preferences' in owner_data:
-                mock_owner.preferences.update(owner_data['preferences'])
-        else:
-            # Create basic mock owner
-            mock_owner = Owner(
-                owner_id=self.owner_id,
-                name='Team Owner',
-                is_human=False
-            )
-            
-        return self.strategy.calculate_bid(
-            player=player,
-            team=self,
-            owner=mock_owner,
-            current_bid=current_bid,
-            remaining_budget=self.budget,
-            remaining_players=remaining_players
-        )
+                o.preferences.update(owner_data['preferences'])
+            return o
+        return Owner(owner_id=self.owner_id, name='Team Owner', is_human=False)
         
     def should_nominate_player(
         self,
@@ -541,6 +607,17 @@ class Team:
             'is_complete': self.is_roster_complete(),
             'needs': self.get_needs()
         }
+
+    def get_state(self) -> "TeamState":
+        """Return a serializable Pydantic snapshot of the team's current state."""
+        return TeamState(
+            team_id=self.team_id,
+            owner_id=self.owner_id,
+            team_name=self.team_name,
+            budget=self.budget,
+            initial_budget=self.initial_budget,
+            roster_player_ids=[p.player_id for p in self.roster],
+        )
     
     def _get_position_caps(self) -> dict:
         """Get maximum allowed players per position based on roster structure."""
