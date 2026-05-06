@@ -143,7 +143,11 @@ jobs:
               ${STRATEGY:+--strategy "$STRATEGY"} \
               --output lab/results_db/gate_result.json
             echo "--- Gate Result ---"
-            python -m json.tool lab/results_db/gate_result.json
+            if [ -f "lab/results_db/gate_result.json" ]; then
+              python -m json.tool lab/results_db/gate_result.json
+            else
+              echo "gate.py ran but produced no output (stub — see #80)"
+            fi
           else
             echo "lab/promotion/gate.py not found — lab/ not yet migrated (ADR-001, Sprint 5)"
             echo "Scaffold verified. No gate to evaluate at this stage."
