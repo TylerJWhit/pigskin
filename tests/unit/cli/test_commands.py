@@ -255,6 +255,16 @@ class TestCreateTournamentPools:
         assert len(pools) == 1
         assert len(pools[0]) == 12
 
+    def test_small_strategies_creates_pool_with_duplicates(self):
+        """Cover lines 855-856: remaining strategies but pools is empty → create new pool."""
+        cp = self._make_cp()
+        # 2 strategies with teams_per_draft=10: 2 < 10 so all become remaining
+        # This hits the else branch at line 853 (pools is empty)
+        strategies = ['balanced', 'aggressive']
+        pools = cp._create_tournament_pools(strategies, teams_per_draft=10)
+        assert len(pools) == 1
+        assert len(pools[0]) == 10  # filled with duplicates
+
 
 class TestCreateSinglePoolWithDuplicates:
     """Cover lines 860-872: _create_single_pool_with_duplicates."""
@@ -736,6 +746,33 @@ class TestRunEliminationTournamentFull:
 
         assert result['success'] is True  # Tournament still succeeds even if pool fails
 
+    def test_many_rounds_triggers_safety(self):
+        """Cover lines 668-669 — safety break when round_number > 10."""
+        cp = self._make_cp()
+
+        call_num = [0]
+
+        def make_elimination_result(strategies):
+            call_num[0] += 1
+            return {
+                'success': True,
+                'winner': {'strategy': strategies[0], 'points': 1200.0, 'efficiency': 8.0},
+                'all_teams': []
+            }
+
+        cp._run_elimination_draft = MagicMock(side_effect=make_elimination_result)
+
+        # Return 2 pools each round → 2 winners → current_strategies stays 2 → loops > 10
+        def fake_pools(strategies, teams_per_draft):
+            return [['balanced', 'aggressive'], ['conservative', 'basic']]
+
+        with patch.object(cp, '_create_tournament_pools', side_effect=fake_pools):
+            result = cp._run_elimination_tournament(
+                ['balanced', 'aggressive', 'conservative', 'basic'], 2
+            )
+
+        assert result['success'] is True
+
 
 class TestRunMockDraftTournamentFull:
     """Cover _run_mock_draft_tournament (lines 700-789)."""
@@ -788,6 +825,52 @@ class TestRunMockDraftTournamentFull:
         result = cp._run_mock_draft_tournament(['balanced', 'aggressive'], 10)
 
         # Even if all drafts fail, method should complete
+        assert result['success'] is True
+
+    def test_empty_teams_in_draft(self):
+        """Cover line 756 — mock draft success but draft.teams is empty."""
+        cp = self._make_cp()
+
+        mock_draft = MagicMock()
+        mock_draft.teams = []  # no teams → sorted list is empty
+
+        cp.run_enhanced_mock_draft = MagicMock(return_value={
+            'success': True,
+            'draft': mock_draft,
+        })
+
+        result = cp._run_mock_draft_tournament(['balanced', 'aggressive'], 2)
+        assert result['success'] is True
+
+    def test_many_rounds_triggers_safety(self):
+        """Cover line 778 — safety break when round_number > 10."""
+        cp = self._make_cp()
+
+        call_num = [0]
+
+        def make_result(strategies, teams_per_draft):
+            call_num[0] += 1
+            winner = MagicMock()
+            winner.strategy.name = strategies[0]
+            winner.get_projected_points.return_value = 1200.0
+            winner.get_total_spent.return_value = 150.0
+
+            mock_draft = MagicMock()
+            mock_draft.teams = [winner]
+            return {'success': True, 'draft': mock_draft}
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_result)
+        cp._map_strategy_name_to_key = MagicMock(side_effect=lambda x: x.lower())
+
+        # Return 2 pools each round → 2 winners per round → len(current_strategies) stays 2 → loops > 10 rounds
+        def fake_pools(strategies, teams_per_draft):
+            return [['balanced', 'aggressive'], ['conservative', 'basic']]
+
+        with patch.object(cp, '_create_tournament_pools', side_effect=fake_pools):
+            result = cp._run_mock_draft_tournament(
+                ['balanced', 'aggressive', 'conservative', 'basic'], 2
+            )
+
         assert result['success'] is True
 
 
@@ -983,6 +1066,295 @@ class TestRunComprehensiveStatisticalTournament:
             ['balanced', 'aggressive'], teams_per_draft=2, verbose=True
         )
 
+        assert result['success'] is True
+
+    def test_phase2_championship_with_multiple_groups(self):
+        """Cover lines 353-586 — Phase 2 championship with 2+ groups."""
+        cp = self._make_cp()
+
+        call_count = [0]
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            """Return a draft with teams matching the group's strategies."""
+            call_count[0] += 1
+            mock_teams = []
+            for i, strat_name in enumerate(group_strategies[:2]):
+                t = MagicMock()
+                t.strategy.name = strat_name
+                t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                t.get_total_spent.return_value = 150.0
+                t.roster = [MagicMock()]
+                mock_teams.append(t)
+            mock_draft = MagicMock()
+            mock_draft.teams = mock_teams
+            winner = group_strategies[0] if group_strategies else 'balanced'
+            return {
+                'success': True,
+                'draft': mock_draft,
+                'team_results': [
+                    {'strategy': s, 'total_points': 1200 - i * 100, 'final_budget': 50, 'roster_size': 5}
+                    for i, s in enumerate(group_strategies[:2])
+                ],
+                'winner_strategy': winner,
+                'winner_points': 1200
+            }
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        # 4 strategies with teams_per_draft=2 → 2 groups → champions from each → Phase 2
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase2_championship_verbose(self):
+        """Cover verbose path of Phase 2 championship (lines 385-386)."""
+        cp = self._make_cp()
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            mock_teams = []
+            for i, strat_name in enumerate(group_strategies[:2]):
+                t = MagicMock()
+                t.strategy.name = strat_name
+                t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                t.get_total_spent.return_value = 150.0
+                t.roster = [MagicMock()]
+                mock_teams.append(t)
+            mock_draft = MagicMock()
+            mock_draft.teams = mock_teams
+            winner = group_strategies[0] if group_strategies else 'balanced'
+            return {
+                'success': True,
+                'draft': mock_draft,
+                'team_results': [
+                    {'strategy': s, 'total_points': 1200 - i * 100, 'final_budget': 50, 'roster_size': 5}
+                    for i, s in enumerate(group_strategies[:2])
+                ],
+                'winner_strategy': winner,
+                'winner_points': 1200
+            }
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=True
+        )
+        assert result['success'] is True
+
+    def test_failed_draft_result(self):
+        """Cover line 404 — failed draft result path."""
+        cp = self._make_cp()
+        mock_result = {'success': False, 'error': 'Draft failed'}
+        cp.run_enhanced_mock_draft = MagicMock(return_value=mock_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase2_extends_champions_padding(self):
+        """Cover line 469 — championship needs padding when champions < teams_per_draft."""
+        cp = self._make_cp()
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            mock_teams = []
+            for i, strat_name in enumerate(group_strategies[:3]):
+                t = MagicMock()
+                t.strategy.name = strat_name
+                t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                t.get_total_spent.return_value = 150.0
+                t.roster = [MagicMock()]
+                mock_teams.append(t)
+            mock_draft = MagicMock()
+            mock_draft.teams = mock_teams
+            winner = group_strategies[0] if group_strategies else 'balanced'
+            return {
+                'success': True,
+                'draft': mock_draft,
+                'team_results': [
+                    {'strategy': s, 'total_points': 1200 - i * 100, 'final_budget': 50, 'roster_size': 5}
+                    for i, s in enumerate(group_strategies[:3])
+                ],
+                'winner_strategy': winner,
+                'winner_points': 1200
+            }
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        # 6 strategies with teams_per_draft=3 → 2 groups → 2 champions
+        # Phase 2 championship needs teams_per_draft=3 but only 2 champions → extends (line 469)
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic', 'enhanced_vor', 'gridiron_sage'],
+            teams_per_draft=3, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase2_no_winner_path(self):
+        """Cover lines 544-548 — failed/no-winner paths in Phase 2."""
+        cp = self._make_cp()
+
+        phase1_call = [0]
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            phase1_call[0] += 1
+            mock_teams = []
+            for i, strat_name in enumerate(group_strategies[:2]):
+                t = MagicMock()
+                t.strategy.name = strat_name
+                t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                t.get_total_spent.return_value = 150.0
+                t.roster = [MagicMock()]
+                mock_teams.append(t)
+            mock_draft = MagicMock()
+            mock_draft.teams = mock_teams
+            # Phase 1: success; Phase 2 (calls > 20): fail
+            if phase1_call[0] > 20:
+                return {'success': False, 'error': 'Phase 2 failed'}
+            winner = group_strategies[0] if group_strategies else 'balanced'
+            return {
+                'success': True,
+                'draft': mock_draft,
+                'team_results': [
+                    {'strategy': s, 'total_points': 1200 - i * 100, 'final_budget': 50, 'roster_size': 5}
+                    for i, s in enumerate(group_strategies[:2])
+                ],
+                'winner_strategy': winner,
+                'winner_points': 1200
+            }
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase2_no_winner_no_points(self):
+        """Cover line 544 — Phase 2 runs, teams exist but all have 0 points → no winner."""
+        cp = self._make_cp()
+
+        phase1_call = [0]
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            phase1_call[0] += 1
+            if phase1_call[0] <= 20:
+                # Phase 1: valid teams with a winner
+                mock_teams = []
+                for i, strat_name in enumerate(group_strategies[:2]):
+                    t = MagicMock()
+                    t.strategy.name = strat_name
+                    t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                    t.get_total_spent.return_value = 150.0
+                    t.roster = [MagicMock()]
+                    mock_teams.append(t)
+                mock_draft = MagicMock()
+                mock_draft.teams = mock_teams
+                winner = group_strategies[0]
+                return {
+                    'success': True, 'draft': mock_draft,
+                    'team_results': [{'strategy': s, 'total_points': 1200 - i * 100,
+                                      'final_budget': 50, 'roster_size': 5}
+                                     for i, s in enumerate(group_strategies[:2])],
+                    'winner_strategy': winner, 'winner_points': 1200
+                }
+            else:
+                # Phase 2: teams exist but all 0 points → no winner_strategy
+                mock_teams = []
+                for strat_name in group_strategies[:2]:
+                    t = MagicMock()
+                    t.strategy.name = strat_name
+                    t.get_starter_projected_points.return_value = 0.0
+                    t.get_total_spent.return_value = 150.0
+                    t.roster = [MagicMock()]
+                    mock_teams.append(t)
+                mock_draft = MagicMock()
+                mock_draft.teams = mock_teams
+                return {'success': True, 'draft': mock_draft, 'team_results': [],
+                        'winner_strategy': None, 'winner_points': 0}
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase1_no_winner_determined(self):
+        """Cover line 400 — no winner_strategy when all teams have 0 points."""
+        cp = self._make_cp()
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            mock_teams = []
+            for i, strat_name in enumerate(group_strategies[:2]):
+                t = MagicMock()
+                t.strategy.name = strat_name
+                t.get_starter_projected_points.return_value = 0.0  # all 0 → winner_strategy stays None
+                t.get_total_spent.return_value = 150.0
+                t.roster = [MagicMock()]
+                mock_teams.append(t)
+            mock_draft = MagicMock()
+            mock_draft.teams = mock_teams
+            return {
+                'success': True,
+                'draft': mock_draft,
+                'team_results': [],
+                'winner_strategy': None,  # no winner
+                'winner_points': 0
+            }
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive'], teams_per_draft=2, verbose=False
+        )
+        assert result['success'] is True
+
+    def test_phase2_no_teams_in_draft(self):
+        """Cover line 546 — Phase 2 draft has no teams."""
+        cp = self._make_cp()
+
+        phase1_call = [0]
+
+        def make_draft_result(group_strategies, *args, **kwargs):
+            phase1_call[0] += 1
+            if phase1_call[0] <= 20:
+                # Phase 1: return valid teams
+                mock_teams = []
+                for i, strat_name in enumerate(group_strategies[:2]):
+                    t = MagicMock()
+                    t.strategy.name = strat_name
+                    t.get_starter_projected_points.return_value = 1200.0 - i * 100
+                    t.get_total_spent.return_value = 150.0
+                    t.roster = [MagicMock()]
+                    mock_teams.append(t)
+                mock_draft = MagicMock()
+                mock_draft.teams = mock_teams
+                winner = group_strategies[0]
+                return {
+                    'success': True, 'draft': mock_draft,
+                    'team_results': [{'strategy': s, 'total_points': 1200 - i * 100,
+                                      'final_budget': 50, 'roster_size': 5}
+                                     for i, s in enumerate(group_strategies[:2])],
+                    'winner_strategy': winner, 'winner_points': 1200
+                }
+            else:
+                # Phase 2: return draft with no teams (empty teams list)
+                mock_draft = MagicMock()
+                mock_draft.teams = []
+                return {'success': True, 'draft': mock_draft, 'team_results': [],
+                        'winner_strategy': None, 'winner_points': 0}
+
+        cp.run_enhanced_mock_draft = MagicMock(side_effect=make_draft_result)
+
+        result = cp._run_comprehensive_statistical_tournament(
+            ['balanced', 'aggressive', 'conservative', 'basic'],
+            teams_per_draft=2, verbose=False
+        )
         assert result['success'] is True
 
 
