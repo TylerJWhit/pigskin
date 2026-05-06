@@ -9,6 +9,11 @@ pytest-asyncio>=0.21
 pytest-httpx>=0.30
 pytest-timeout>=2.0
 
+# Lab test dependencies (tests/test_lab_results_db.py imports lab.results_db.models)
+sqlalchemy[asyncio]>=2.0
+aiosqlite>=0.19
+alembic>=1.13
+
 # Code formatting and linting
 black>=23.0.0
 flake8>=6.0.0
