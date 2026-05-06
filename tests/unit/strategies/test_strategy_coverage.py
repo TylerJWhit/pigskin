@@ -1957,13 +1957,11 @@ class TestGridironSageStrategy:
         assert value.shape[1] == 1
 
     def test_mcts_search_no_children(self):
-        """Cover line 382 — root.children is empty (dead code guard)."""
-        # Line 381-382 is dead code: root.children is always set before this check.
-        # Skip by simply verifying _MCTSNode can have empty children.
+        """Line 382 is dead code — root.children is always set before this guard."""
         from strategies.gridiron_sage_strategy import _MCTSNode
         node = _MCTSNode(bid=10.0, prior=0.5)
         node.children = []
-        assert not node.children  # confirms the condition is reachable in principle
+        assert not node.children  # confirms the guard condition is theoretically reachable
 
 
 

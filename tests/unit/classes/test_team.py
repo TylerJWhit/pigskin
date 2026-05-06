@@ -1196,3 +1196,39 @@ class TestTeamLinesCoverage:
         team = Team("t1", "o1", "MyTeam", budget=200)
         state = team.get_state()
         assert state.team_id == "t1"
+
+    def test_can_add_player_roster_full(self):
+        """Cover line 397 — roster full returns False."""
+        from classes.team import Team
+        from classes.player import Player
+        config = {'QB': 1}
+        team = Team("t1", "o1", "Test", budget=200, roster_config=config)
+        qb1 = Player("qb1", "QB One", "QB", "TEST")
+        team.roster.append(qb1)  # Fill roster (1 slot, 1 player)
+        qb2 = Player("qb2", "QB Two", "QB", "TEST")
+        # Position cap not exceeded (but roster is full: 1 >= sum({QB:1})==1)
+        result = team._can_add_player(qb2)
+        assert result is False
+
+    def test_has_minimum_required_positions_short(self):
+        """Cover line 459 — _has_minimum_required_positions returns False mid-loop."""
+        from classes.team import Team
+        config = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1}
+        team = Team("t1", "o1", "Test", budget=200, roster_config=config)
+        # Partial counts — missing QB
+        counts = {'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1}
+        assert team._has_minimum_required_positions(counts) is False
+
+    def test_is_critical_need_many_missing_positions(self):
+        """Cover line 585 — missing >2 position types returns player_position in required."""
+        from classes.team import Team
+        from classes.player import Player
+        config = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1}
+        team = Team("t1", "o1", "Test", budget=200, roster_config=config)
+        # Add 1 QB so current_filled==1 for QB (bypasses line 576)
+        qb = Player("qb1", "QB", "QB", "TEST")
+        team.roster.append(qb)
+        # 6 distinct required positions, only 1 filled → 6-1=5 > 2 → line 585
+        result = team.has_critical_position_need("QB")
+        # QB is in required_positions → True
+        assert result is True
