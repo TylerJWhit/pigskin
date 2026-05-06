@@ -362,7 +362,6 @@ class TestSleeperAPIExponentialBackoff(BaseTestCase):
     def test_429_retries_with_backoff(self):
         """_make_request must retry on 429 with exponential backoff."""
         from api.sleeper_api import SleeperAPI
-        import httpx
 
         api = SleeperAPI(rate_limit_delay=0, max_retries=5)
         responses = [(429, {}), (200, {"user_id": "abc"})]

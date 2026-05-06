@@ -1,5 +1,4 @@
 """Tests for Owner class."""
-import pytest
 from unittest.mock import MagicMock
 
 from classes.owner import Owner

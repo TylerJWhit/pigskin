@@ -160,7 +160,7 @@ class TestGetBidRecommendationDetailed:
             'auction_value': 25.0,
         }
         with patch('services.bid_recommendation_service.BidRecommendationService', return_value=mock_service):
-            result = cp.get_bid_recommendation_detailed('Josh Allen')
+            cp.get_bid_recommendation_detailed('Josh Allen')
         mock_service.recommend_bid.assert_called_once()
 
     def test_exception_in_config_load_is_ignored(self):
@@ -927,8 +927,8 @@ class TestCreateMockDraft:
         mock_player.position = "QB"
 
         with patch('cli.commands.Draft') as MockDraft, \
-             patch('cli.commands.Team') as MockTeam, \
-             patch('cli.commands.Owner') as MockOwner, \
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'), \
              patch('cli.commands.create_strategy') as MockCreate:
             mock_strategy = MagicMock()
             mock_strategy.name = "Balanced"
@@ -948,9 +948,9 @@ class TestCreateMockDraft:
         mock_config.roster_positions = {'QB': 1, 'RB': 2}
         mock_player = MagicMock()
 
-        with patch('cli.commands.Draft') as MockDraft, \
-             patch('cli.commands.Team') as MockTeam, \
-             patch('cli.commands.Owner') as MockOwner, \
+        with patch('cli.commands.Draft'), \
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'), \
              patch('cli.commands.create_strategy') as MockCreate:
             mock_strategy = MagicMock()
             mock_strategy.name = "Balanced"
@@ -980,9 +980,9 @@ class TestCreateMockDraftExtraCoverage:
         mock_config.roster_size = 12
         mock_player = MagicMock()
 
-        with patch('cli.commands.Draft') as MockDraft, \
-             patch('cli.commands.Team') as MockTeam, \
-             patch('cli.commands.Owner') as MockOwner, \
+        with patch('cli.commands.Draft'), \
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'), \
              patch('cli.commands.create_strategy') as MockCreate:
             mock_strategy = MagicMock()
             mock_strategy.name = "Balanced"
@@ -1003,9 +1003,9 @@ class TestCreateMockDraftExtraCoverage:
         mock_strategy.name = "GridironSage"
         mock_strategy.enable_tournament_mode = MagicMock()
 
-        with patch('cli.commands.Draft') as MockDraft, \
-             patch('cli.commands.Team') as MockTeam, \
-             patch('cli.commands.Owner') as MockOwner, \
+        with patch('cli.commands.Draft'), \
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'), \
              patch('cli.commands.create_strategy') as MockCreate:
             MockCreate.return_value = mock_strategy
             # Pass a non-list string strategy to hit lines 1104-1112
@@ -1490,8 +1490,8 @@ class TestCommandsExtraCoverage:
 
         with patch('cli.commands.FantasyProsLoader', return_value=mock_loader), \
              patch('cli.commands.Draft') as MockDraft, \
-             patch('cli.commands.Team') as MockTeam, \
-             patch('cli.commands.Owner') as MockOwner:
+             patch('cli.commands.Team'), \
+             patch('cli.commands.Owner'):
             MockDraft.return_value = MagicMock()
             result = cp._create_test_draft(2)
 

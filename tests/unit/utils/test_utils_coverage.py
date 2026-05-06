@@ -1,6 +1,5 @@
 """Tests for utils/market_tracker.py and utils/sleeper_cache.py"""
 import json
-import os
 import pytest
 from unittest.mock import MagicMock, patch, mock_open
 

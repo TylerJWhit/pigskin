@@ -1,7 +1,6 @@
 """Unit tests for TournamentService."""
 
 from unittest.mock import MagicMock, patch
-import pytest
 
 
 def _make_service():
@@ -28,7 +27,7 @@ class TestTournamentServiceInit:
     def test_init_without_config_manager(self):
         with patch('services.tournament_service.ConfigManager') as MockCM:
             from services.tournament_service import TournamentService
-            svc = TournamentService()
+            TournamentService()
         MockCM.assert_called_once()
 
 
@@ -324,7 +323,6 @@ class TestGenerateStrategyRecommendation:
 class TestSaveTournamentResults:
     def test_saves_json_file(self):
         svc, _, _ = _make_service()
-        import json
         results = {'success': True, 'results': {}}
         with patch('builtins.open', create=True) as mock_open, \
              patch('os.makedirs'):

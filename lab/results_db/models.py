@@ -14,7 +14,6 @@ Database: SQLite with WAL mode, accessed via SQLAlchemy async (aiosqlite).
 """
 
 from datetime import datetime
-from typing import Optional
 
 from sqlalchemy import (
     Boolean,

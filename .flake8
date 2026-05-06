@@ -1,0 +1,4 @@
+[flake8]
+# Exclude agent scripts — they contain generated data with long string literals
+# and are not part of the production or test codebase.
+extend-exclude = .agents

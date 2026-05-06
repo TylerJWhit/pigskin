@@ -1,7 +1,6 @@
 """Unit tests for DraftSetup class and convenience functions."""
 
 from unittest.mock import MagicMock, patch
-import pytest
 
 from classes import Player
 
@@ -224,7 +223,7 @@ class TestCreateMockDraft:
     def test_human_teams_have_no_strategy(self):
         from classes.draft_setup import DraftSetup
         with patch.object(DraftSetup, 'import_players_from_fantasypros', return_value=[]):
-            draft = DraftSetup.create_mock_draft(num_teams=3, include_humans=1)
+            DraftSetup.create_mock_draft(num_teams=3, include_humans=1)
         # The human team (index 0) should have no strategy, AI teams should have strategies
         # Note: draft.teams order matches participant order
 
@@ -279,7 +278,7 @@ class TestClassesInitFunctions:
         with patch('classes.DraftSetup') as mock_setup_cls:
             mock_setup_cls.setup_draft_with_participants.return_value = mock_draft
             from classes import create_simple_draft
-            result = create_simple_draft(['Alice', 'Bob'], ['Sharks', 'Bears'])
+            create_simple_draft(['Alice', 'Bob'], ['Sharks', 'Bears'])
             mock_setup_cls.setup_draft_with_participants.assert_called_once()
             args = mock_setup_cls.setup_draft_with_participants.call_args
             participants = args[0][1]
@@ -293,7 +292,7 @@ class TestClassesInitFunctions:
         with patch('classes.DraftSetup') as mock_setup_cls:
             mock_setup_cls.setup_draft_with_participants.return_value = mock_draft
             from classes import create_ai_vs_human_draft
-            result = create_ai_vs_human_draft('Alice', 'Sharks', ai_count=3)
+            create_ai_vs_human_draft('Alice', 'Sharks', ai_count=3)
             args = mock_setup_cls.setup_draft_with_participants.call_args
             participants = args[0][1]
             # 1 human + 3 AI

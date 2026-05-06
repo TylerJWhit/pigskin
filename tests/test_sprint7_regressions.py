@@ -220,8 +220,6 @@ class TestAnalyzeTournamentResultsKeyError(unittest.TestCase):
 
     def test_no_keyerror_when_points_std_absent(self):
         """_analyze_tournament_results must not raise KeyError if points_std is absent."""
-        from services.tournament_service import TournamentService
-
         # Results dict missing 'points_std' — simulates a strategy with 0 or 1 sims
         results_no_std = {
             "basic": {
@@ -345,7 +343,6 @@ class TestCalculateBidWrapperForwardsKwargs(unittest.TestCase):
     def test_wrapper_does_not_discard_subclass_kwargs(self):
         """A custom strategy with **kwargs in calculate_bid must receive them."""
         from strategies.base_strategy import Strategy
-        from unittest.mock import MagicMock
 
         received_kwargs = {}
 

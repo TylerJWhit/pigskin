@@ -412,7 +412,7 @@ class TestRunDispatchCoverage:
 
     def test_help_aliases(self):
         for flag in ['help', '--help', '-h']:
-            with patch.object(self.cli, 'show_help') as m:
+            with patch.object(self.cli, 'show_help'):
                 result = self.cli.run([flag])
             assert result == 0
 

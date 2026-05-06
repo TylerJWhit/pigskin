@@ -929,7 +929,7 @@ class TestDraftAdditionalCoverage:
         assert state.draft_id == draft.draft_id
         assert hasattr(state, 'status')
 
-class TestDraftAdditionalCoverage:
+class TestDraftRemainingCoverage:
     """Cover remaining uncovered lines in draft.py."""
 
     def _configured_draft(self):
@@ -957,10 +957,6 @@ class TestDraftAdditionalCoverage:
 
     def test_collect_team_bids_strategy_exception(self):
         """Cover lines 298-302 — exception in strategy bid."""
-        from classes.draft import Draft
-        from classes.player import Player
-        from classes.team import Team
-        from classes.owner import Owner
         from unittest.mock import MagicMock
 
         draft = self._configured_draft()
@@ -1030,11 +1026,7 @@ class TestDraftLinesCoverage:
         """Cover line 78 — adding too many teams raises ValueError."""
         from classes.draft import Draft
         from classes.team import Team
-        from classes.owner import Owner
         draft = Draft(budget_per_team=200, roster_size=2, num_teams=2)
-        o1 = Owner("o1", "Owner1")
-        o2 = Owner("o2", "Owner2")
-        o3 = Owner("o3", "Owner3")
         t1 = Team("t1", "o1", "Team1", 200)
         t2 = Team("t2", "o2", "Team2", 200)
         t3 = Team("t3", "o3", "Team3", 200)
@@ -1081,7 +1073,7 @@ class TestDraftLinesCoverage:
 
     def test_collect_team_bids_parallel_exception(self):
         """Cover lines 319-320 — exception in future.result() is silently ignored."""
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
         draft = self._configured_draft()
         draft.start_draft()
 

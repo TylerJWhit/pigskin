@@ -896,11 +896,6 @@ class TestBidRecommendationAdditionalCoverage(unittest.TestCase):
         mock_config.budget = 200.0
         svc.config_manager.load_config.return_value = mock_config
 
-        picks = [
-            {'player_id': 'p1', 'picked_by': 'u1', 'metadata': {'amount': 'invalid'}},  # triggers line 470-471
-        ]
-        rosters = [{'owner_id': 'u1', 'players': ['p2'], 'taxi': []}]
-
         import asyncio
         result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh Allen"))
         assert isinstance(result, dict)

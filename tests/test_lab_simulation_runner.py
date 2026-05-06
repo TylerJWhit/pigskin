@@ -1,10 +1,8 @@
 """Tests for lab/simulation/runner.py — closes #257."""
 from __future__ import annotations
 
-import json
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 
@@ -334,7 +332,6 @@ class TestRunnerExtraCoverage(unittest.TestCase):
 
     def test_simulation_runner_run_unknown_key_raises(self):
         """Cover: unknown strategy key raises ValueError."""
-        import asyncio
         from lab.simulation.runner import SimulationRunner
         import strategies as strats_mod
 

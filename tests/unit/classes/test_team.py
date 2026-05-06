@@ -965,7 +965,7 @@ class TestTeamAdditionalCoverage:
         assert result == {}
 
 
-class TestTeamAdditionalCoverage:
+class TestTeamRemainingCoverage:
     """Tests to cover remaining uncovered lines in team.py."""
 
     def _make_player(self, player_id, position, points=100.0, value=10.0):

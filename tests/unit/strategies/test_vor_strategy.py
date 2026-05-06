@@ -756,7 +756,7 @@ class TestVorStrategyAdditionalCoverage:
     def test_calculate_remaining_scarcity_varying_counts(self):
         """Cover lines 291, 293 — normal and plenty available scarcity."""
         from strategies.vor_strategy import VorStrategy as VORStrategy
-        from unittest.mock import MagicMock, patch
+        from unittest.mock import MagicMock
 
         strategy = VORStrategy()
 

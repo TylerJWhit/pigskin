@@ -1,9 +1,7 @@
 """Tests for FantasyProsLoader."""
 import csv
 import io
-import os
 import pytest
-from unittest.mock import patch, MagicMock
 
 from data.fantasypros_loader import FantasyProsLoader, load_fantasypros_players, _parse_csv_file
 
@@ -270,7 +268,7 @@ class TestFantasyProsLoaderExtraCoverage:
         from data.fantasypros_loader import FantasyProsLoader
         loader = FantasyProsLoader(data_path=str(tmp_path))
         # Inject a mock that raises
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
         with patch.object(loader, 'load_position_data', side_effect=Exception("bad file")):
             result = loader.get_player_by_name("Josh Allen")
         assert result is None

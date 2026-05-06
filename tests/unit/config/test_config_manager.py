@@ -2,8 +2,7 @@
 
 import json
 import os
-import tempfile
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -90,7 +89,6 @@ class TestConfigManagerLoad:
         """Cover lines 110-111: exception in get_settings is caught and ignored."""
         import json
         import os
-        from pathlib import Path
         from unittest.mock import patch
         # Create a valid config file so load_config doesn't return early
         config_file = os.path.join(tmp_config_dir, "config.json")
@@ -136,7 +134,6 @@ class TestConfigManagerUpdate:
         assert cfg.budget == 175
 
     def test_update_unknown_field_warns(self, manager):
-        import logging
         with patch('config.config_manager.logger') as mock_logger:
             manager.update_config(nonexistent_field='x')
         mock_logger.warning.assert_called()

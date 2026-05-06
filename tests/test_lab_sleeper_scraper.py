@@ -11,13 +11,9 @@ Scenarios:
   5. Cache: second call returns cached response without network request
 """
 
-import json
-import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from lab.data.sleeper_client import AuctionPick, SleeperLabClient, _DailyBucket
 
@@ -240,11 +236,8 @@ class TestScraperExtraCoverage(unittest.TestCase):
     """Cover remaining uncovered paths in sleeper_auction_scraper.py."""
 
     def _make_scraper(self, tmp_path=None):
-        import tempfile
         from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         from lab.data.sleeper_client import SleeperLabClient
-        from pathlib import Path
-        cache_dir = Path(tempfile.mkdtemp() if tmp_path is None else tmp_path)
         mock_engine = MagicMock()
         # Make async context manager
         mock_conn = MagicMock()
@@ -260,7 +253,6 @@ class TestScraperExtraCoverage(unittest.TestCase):
     def test_scrape_league_season_no_drafts(self):
         """Cover lines 82-83: no drafts found returns early."""
         import asyncio
-        from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         scraper, client = self._make_scraper()
         client.get_league_drafts.return_value = []
 
@@ -270,7 +262,6 @@ class TestScraperExtraCoverage(unittest.TestCase):
     def test_scrape_draft_missing_draft_id(self):
         """Cover line 95: draft meta with no draft_id is skipped."""
         import asyncio
-        from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         scraper, client = self._make_scraper()
         # Return one draft meta without draft_id
         client.get_league_drafts.return_value = [{"no_draft_id": "x"}]
@@ -290,7 +281,6 @@ class TestScraperExtraCoverage(unittest.TestCase):
         """Cover lines 174-175: invalid draft date is caught and set to None."""
         import asyncio
         from unittest.mock import AsyncMock
-        from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         scraper, client = self._make_scraper()
 
         draft_meta = {
@@ -318,7 +308,6 @@ class TestScraperExtraCoverage(unittest.TestCase):
         """Cover line 124: _get_or_create_draft returns None → return 0, 0."""
         import asyncio
         from unittest.mock import AsyncMock
-        from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         scraper, client = self._make_scraper()
 
         # Patch _session_factory to return a context manager with async session

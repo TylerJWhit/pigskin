@@ -13,20 +13,16 @@ Tests:
 """
 
 import asyncio
-import os
 import sqlite3
-import tempfile
 from datetime import datetime
 from pathlib import Path
 
 import pytest
-from sqlalchemy import text
 
 from lab.results_db.models import (
     AuctionCorpus,
     Base,
     BenchmarkRun,
-    Promotion,
     RealAuctionDraft,
     RealAuctionPick,
     StrategyResult,

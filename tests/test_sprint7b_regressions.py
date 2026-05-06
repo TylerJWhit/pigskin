@@ -29,7 +29,7 @@ class TestPlayerDefaultName(unittest.TestCase):
     def test_player_default_construction_no_exception(self):
         """Calling Player(player_id='x') with no name must not raise."""
         try:
-            p = Player(player_id="test-id-001")
+            Player(player_id="test-id-001")
         except Exception as e:
             self.fail(
                 f"Player(player_id='test-id-001') raised {type(e).__name__}: {e}"
@@ -82,8 +82,6 @@ class TestCompleteAuctionChecksAddPlayer(unittest.TestCase):
         draft.current_player = player
         draft.current_high_bidder = "o1"
         draft.current_bid = 10.0
-
-        players_before = len(draft.available_players)
 
         # complete_auction should detect the failure and NOT remove the player
         try:
@@ -219,7 +217,7 @@ class TestDraftLoadingServiceNoTimerThreads(unittest.TestCase):
         draft.start_draft()
 
         threads_before = threading.active_count()
-        auction = Auction(draft)
+        Auction(draft)
         threads_after = threading.active_count()
 
         self.assertEqual(

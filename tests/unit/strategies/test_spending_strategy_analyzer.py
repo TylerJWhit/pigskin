@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import io
-import sys
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -77,7 +76,8 @@ class TestStrategyAnalyzer(unittest.TestCase):
         return mock_player, mock_team, mock_owner, mock_strategy, mock_config
 
     def test_test_strategy_bidding_runs_without_error(self):
-        from strategies.spending_analyzer import analyze_spending_patterns  # ensure module importable
+        # ensure module importable
+        import strategies.spending_analyzer  # noqa: F401
 
         mock_player, mock_team, mock_owner, mock_strategy, mock_config = self._mock_env()
 
@@ -375,9 +375,9 @@ class TestSpendingAnalyzerMainBlock(unittest.TestCase):
 
     def test_main_block(self):
         """Cover lines 154-155 — if __name__ == '__main__' block."""
-        with patch("strategies.spending_analyzer.analyze_spending_patterns") as mock_analyze, \
-             patch("strategies.spending_analyzer.suggest_specific_improvements") as mock_suggest:
-            import importlib, runpy
+        with patch("strategies.spending_analyzer.analyze_spending_patterns"), \
+             patch("strategies.spending_analyzer.suggest_specific_improvements"):
+            import runpy
             runpy.run_module('strategies.spending_analyzer', run_name='__main__')
         # If we got here without error, the block ran
 

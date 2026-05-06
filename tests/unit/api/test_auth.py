@@ -9,7 +9,6 @@ Scenarios:
 """
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch
 
 from api.main import create_app
 from config.settings import Settings
@@ -33,7 +32,6 @@ def app():
     def _mock_settings() -> Settings:
         return Settings(api_key=_VALID_KEY)
 
-    from api.deps import get_app_settings
     from config.settings import get_settings
     _app.dependency_overrides[get_settings] = _mock_settings
     return _app

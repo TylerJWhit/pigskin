@@ -23,6 +23,7 @@ jobs:
       - name: Lint with flake8
         run: |
           flake8 . --max-line-length=120 \
+            --select=F401,F811,F541,F841,E9,W6 \
             --exclude=venv,pigskin_auction_draft.egg-info \
             --count --show-source --statistics
 

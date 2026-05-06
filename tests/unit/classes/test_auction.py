@@ -5,7 +5,7 @@ player nomination, winner determination, and sealed-bid logic.
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch, call
+from unittest.mock import Mock, MagicMock, patch
 import time
 import random
 
@@ -1477,7 +1477,7 @@ class TestAutoNominateNeedsRosterCompletion:
         called_players = []
         with patch.object(auction, '_sort_players_for_roster_completion') as mock_sort:
             mock_sort.return_value = list(configured_draft.available_players)
-            with patch.object(auction, 'nominate_player', side_effect=lambda p, oid: called_players.append(p)) as mock_nom:
+            with patch.object(auction, 'nominate_player', side_effect=lambda p, oid: called_players.append(p)):
                 auction._auto_nominate_player()
 
         assert len(called_players) == 1

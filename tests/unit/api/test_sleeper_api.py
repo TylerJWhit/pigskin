@@ -8,9 +8,8 @@ and data conversion methods.
 Updated for httpx async migration (#14).
 """
 
-import asyncio
 import pytest
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 import httpx
 
 from api.sleeper_api import SleeperAPI, SleeperAPIError
@@ -589,7 +588,7 @@ class TestSleeperAPIUncoveredMethods:
 
     async def test_get_player_stats_with_week(self):
         self.api._make_request = AsyncMock(return_value={'p1': {'pts': 15}})
-        result = await self.api.get_player_stats(season='2024', week=5)
+        await self.api.get_player_stats(season='2024', week=5)
         self.api._make_request.assert_called_once_with('/stats/nfl/regular/2024/5')
 
     async def test_get_player_stats_error_returns_empty(self):

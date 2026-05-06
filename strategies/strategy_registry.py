@@ -6,9 +6,8 @@ No dynamic imports or ``eval``/``exec`` are used.
 
 from __future__ import annotations
 
-import importlib
 from pathlib import Path
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Type
 
 from .base_strategy import Strategy
 from .strategy_config import StrategyConfig

@@ -1,6 +1,6 @@
 """Tests for Tournament class."""
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from classes.tournament import Tournament, run_strategy_comparison
 from classes.player import Player
@@ -229,15 +229,13 @@ class TestRunSingleSimulationCoverage:
         Force draft to require loop iterations by patching force_complete_auction
         to not advance draft past 'started' until max_iterations exceeded.
         """
-        from unittest.mock import patch, MagicMock
+        from unittest.mock import patch
         from classes import auction as auction_mod
 
         t = Tournament(num_simulations=1, budget_per_team=200.0, roster_size=2)
         t.add_players(_make_players(2))  # Only 2 players → max_iterations=4
 
         t.add_strategy_config("balanced", "Balanced", num_teams=2)
-
-        call_count = [0]
 
         original_init = auction_mod.Auction.__init__
 

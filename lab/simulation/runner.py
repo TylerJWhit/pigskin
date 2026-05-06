@@ -19,10 +19,8 @@ import asyncio
 import json
 import logging
 import subprocess
-import sys
 import uuid
 from datetime import datetime
-from statistics import mean
 from typing import Dict, List, Optional
 
 from classes.tournament import Tournament  # type: ignore

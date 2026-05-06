@@ -1,6 +1,6 @@
 """Unit tests for DraftLoadingService."""
 
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import MagicMock, patch
 import pytest
 
 
@@ -34,7 +34,7 @@ class TestDraftLoadingServiceInit:
         with patch('services.draft_loading_service.ConfigManager') as mock_cm, \
              patch('services.draft_loading_service.SleeperAPI'):
             from services.draft_loading_service import DraftLoadingService
-            svc = DraftLoadingService()
+            DraftLoadingService()
             mock_cm.assert_called_once()
 
 
@@ -122,7 +122,7 @@ class TestLoadFantasyProsDraft:
         with patch('services.draft_loading_service.DraftSetup') as MockSetup:
             MockSetup.create_mock_draft.return_value = mock_draft
             # num_teams fallback to 12 — just verify it runs without error
-            result = svc._load_fantasypros_draft(mock_config)
+            svc._load_fantasypros_draft(mock_config)
         # Should use fallback num_teams=12
         assert MockSetup.create_mock_draft.called
 

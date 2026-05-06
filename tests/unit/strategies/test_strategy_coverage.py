@@ -1,6 +1,5 @@
 """Unit tests for strategy modules with low coverage."""
 from unittest.mock import MagicMock, patch
-import pytest
 
 
 def _make_player(name="Josh Allen", position="QB", auction_value=50.0, projected_points=350.0):
@@ -450,7 +449,6 @@ class TestBalancedStrategy:
         strategy = BalancedStrategy()
         player = _make_player("CMC", "RB", auction_value=60.0)
         # Only a few available RBs (scarcity triggers)
-        remaining = [_make_player(f"RB{i}", "RB") for i in range(3)]
         team = _make_team()
         owner = _make_owner()
         result = strategy.should_nominate(player, team, owner, 200.0)
@@ -1890,7 +1888,6 @@ class TestGridironSageStrategy:
         """Cover _try_load_torch_model when checkpoint exists (lines 219-233)."""
         from strategies.gridiron_sage_strategy import _GridironSageNetwork
         import sys
-        import os
         # Mock torch to simulate successful checkpoint load
         mock_torch = MagicMock()
         mock_model = MagicMock()
@@ -1898,15 +1895,13 @@ class TestGridironSageStrategy:
         mock_state = MagicMock()
         mock_torch.load.return_value = mock_state
         mock_module_class = MagicMock(return_value=mock_model)
-        mock_torch_net = MagicMock()
         with patch.dict(sys.modules, {'torch': mock_torch}), \
              patch('os.path.exists', return_value=True), \
              patch('strategies.gridiron_sage_strategy._GridironSageTorchNet', mock_module_class):
             net = _GridironSageNetwork()
             # The _try_load_torch_model is called in __init__ - create new to re-invoke
-            result = net._try_load_torch_model()
-        # Result may be a mock model or None depending on what torch mocking gives us
-        assert result is not None or result is None  # Just verify no exception
+            net._try_load_torch_model()
+        # Just verify no exception was raised
 
     def test_try_load_torch_model_compile_exception(self):
         """Cover lines 228-229 — torch.compile raises Exception."""
@@ -2427,7 +2422,6 @@ class TestStrategyRegistryExtraCoverage:
 
     def test_from_yaml_import_error(self):
         """Cover lines 137-138 — yaml not available raises ImportError."""
-        from strategies.strategy_registry import StrategyRegistry
         import unittest.mock as um
         with um.patch.dict('sys.modules', {'yaml': None}):
             import importlib
@@ -2457,7 +2451,7 @@ class TestStrategyRegistryExtraCoverage:
         mock_config.parameters = {'aggression': 0.5}
 
         with um.patch.object(StrategyRegistry, '_get_allowlist', return_value={'basic': mock_class}):
-            result = StrategyRegistry._instantiate(mock_config)
+            StrategyRegistry._instantiate(mock_config)
         mock_class.assert_called_once_with(aggression=0.5)
 
 
