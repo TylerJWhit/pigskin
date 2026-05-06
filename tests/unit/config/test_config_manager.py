@@ -86,6 +86,22 @@ class TestConfigManagerLoad:
         cfg = mgr.load_config()
         assert cfg.budget == 200
 
+    def test_get_settings_raises_is_swallowed(self, tmp_config_dir):
+        """Cover lines 110-111: exception in get_settings is caught and ignored."""
+        import json
+        import os
+        from pathlib import Path
+        from unittest.mock import patch
+        # Create a valid config file so load_config doesn't return early
+        config_file = os.path.join(tmp_config_dir, "config.json")
+        with open(config_file, 'w') as f:
+            json.dump({"budget": 150}, f)
+        mgr = ConfigManager(config_dir=tmp_config_dir)
+        with patch('config.settings.get_settings', side_effect=Exception("env error")):
+            cfg = mgr.load_config()
+        # Should still return valid config
+        assert cfg is not None
+
 
 class TestConfigManagerSave:
     def test_save_writes_file(self, manager, tmp_config_dir):

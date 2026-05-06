@@ -91,6 +91,16 @@ class TestSleeperAPIRequestHandling:
             _time.sleep = original
         
         assert called == [], "time.sleep must not be called in async code — use asyncio.sleep"
+
+    async def test_make_request_triggers_rate_limit_sleep(self, httpx_mock):
+        """Cover line 54 — asyncio.sleep called when request is too soon."""
+        httpx_mock.add_response(json={'ok': True}, status_code=200)
+        api = SleeperAPI(rate_limit_delay=10.0)  # Large delay
+        import time
+        api.last_request_time = time.time()  # Just made a request
+        with patch('api.sleeper_api.asyncio.sleep', new_callable=AsyncMock) as mock_sleep:
+            await api._make_request('/test')
+        mock_sleep.assert_called_once()
     
     async def test_make_request_429_retry(self, httpx_mock):
         """Test handling of 429 rate limit response with retry."""

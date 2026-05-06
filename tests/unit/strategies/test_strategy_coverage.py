@@ -893,6 +893,15 @@ class TestVorStrategy:
         result = self.strategy.should_nominate(player, team, owner, 200.0)
         assert isinstance(result, bool)
 
+    def test_calculate_bid_zero_position_priority(self):
+        """Cover line 152 — position_priority == 0.0 → return 0.0."""
+        player = _make_player(position="QB")
+        team = _make_team()
+        owner = _make_owner()
+        with patch.object(self.strategy, '_calculate_position_priority', return_value=0.0):
+            result = self.strategy.calculate_bid(player, team, owner, 5.0, 100.0, [])
+        assert result == 0.0
+
 
 class TestEnhancedVorStrategy:
     def setup_method(self):
@@ -2022,6 +2031,21 @@ class TestBasicStrategyCoverage:
 
         result = strategy._calculate_position_urgency(player, team)
         assert result == 1.0
+
+    def test_low_priority_high_bid_returns_zero(self):
+        """Cover line 65 — position_priority <= 0.1 and current_bid >= 5 → return 0."""
+        from strategies.basic_strategy import BasicStrategy
+        strategy = BasicStrategy()
+        player = MagicMock()
+        player.position = "QB"
+        player.projected_points = 100.0
+        player.auction_value = 20.0
+        team = self._make_team(remaining_slots=10, position_priority=0.05)
+        owner = MagicMock()
+        owner.get_risk_tolerance.return_value = 0.5
+        with patch.object(strategy, '_calculate_position_priority', return_value=0.05):
+            result = strategy.calculate_bid(player, team, owner, 10.0, 100.0, [])
+        assert result == 0
 
 
 class TestEnhancedVorStrategyAdditionalCoverage:

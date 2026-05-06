@@ -441,3 +441,17 @@ class TestAuctionTablesCRUD:
         assert "idx_rad_season" in indexes
         assert "idx_rap_draft_id" in indexes
         assert "idx_rap_player_id" in indexes
+
+    def test_wal_mode_set_on_connect(self, tmp_db_path):
+        """Cover line 193 — _set_wal_mode fires on connect and sets WAL mode."""
+        engine = make_engine(f"sqlite+aiosqlite:///{tmp_db_path}")
+
+        async def _connect_and_check():
+            async with engine.connect() as conn:
+                result = await conn.execute(
+                    __import__('sqlalchemy', fromlist=['text']).text("PRAGMA journal_mode")
+                )
+                return result.scalar()
+
+        mode = asyncio.run(_connect_and_check())
+        assert mode == "wal"
