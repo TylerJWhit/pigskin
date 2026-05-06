@@ -1,6 +1,5 @@
 """Unit tests for CLI commands — cheatsheet_parser integration."""
 
-import unittest.mock
 from unittest.mock import MagicMock, AsyncMock, patch, mock_open
 
 
