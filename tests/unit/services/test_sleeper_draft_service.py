@@ -363,3 +363,25 @@ class TestSleeperDraftServiceExceptionPaths(unittest.TestCase):
         result = asyncio.run(svc.get_current_draft_status("testuser"))
         self.assertFalse(result['success'])
         self.assertIn('Error', result['error'])
+
+
+class TestSleeperDraftServiceExtraCoverage(unittest.TestCase):
+    def _service(self):
+        from services.sleeper_draft_service import SleeperDraftService
+        svc = SleeperDraftService.__new__(SleeperDraftService)
+        svc.sleeper_api = MagicMock()
+        svc.config = MagicMock()
+        return svc
+
+    def test_get_current_draft_status_no_drafts(self):
+        """Cover line 292: log when no active or completed drafts."""
+        svc = self._service()
+        svc.sleeper_api.get_user = AsyncMock(return_value={"user_id": "u1"})
+
+        with patch.object(svc, 'get_user_drafts', new=AsyncMock(return_value={
+            'success': True, 'drafts': [], 'user': {'user_id': 'u1'}, 'leagues': []
+        })):
+            result = asyncio.run(svc.get_current_draft_status("testuser"))
+        self.assertTrue(result["success"])
+        self.assertEqual(len(result["active_drafts"]), 0)
+        self.assertEqual(len(result["completed_drafts"]), 0)

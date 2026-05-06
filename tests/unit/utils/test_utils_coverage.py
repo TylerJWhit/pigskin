@@ -392,9 +392,10 @@ class TestPathUtils:
         import sys
         from utils.path_utils import setup_project_path, get_project_root
         root = str(get_project_root())
-        # Remove it first to force re-add
-        if root in sys.path:
+        # Remove ALL occurrences to force re-add
+        while root in sys.path:
             sys.path.remove(root)
+        assert root not in sys.path  # confirm it's gone
         setup_project_path()
         assert root in sys.path
 
