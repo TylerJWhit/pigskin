@@ -293,6 +293,31 @@ class TestSleeperPlayerCache:
             info = cache.get_cache_info()
         assert 'cache_exists' in info
 
+    def test_get_cache_info_stat_oserror(self):
+        """Cover lines 189-190 — os.stat raises OSError."""
+        import utils.sleeper_cache as sc
+        from pathlib import Path
+        cache = self._make_cache()
+        # Use real Path so .exists() works normally
+        cache.cache_file = Path('/dev/null')
+        import os as real_os
+        original_stat = real_os.stat
+        call_count = [0]
+        def patched_stat(path, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 1:
+                raise OSError('permission denied')
+            return original_stat(path, **kwargs)
+        with patch.object(cache, '_get_cache_metadata', return_value={'last_updated': None}), \
+             patch.object(cache, '_is_cache_valid', return_value=False), \
+             patch.object(sc.os, 'stat', side_effect=OSError('permission denied')):
+            # Manually call only the inner part: cache_exists=True forces the try block
+            # We need to bypass the Path.exists() call (which doesn't use os.stat directly from module)
+            with patch.object(cache.cache_file.__class__, 'exists', return_value=True):
+                info = cache.get_cache_info()
+        assert 'cache_exists' in info
+        assert 'file_size_mb' not in info
+
     def test_clear_cache(self):
         cache = self._make_cache()
         cache.cache_file.exists.return_value = True

@@ -357,10 +357,11 @@ class TestSleeperDraftServiceExceptionPaths(unittest.TestCase):
         self.assertIn('Error', result['error'])
 
     def test_get_current_draft_status_exception(self):
-        """Cover lines 300-301 — exception in get_current_draft_status."""
+        """Cover lines 300-301 — exception in get_current_draft_status outer try."""
         svc = self._service()
-        svc.sleeper_api.get_user = AsyncMock(side_effect=Exception("api error"))
-        result = asyncio.run(svc.get_current_draft_status("testuser"))
+        # Patch get_user_drafts to raise directly, bypassing its own exception handling
+        with patch.object(svc, 'get_user_drafts', side_effect=Exception("unexpected error")):
+            result = asyncio.run(svc.get_current_draft_status("testuser"))
         self.assertFalse(result['success'])
         self.assertIn('Error', result['error'])
 

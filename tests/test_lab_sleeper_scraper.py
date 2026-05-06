@@ -289,29 +289,54 @@ class TestScraperExtraCoverage(unittest.TestCase):
     def test_get_or_create_draft_invalid_date(self):
         """Cover lines 174-175: invalid draft date is caught and set to None."""
         import asyncio
+        from unittest.mock import AsyncMock
         from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
         scraper, client = self._make_scraper()
 
         draft_meta = {
             "draft_id": "d1",
-            "start_time": "not_a_number",  # will trigger TypeError/ValueError
+            "start_time": "not_a_number",  # will trigger ValueError in int()
         }
 
-        mock_session = MagicMock()
-        mock_session.execute = MagicMock()
-        mock_session.execute.return_value.scalars.return_value.first.return_value = None
+        mock_result = MagicMock()
+        mock_result.scalar_one_or_none.return_value = None
+        mock_session = AsyncMock()
+        mock_session.execute = AsyncMock(return_value=mock_result)
+        mock_session.add = MagicMock()
+        mock_session.flush = AsyncMock()
 
-        # Just invoke _get_or_create_draft directly 
         async def _run():
             return await scraper._get_or_create_draft(
                 mock_session, "d1", "league1", "2024", draft_meta
             )
 
-        # May raise due to session mock, but we just want line 174-175 coverage
-        try:
-            asyncio.run(_run())
-        except Exception:
-            pass
+        result = asyncio.run(_run())
+        # Should succeed with draft_date=None (exception caught at lines 174-175)
+        self.assertIsNotNone(result)
+
+    def test_scrape_draft_get_or_create_returns_none(self):
+        """Cover line 124: _get_or_create_draft returns None → return 0, 0."""
+        import asyncio
+        from unittest.mock import AsyncMock
+        from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
+        scraper, client = self._make_scraper()
+
+        # Patch _session_factory to return a context manager with async session
+        mock_session = AsyncMock()
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__ = AsyncMock(return_value=mock_session)
+        mock_ctx.__aexit__ = AsyncMock(return_value=None)
+        scraper._session_factory = MagicMock(return_value=mock_ctx)
+
+        # Patch _get_or_create_draft to return None
+        scraper._get_or_create_draft = AsyncMock(return_value=None)
+
+        async def _run():
+            return await scraper._scrape_draft('d1', 'league1', '2024', {'draft_id': 'd1'})
+
+        inserted, skipped = asyncio.run(_run())
+        self.assertEqual(inserted, 0)
+        self.assertEqual(skipped, 0)
 
 
 class TestSleeperClientExtraCoverage(unittest.TestCase):
@@ -355,3 +380,30 @@ class TestSleeperClientExtraCoverage(unittest.TestCase):
         with patch("httpx.get", side_effect=httpx.RequestError("conn failed")):
             with self.assertRaises(RuntimeError, msg="Network error"):
                 client._get("some/endpoint")
+
+    def test_get_draft_picks_returns_list(self):
+        """Cover line 115: get_draft_picks returns AuctionPick list."""
+        client = self._make_client()
+        raw_pick = {
+            'player_id': 'p1', 'picked_by': 'owner1', 'amount': 50,
+            'metadata': {'position': 'QB', 'first_name': 'Test', 'last_name': 'Player'}
+        }
+        with patch.object(client, '_get', return_value=[raw_pick]):
+            picks = client.get_draft_picks('draft_001')
+        self.assertIsInstance(picks, list)
+
+    def test_get_draft_detail_returns_dict(self):
+        """Cover line 143: get_draft_detail returns raw draft dict."""
+        client = self._make_client()
+        fake_detail = {'draft_id': 'draft_001', 'type': 'auction', 'settings': {'budget': 200}}
+        with patch.object(client, '_get', return_value=fake_detail):
+            result = client.get_draft_detail('draft_001')
+        self.assertEqual(result['draft_id'], 'draft_001')
+
+    def test_get_league_drafts_returns_list(self):
+        """Cover line 115 (get_league_drafts): returns list of draft dicts."""
+        client = self._make_client()
+        fake_drafts = [{'draft_id': 'd1'}, {'draft_id': 'd2'}]
+        with patch.object(client, '_get', return_value=fake_drafts):
+            result = client.get_league_drafts('league_001')
+        self.assertEqual(len(result), 2)
