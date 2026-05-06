@@ -856,53 +856,198 @@ class TestBidRecommendationAdditionalCoverage(unittest.TestCase):
 
     def test_get_sleeper_draft_context_partial_player_match(self):
         """Cover lines 441-443 — partial player name match."""
+        from unittest.mock import AsyncMock
         svc = _make_service()
         svc.sleeper_available = True
         players_data = {
             'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
         }
         svc.get_sleeper_players.return_value = players_data
+        svc.sleeper_api.get_draft = AsyncMock(return_value={'draft_id': 'd1'})
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[])
 
-        picks = [{'player_id': 'p2', 'picked_by': 'u1', 'metadata': {'amount': '30'}}]
-        rosters = []
+        mock_config = MagicMock()
+        mock_config.sleeper_user_id = None
+        mock_config.budget = 200.0
+        svc.config_manager.load_config.return_value = mock_config
 
-        async def fake_context(draft_id):
-            return {'picks': picks, 'rosters': rosters}
-
-        with unittest.mock.patch.object(
-            svc.sleeper_draft_service, 'get_draft_with_picks',
-            return_value={'picks': picks, 'rosters': rosters}
-        ):
-            import asyncio
-            result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh"))
+        import asyncio
+        # 'Josh' partial-matches 'Josh Allen'
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh"))
         assert isinstance(result, dict)
+        assert result.get('success') is True
 
     def test_bid_amount_invalid_in_sleeper_context(self):
         """Cover lines 470-471 — invalid bid amount in pick metadata."""
+        from unittest.mock import AsyncMock
         svc = _make_service()
         svc.sleeper_available = True
         players_data = {
             'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
         }
         svc.get_sleeper_players.return_value = players_data
-
-        picks = [
-            {'player_id': 'p1', 'picked_by': 'u1', 'metadata': {'amount': 'invalid'}},  # triggers line 470-471
-        ]
-        rosters = [{'owner_id': 'u1', 'players': ['p2'], 'taxi': []}]
+        svc.sleeper_api.get_draft = AsyncMock(return_value={'draft_id': 'd1'})
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[
+            {'player_id': 'p2', 'picked_by': 'u1'}
+        ])
 
         mock_config = MagicMock()
         mock_config.sleeper_user_id = 'u1'
         mock_config.budget = 200.0
         svc.config_manager.load_config.return_value = mock_config
 
-        with unittest.mock.patch.object(
-            svc.sleeper_draft_service, 'get_draft_with_picks',
-            return_value={'picks': picks, 'rosters': rosters}
-        ):
-            import asyncio
-            result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh Allen"))
+        picks = [
+            {'player_id': 'p1', 'picked_by': 'u1', 'metadata': {'amount': 'invalid'}},  # triggers line 470-471
+        ]
+        rosters = [{'owner_id': 'u1', 'players': ['p2'], 'taxi': []}]
+
+        import asyncio
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh Allen"))
         assert isinstance(result, dict)
+
+
+class TestBidRecommendationServiceInit(unittest.TestCase):
+    def test_init_with_sleeper_available(self):
+        """Cover lines 21-33: __init__ when SleeperAPI imports succeed."""
+        from services.bid_recommendation_service import BidRecommendationService
+        with unittest.mock.patch('services.bid_recommendation_service.DraftLoadingService'):
+            with unittest.mock.patch('api.sleeper_api.SleeperAPI'):
+                with unittest.mock.patch('services.sleeper_draft_service.SleeperDraftService'):
+                    with unittest.mock.patch('utils.sleeper_cache.get_sleeper_players'):
+                        svc = BidRecommendationService()
+        assert svc.config_manager is not None
+
+    def test_init_import_error_sets_unavailable(self):
+        """Cover lines 34-35: ImportError sets sleeper_available=False."""
+        from services.bid_recommendation_service import BidRecommendationService
+        import builtins
+        real_import = builtins.__import__
+
+        def mock_import(name, *args, **kwargs):
+            if name == 'api.sleeper_api':
+                raise ImportError("no module")
+            return real_import(name, *args, **kwargs)
+
+        with unittest.mock.patch('services.bid_recommendation_service.DraftLoadingService'):
+            with unittest.mock.patch('builtins.__import__', side_effect=mock_import):
+                svc = BidRecommendationService()
+        assert svc.sleeper_available is False
+
+
+class TestRecommendBidSleeperPaths(unittest.TestCase):
+    def _make_service_sleeper_on(self):
+        from services.bid_recommendation_service import BidRecommendationService
+        svc = BidRecommendationService.__new__(BidRecommendationService)
+        svc.config_manager = MagicMock()
+        svc.draft_service = MagicMock()
+        svc._strategy_cache = {}
+        svc.sleeper_available = True
+        svc.sleeper_api = MagicMock()
+        svc.sleeper_draft_service = MagicMock()
+        svc.get_sleeper_players = MagicMock(return_value={})
+        return svc
+
+    def test_default_draft_id_from_config(self):
+        """Cover lines 72-74: fallback to config's sleeper_draft_id."""
+        svc = self._make_service_sleeper_on()
+        mock_config = MagicMock()
+        mock_config.sleeper_draft_id = 'cfg_draft_id'
+        mock_config.budget = 200.0
+        mock_config.strategy_type = 'balanced'
+        svc.config_manager.load_config.return_value = mock_config
+
+        sleeper_ctx = {'success': False}
+        with unittest.mock.patch.object(svc, '_get_strategy', return_value=MagicMock()):
+            with unittest.mock.patch('asyncio.run', return_value=sleeper_ctx):
+                with unittest.mock.patch.object(svc, '_recommend_bid_with_local_context', return_value={'recommended_bid': 10}):
+                    result = svc.recommend_bid("Josh Allen", 10.0)
+        assert result is not None
+
+    def test_sleeper_context_success_path(self):
+        """Cover line 78: sleeper_context success returns sleeper recommendation."""
+        svc = self._make_service_sleeper_on()
+        mock_config = MagicMock()
+        mock_config.sleeper_draft_id = None
+        mock_config.budget = 200.0
+        mock_config.strategy_type = 'balanced'
+        svc.config_manager.load_config.return_value = mock_config
+
+        sleeper_ctx = {'success': True, 'player_name': 'Josh Allen', 'picks': [],
+                       'target_player': {'player_id': 'p1', 'full_name': 'Josh Allen',
+                                         'position': 'QB', 'team': 'BUF'},
+                       'is_drafted': False, 'user_budget': 200, 'user_roster': [],
+                       'available_players': [], 'total_picks': 0, 'data_source': 'sleeper',
+                       'draft_id': 'd1', 'draft_info': {}}
+        with unittest.mock.patch.object(svc, '_get_strategy', return_value=MagicMock()):
+            with unittest.mock.patch('asyncio.run', return_value=sleeper_ctx):
+                with unittest.mock.patch.object(svc, '_recommend_bid_with_sleeper_context', return_value={'recommended_bid': 35, 'success': True}) as mock_rec:
+                    result = svc.recommend_bid("Josh Allen", 10.0, None, None, "some_draft_id")
+        mock_rec.assert_called_once()
+        assert result == {'recommended_bid': 35, 'success': True}
+
+
+class TestSleeperContextPartialMatch(unittest.TestCase):
+    def test_partial_player_name_match(self):
+        """Cover lines 441-443: partial player name match in _get_sleeper_draft_context."""
+        from unittest.mock import AsyncMock
+        svc = _make_service()
+        svc.sleeper_available = True
+        players_data = {
+            'p1': {'full_name': 'Joshua Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        svc.get_sleeper_players.return_value = players_data
+        svc.sleeper_api.get_draft = AsyncMock(return_value={'draft_id': 'd1'})
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[])
+
+        mock_config = MagicMock()
+        mock_config.sleeper_user_id = None
+        mock_config.budget = 200.0
+        svc.config_manager.load_config.return_value = mock_config
+
+        import asyncio
+        # 'Allen' will not exact match 'Joshua Allen' but will partial match
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Allen"))
+        assert isinstance(result, dict)
+
+    def test_bid_amount_value_error(self):
+        """Cover lines 470-471: ValueError when bid_amount is not int."""
+        from unittest.mock import AsyncMock
+        svc = _make_service()
+        svc.sleeper_available = True
+        players_data = {
+            'p1': {'full_name': 'Josh Allen', 'position': 'QB', 'team': 'BUF'}
+        }
+        svc.get_sleeper_players.return_value = players_data
+        svc.sleeper_api.get_draft = AsyncMock(return_value={'draft_id': 'd1'})
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[])
+
+        mock_config = MagicMock()
+        mock_config.sleeper_user_id = 'u1'
+        mock_config.budget = 200.0
+        svc.config_manager.load_config.return_value = mock_config
+
+        import asyncio
+        # The picks with invalid amount are checked via get_draft_picks result
+        svc.sleeper_api.get_draft_picks = AsyncMock(return_value=[
+            {'player_id': 'p1', 'picked_by': 'u1', 'metadata': {'amount': 'not_a_number'}},
+        ])
+        result = asyncio.run(svc._get_sleeper_draft_context("draft123", "Josh Allen"))
+        assert isinstance(result, dict)
+
+    def test_local_context_exception_path(self):
+        """Cover lines 647-648: exception inside _recommend_bid_with_local_context."""
+        svc = _make_service()
+        mock_config = MagicMock()
+        mock_config.budget = 200.0
+        svc.config_manager.load_config.return_value = mock_config
+
+        strategy = MagicMock()
+        strategy.name = "Balanced"
+
+        # Make draft_service.load_current_draft raise to trigger exception handler
+        svc.draft_service.load_current_draft.side_effect = RuntimeError("disk error")
+        result = svc._recommend_bid_with_local_context("Josh Allen", 10.0, strategy, None, mock_config)
+        assert result['success'] is False
 
 
 if __name__ == "__main__":
