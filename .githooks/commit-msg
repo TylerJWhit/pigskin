@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+# commit-msg — enforce Conventional Commits format
+#
+# Valid format: <type>(<scope>): <description>
+# The <scope> is optional: <type>: <description> is also accepted.
+#
+# Valid types: feat, fix, chore, docs, refactor, test, perf, style, build, ci, revert
+#
+# Examples:
+#   feat(api): add POST /recommend/bid endpoint
+#   fix(strategies): guard ZeroDivisionError in sigmoid_strategy
+#   chore: update dependencies
+#   docs(adr): add ADR-008 GitHub Actions strategy
+#
+# Install: make install-hooks
+
+set -euo pipefail
+
+COMMIT_MSG_FILE="$1"
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Allow merge commits (they start with "Merge")
+if echo "$COMMIT_MSG" | grep -qE "^Merge "; then
+  exit 0
+fi
+
+# Allow revert commits
+if echo "$COMMIT_MSG" | grep -qE "^[Rr]evert"; then
+  exit 0
+fi
+
+# Conventional Commits pattern
+PATTERN="^(feat|fix|chore|docs|refactor|test|perf|style|build|ci|revert)(\([a-zA-Z0-9_/-]+\))?: .{1,}"
+
+if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
+  echo ""
+  echo "╔═══════════════════════════════════════════════════════════════╗"
+  echo "║  commit-msg: Invalid commit message format                    ║"
+  echo "╠═══════════════════════════════════════════════════════════════╣"
+  echo "║  Required: <type>(<scope>): <description>                     ║"
+  echo "║                                                               ║"
+  echo "║  Valid types: feat, fix, chore, docs, refactor, test,         ║"
+  echo "║               perf, style, build, ci, revert                  ║"
+  echo "║                                                               ║"
+  echo "║  Examples:                                                    ║"
+  echo "║    feat(api): add POST /recommend/bid endpoint                ║"
+  echo "║    fix(strategies): guard ZeroDivisionError in sigmoid        ║"
+  echo "║    chore: update dependencies                                 ║"
+  echo "║    docs(adr): add ADR-008 GitHub Actions strategy             ║"
+  echo "╚═══════════════════════════════════════════════════════════════╝"
+  echo ""
+  echo "Your message: $COMMIT_MSG"
+  echo ""
+  exit 1
+fi
+
+exit 0

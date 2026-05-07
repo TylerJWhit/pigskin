@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
-# pre-push — full CI suite before any push
+# pre-push — sprint-branch guard + full CI suite before any push
 #
 # Mirrors the App CI workflow (app-ci.yml):
 #   flake8 (lint) → mypy (type check) → bandit (security) → pytest (unit + 85% coverage)
+#
+# Also enforces the 3-tier sprint branch workflow:
+#   feature/<slug>  →  sprint/N  →  develop  →  main
+#   Direct pushes to `develop` and `main` are blocked.
 #
 # Integration tests are intentionally excluded here to keep push latency
 # reasonable; they run in CI after the push lands.
@@ -16,6 +20,30 @@ set -euo pipefail
 
 ROOT=$(git rev-parse --show-toplevel)
 cd "$ROOT"
+
+# ── Sprint-branch workflow guard ──────────────────────────────────────────────
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+PROTECTED_BRANCHES=("develop" "main")
+
+for protected in "${PROTECTED_BRANCHES[@]}"; do
+  if [ "$CURRENT_BRANCH" = "$protected" ]; then
+    echo ""
+    echo "╔═══════════════════════════════════════════════════════════════╗"
+    echo "║  pre-push: Direct push to '$protected' is blocked            ║"
+    echo "╠═══════════════════════════════════════════════════════════════╣"
+    echo "║  The sprint branch workflow requires:                        ║"
+    echo "║                                                               ║"
+    echo "║    feature/<slug>  →  sprint/N  →  develop  →  main          ║"
+    echo "║                                                               ║"
+    echo "║  Create a feature or sprint branch and open a PR instead:    ║"
+    echo "║    git checkout -b feature/my-change                         ║"
+    echo "║    git push origin feature/my-change                         ║"
+    echo "║    gh pr create --base sprint/8                              ║"
+    echo "╚═══════════════════════════════════════════════════════════════╝"
+    echo ""
+    exit 1
+  fi
+done
 
 # ── helper: resolve binary from venv or PATH ─────────────────────────────────
 resolve() {

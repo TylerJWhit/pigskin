@@ -84,10 +84,11 @@ gh project item-edit --project-id "PVT_kwHOABhKAM4BVbFX" --id "$ITEM_ID" \
    gh issue view <ISSUE_NUMBER> --json labels | jq '.labels[].name' | grep "qa:tests-defined"
    ```
    If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
-3. **Create a feature branch from `develop`** — never work directly on `develop` or `main`:
+3. **Create a feature branch from the current sprint branch** — never branch from `develop` directly:
    ```bash
-   git checkout develop && git pull origin develop
-   git checkout -b feat/<slug>   # or fix/<slug>, refactor/<slug>, etc.
+   SPRINT="sprint/8"   # update to current sprint number
+   git fetch origin
+   git checkout -b feat/<slug> origin/$SPRINT   # or fix/<slug>, refactor/<slug>, etc.
    ```
 4. Move the issue to **In Progress** on the project board (see commands above) and comment:
    ```bash
