@@ -544,7 +544,7 @@ class AuctionDraftCLI:
                 print(f"       {test['details']}")
         else:
             error_msg = result.get('error', 'No details available')
-            print(f"[FAIL] connectivity_check      ERROR")
+            print("[FAIL] connectivity_check      ERROR")
             print(f"       {error_msg}")
         
         print("="*50)

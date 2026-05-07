@@ -625,7 +625,7 @@ class TestHandleTournamentCommandNonNumericArgs(unittest.TestCase):
         """Non-numeric teams_per_draft arg must not raise ValueError."""
         cli = self._make_cli()
         try:
-            return_code = cli.handle_tournament_command(["10", "not_a_number"])
+            cli.handle_tournament_command(["10", "not_a_number"])
         except ValueError as exc:
             self.fail(
                 f"handle_tournament_command raised ValueError on non-numeric "
