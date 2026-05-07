@@ -221,18 +221,27 @@ Planning confirmation: @Requirements Agent / @Architecture Agent notified
 
 ### Phase 1: Test Definition (triggered by PM moving issue to Ready)
 1. Read the issue spec and acceptance criteria
-2. Write failing tests in `tests/` or produce a test spec comment for development
-3. Apply `qa:tests-defined` label to signal development can proceed
-4. Confirm tests fail before implementation exists
+2. **File size gate**: Check that the target implementation file is ≤ 750 lines. If it exceeds 750 lines, file a refactoring issue before adding any new code:
+   ```bash
+   wc -l <target_file.py>
+   # If > 750: gh issue create --title "refactor: split <file> (>750 lines)" \
+   #   --body "File exceeds 750-line threshold. Must be decomposed before new features are added." \
+   #   --label "tech-debt" --repo TylerJWhit/pigskin
+   ```
+3. Write failing tests in `tests/` or produce a test spec comment for development
+4. Apply `qa:tests-defined` label to signal development can proceed
+5. Confirm tests fail before implementation exists
 
 ### Phase 2: Test Verification (triggered by dev handoff)
 1. Read the dev agent's handoff signal to identify which tests to review
 2. Open the test file and locate the new/updated test functions
 3. Run `python -m pytest <test_file>::<test_function> -v` to confirm the test passes
 4. Apply the review checklist above
-5. Respond with the QA response format: APPROVED, NEEDS REVISION, or APPROVED WITH NOTES
-6. If NEEDS REVISION, describe the exact gap and the expected fix — do not approve until resolved
-7. Update the project board based on the outcome:
+5. **Run the AI Code Smell Checklist** (see section below) on all new/modified code in the PR
+6. Run `mypy <files>` and verify all imports resolve — zero errors required before approval
+7. Respond with the QA response format: APPROVED, NEEDS REVISION, or APPROVED WITH NOTES
+8. If NEEDS REVISION, describe the exact gap and the expected fix — do not approve until resolved
+9. Update the project board based on the outcome:
    ```bash
    # Look up item ID
    ITEM_ID=$(gh project item-list 2 --owner TylerJWhit --format json \
@@ -255,3 +264,34 @@ Planning confirmation: @Requirements Agent / @Architecture Agent notified
 3. Write test cases covering happy path, edge cases, and failure modes
 4. Implement tests using pytest with `unittest.mock` for external dependencies
 5. Verify tests fail before implementation, pass after
+
+---
+
+## AI Code Smell Checklist
+
+> **Required during QA Phase 2** for every PR that contains AI-generated or AI-assisted code.  
+> Run `mypy` and verify all imports resolve before approving any PR.
+
+| # | Smell | What to Look For | Detection Tool | Remediation |
+|---|-------|-----------------|----------------|-------------|
+| 1 | **Over-Documentation** | Comments explaining trivially obvious logic (e.g., `# increment i by 1`) | Code review | Remove the comment; code should be self-documenting |
+| 2 | **Toy Problem Solutions** | Code works for the happy path but lacks logging, env-config, or error handling for unexpected inputs | Code review | Add error handling, logging, and guard clauses at system boundaries |
+| 3 | **Lack of Context Awareness** | New code ignores existing naming conventions, patterns, or data structures in the surrounding codebase | Code review | Align with existing codebase patterns; rename to match conventions |
+| 4 | **Hallucinated APIs** | Calls to functions, libraries, or endpoints that do not exist in this codebase or in the installed dependencies | `mypy` + import resolution + `grep_search` | Remove or replace with real APIs; run `mypy <file>` and `grep_search` to verify |
+| 5 | **Repetitive Linear Logic** | Overly mechanical, sequential code with obvious loops or patterns that could be replaced by a well-named helper | Code review | Extract repeated logic into a named helper function |
+| 6 | **Verbose Names** | Variable or function names that read like sentences (e.g., `the_current_player_being_evaluated`) | `ruff` + code review | Rename to concise, idiomatic Python identifiers |
+
+### Checklist execution
+```bash
+# 1. Type-check all changed files (zero errors required)
+mypy <changed_files> --ignore-missing-imports
+
+# 2. Verify imports resolve
+python -c "import <module>" for each new import
+
+# 3. Check for unusually long names (smell #6)
+grep -rn ".\{40\}" <changed_files> | grep "def \|= " | head -20
+
+# 4. File size gate — flag if any modified file > 750 lines
+git diff --name-only HEAD~1 | xargs wc -l | awk '$1 > 750 {print "OVERSIZE:", $0}'
+```

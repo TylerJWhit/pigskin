@@ -65,6 +65,33 @@ Before every substantive answer:
 - [ ] MCTS iterations bounded (50 for tournaments, 800 for training)
 - [ ] No blocking operations in WebSocket event handlers
 
+### File Size & Code Health (Standing Check — every PR)
+- [ ] **750-line gate**: Check every file modified or created in this PR:
+  ```bash
+  git diff --name-only HEAD~1 | grep '\.py$' | xargs wc -l | awk '$1 > 750 {print "OVERSIZE:", $0}'
+  ```
+  If any file exceeds 750 lines, raise a [BLOCKER] and file a follow-up refactoring issue:
+  ```bash
+  gh issue create --title "refactor: split <file> (>750 lines)" \
+    --body "Exceeds 750-line threshold added in #289. Decompose before next PR adds to this file." \
+    --label "tech-debt" --repo TylerJWhit/pigskin
+  ```
+- [ ] **Stub detection**: Flag any function whose body is only `pass`, `...`, a stub comment, or `raise NotImplementedError` with no linked tracking issue — these are silent incomplete implementations.
+
+### AI Code Smell Checklist (required for AI-assisted code)
+Run `mypy <changed_files>` and verify all imports resolve before approving.
+
+| # | Smell | Detection |
+|---|-------|-----------|
+| 1 | **Over-Documentation** — obvious comments | Code review |
+| 2 | **Toy Problem Solutions** — happy-path only, no error handling | Code review |
+| 3 | **Lack of Context Awareness** — ignores existing conventions/patterns | Code review |
+| 4 | **Hallucinated APIs** — calls to non-existent functions or endpoints | `mypy` + import check |
+| 5 | **Repetitive Linear Logic** — mechanic loops/sequences needing helpers | Code review |
+| 6 | **Verbose Names** — identifiers that read like sentences | `ruff` + code review |
+
+> Full checklist with automated detection commands is in `qa.agent.md` → **AI Code Smell Checklist**.
+
 ## Issue Severity Notation
 
 Use these markers consistently in all review comments:
