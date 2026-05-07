@@ -62,7 +62,12 @@ class SleeperAPI:
                 self.last_request_time = time.time()
 
                 if response.status_code == 200:
-                    return response.json()
+                    try:
+                        return response.json()
+                    except Exception as e:
+                        raise SleeperAPIError(
+                            f"Failed to decode JSON response from {url}: {e}"
+                        ) from e
 
                 if response.status_code == 429:
                     if attempt < self.max_retries:
@@ -279,8 +284,7 @@ class SleeperAPI:
                 query_lower in first_name or 
                 query_lower in last_name):
                 
-                player_data['player_id'] = player_id
-                results.append(player_data)
+                results.append({**player_data, 'player_id': player_id})
                 
         return results[:50]  # Limit results
         
@@ -299,8 +303,7 @@ class SleeperAPI:
                 
             full_name = player_data.get('full_name', '').lower()
             if full_name == name_lower:
-                player_data['player_id'] = player_id
-                return player_data
+                return {**player_data, 'player_id': player_id}
                 
         return None
         
@@ -367,8 +370,8 @@ class SleeperAPI:
         
         converted_players = []
         for player_id, player_data in sleeper_players.items():
-            player_data['player_id'] = player_id
-            converted = self.convert_to_auction_player(player_data, projections)
+            player_data_copy = {**player_data, 'player_id': player_id}
+            converted = self.convert_to_auction_player(player_data_copy, projections)
             converted_players.append(converted)
             
         return converted_players

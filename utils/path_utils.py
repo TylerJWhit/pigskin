@@ -39,10 +39,18 @@ def get_config_file() -> Path:
 def get_data_file(filename: str) -> Path:
     """Get a data file path in the data directory.
 
-    Raises ValueError if the resolved path escapes the data directory.
+    Strips a leading ``data/`` prefix from *filename* if present so that
+    callers passing the full relative path (e.g. ``"data/sheets/x.csv"``)
+    do not get a doubled segment (``data/data/sheets/x.csv``).  Raises
+    ValueError if the resolved path escapes the data directory.
     """
+    # Normalise: strip a redundant "data/" prefix supplied by callers (#157)
+    filename_path = Path(filename)
+    parts = filename_path.parts
+    if parts and parts[0] == "data":
+        filename_path = Path(*parts[1:]) if len(parts) > 1 else Path(".")
     base = get_data_dir().resolve()
-    resolved = (get_data_dir() / filename).resolve()
+    resolved = (get_data_dir() / filename_path).resolve()
     if not str(resolved).startswith(str(base) + "/") and resolved != base:
         raise ValueError(f"Path traversal detected: {filename!r}")
     return resolved

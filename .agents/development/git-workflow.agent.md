@@ -160,6 +160,51 @@ refactor(strategies): extract VOR helpers into utils/strategy_helpers.py
 test(integration): add 12-team full-auction E2E test
 ```
 
+### When CI Fails on Your PR
+
+When CI fails on a PR you submitted, the `notify-ci-failure` workflow will automatically:
+- Post a structured comment on the PR identifying which jobs failed and linking to the run logs
+- Apply the `ci:failed` label
+
+**As the agent that submitted the PR, you must:**
+
+1. Check which jobs failed:
+   ```bash
+   gh pr checks <PR_NUMBER>
+   ```
+
+2. Read the failure logs (the run ID is in the automated comment, or look it up):
+   ```bash
+   gh run list --branch <your-branch> --limit 5          # find the run ID
+   gh run view <RUN_ID> --log-failed                     # read only failing step output
+   ```
+
+3. Fix the failures on your existing branch — **do NOT open a new PR**:
+   ```bash
+   # Common fixes by job:
+   # lint (flake8)  → remove unused imports, fix syntax
+   # typecheck (mypy) → add missing type hints, fix type errors
+   # security (bandit) → remove hardcoded values, fix MEDIUM+ findings
+   # tests/coverage → fix failing tests, add tests to meet 85% gate
+   ```
+
+4. Verify locally before pushing — all gates must pass:
+   ```bash
+   make ci   # lint + typecheck + security + coverage (mirrors CI exactly)
+   ```
+
+5. Push your fix — CI reruns automatically. The `ci:failed` label is removed on success:
+   ```bash
+   git add -p
+   git commit -m "fix(<scope>): resolve CI failures — <brief description>"
+   git push origin <your-branch>
+   ```
+
+**Do NOT:**
+- Close the PR and open a new one
+- Ask for review while `ci:failed` is present
+- Push without running `make ci` locally first
+
 ### After PR Is Merged
 ```bash
 git checkout develop

@@ -219,25 +219,44 @@ class DraftLoadingService:
         
         # Calculate based on starting positions plus bench
         bench_spots = roster_positions.get('BN', roster_positions.get('BENCH', 5))
-        
+        # FLEX spots: any one skill-position player may fill a FLEX slot,
+        # but each FLEX slot can only be used *once* — add it only once to the
+        # shared pool, not independently to each eligible position.
+        flex_spots = roster_positions.get('FLEX', 0)
+
         # Distribute bench spots proportionally
         starting_spots = {
             'QB': roster_positions.get('QB', 1),
-            'RB': roster_positions.get('RB', 2) + roster_positions.get('FLEX', 0),  # RBs can fill FLEX
-            'WR': roster_positions.get('WR', 2) + roster_positions.get('FLEX', 0),  # WRs can fill FLEX
-            'TE': roster_positions.get('TE', 1) + roster_positions.get('FLEX', 0),  # TEs can fill FLEX
+            'RB': roster_positions.get('RB', 2),
+            'WR': roster_positions.get('WR', 2),
+            'TE': roster_positions.get('TE', 1),
             'K': roster_positions.get('K', 1),
             'DST': roster_positions.get('DST', 1)
         }
         
-        # Add bench allocation
+        # Add bench + flex allocation
+        # FLEX is a shared pool — it must NOT be added to each eligible
+        # position separately (triple-counting).  Instead, distribute the
+        # flex capacity once across all flex-eligible positions: the
+        # TOTAL of RB+WR+TE limits == starters + flex + bench_share. (#129)
+        flex_eligible = ['RB', 'WR', 'TE']
         for position in limits:
             starting = starting_spots.get(position, 1)
             if position in ['QB', 'K', 'DST']:
                 limits[position] = starting + 1  # Minimal bench for these positions
+            elif position in flex_eligible:
+                # Each flex-eligible position gets only its own starting spots +
+                # bench share.  FLEX capacity is counted in the pool exactly once,
+                # distributed to ONE representative position (RB) so the total
+                # RB+WR+TE == sum(starters) + flex_spots. (#129)
+                limits[position] = starting + (bench_spots // 3)
             else:
-                limits[position] = starting + (bench_spots // 3)  # Distribute bench among skill positions
-                
+                limits[position] = starting + (bench_spots // 3)
+
+        # Add flex_spots once to the pool by bumping only RB (representative)
+        if flex_spots > 0:
+            limits['RB'] = limits.get('RB', starting_spots.get('RB', 2)) + flex_spots
+
         return limits
     
     def reload_draft(self) -> Optional[Draft]:
@@ -266,7 +285,7 @@ class DraftLoadingService:
             'num_teams': config.num_teams,
             'budget': config.budget,
             'sleeper_configured': bool(config.sleeper_draft_id),
-            'fantasypros_configured': os.path.exists(config.data_path)
+            'fantasypros_configured': os.path.exists(config.data_path) if config.data_path is not None else False
         }
         
         # Try to load draft to check if it's working

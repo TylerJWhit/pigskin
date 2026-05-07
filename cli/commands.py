@@ -172,14 +172,9 @@ class CommandProcessor:
         print("Starting elimination tournament with all available strategies...")
         print(f"Tournament format: {teams_per_draft} teams per draft, {rounds_per_group} rounds per group")
         
-        # Get all available strategies
-        all_strategies = [
-            'value', 'aggressive', 'conservative', 'sigmoid', 'improved_value',
-            'adaptive', 'vor', 'random', 'balanced', 'basic', 'elite_hybrid',
-            'value_random', 'value_smart', 'inflation_vor', 'league',
-            'refined_value_random'
-        ]
-        
+        # Use AVAILABLE_STRATEGIES so dynamically-registered strategies are included (#161)
+        all_strategies = list(AVAILABLE_STRATEGIES.keys())
+
         print(f"Available strategies: {', '.join(all_strategies)}")
         
         return self._run_elimination_rounds(all_strategies, rounds_per_group, teams_per_draft, verbose)
@@ -271,40 +266,7 @@ class CommandProcessor:
             'tournament_winner': tournament_winner,
             'total_rounds': round_number - 1
         }
-        """Run a comprehensive tournament with statistical significance testing."""
-        print("Starting comprehensive tournament with statistical testing...")
-        print(f"Tournament format: {teams_per_draft} teams per draft, 10 runs per group for variance")
-        print(f"Available strategies: {', '.join(AVAILABLE_STRATEGIES)}")
-        
-        start_time = time.time()
-        
-        try:
-            # Get all available strategies
-            all_strategies = list(AVAILABLE_STRATEGIES)
-            
-            # Run the comprehensive tournament with multiple rounds
-            tournament_results = self._run_comprehensive_statistical_tournament(all_strategies, teams_per_draft, verbose=verbose)
-            
-            if not tournament_results.get('success', False):
-                return {
-                    'success': False,
-                    'error': tournament_results.get('error', 'Tournament failed')
-                }
-            
-            # Add timing information
-            elapsed_time = time.time() - start_time
-            tournament_results['execution_time'] = elapsed_time
-            tournament_results['tournament_name'] = 'Comprehensive Statistical Tournament'
-            tournament_results['created_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
-            
-            return tournament_results
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f"Tournament failed: {str(e)}"
-            }
-    
+
     def _run_comprehensive_statistical_tournament(self, strategies: List[str], teams_per_draft: int = 10, verbose: bool = False) -> Dict:
         """Run comprehensive tournament with statistical significance (10 runs per group + championship)."""
         print(f"\nStarting comprehensive statistical tournament with {len(strategies)} strategies")

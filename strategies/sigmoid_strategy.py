@@ -51,8 +51,12 @@ class SigmoidStrategy(Strategy):
         
     def _calculate_budget_pressure(self, remaining_budget: float, team: 'Team') -> float:
         """Calculate budget pressure (0.0 = no pressure, 1.0 = high pressure)."""
-        budget_ratio = remaining_budget / team.initial_budget
-        roster_filled_ratio = len(team.roster) / sum(team.roster_requirements.values())
+        # Guard against ZeroDivisionError when initial_budget or roster_requirements is 0. (#146)
+        initial_budget = getattr(team, 'initial_budget', None) or remaining_budget or 1
+        budget_ratio = remaining_budget / initial_budget
+        total_requirements = sum(getattr(team, 'roster_requirements', {}).values())
+        roster_filled_ratio = (len(getattr(team, 'roster', [])) / total_requirements
+                               if total_requirements > 0 else 0.0)
         
         # More pressure if we have little budget relative to roster spots left
         return max(0.0, min(1.0, (1.0 - budget_ratio) + roster_filled_ratio - 0.5))
