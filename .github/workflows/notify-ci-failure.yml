@@ -1,0 +1,148 @@
+# notify-ci-failure.yml — Post a structured comment when CI fails on a PR
+#
+# Triggers whenever CI, App CI, or Lint Gate completes on a branch that has
+# an open PR. On failure: posts an actionable comment, applies ci:failed label.
+# On success: removes ci:failed label (so the agent knows the PR is clean again).
+#
+# Prerequisites: create the label `ci:failed` (color: #e11d48) at
+#   github.com/TylerJWhit/pigskin/labels  before this workflow is used.
+
+name: Notify CI Failure
+
+on:
+  workflow_run:
+    workflows: ["CI", "App CI", "Lint Gate"]
+    types: [completed]
+
+permissions:
+  pull-requests: write
+  issues: write
+  actions: read
+
+jobs:
+  # ── Failure path ────────────────────────────────────────────────────────────
+  notify-failure:
+    name: Comment on PR (failure)
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+
+    steps:
+      - name: Find open PR for this branch
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          PR_NUMBER=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          if [ -z "$PR_NUMBER" ]; then
+            echo "::notice::No open PR found for branch ${BRANCH} — skipping comment."
+          fi
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Get list of failed jobs
+        if: steps.pr.outputs.pr_number != ''
+        id: jobs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          FAILED=$(gh run view "${{ github.event.workflow_run.id }}" \
+            --repo "${{ github.repository }}" \
+            --json jobs \
+            --jq '[.jobs[] | select(.conclusion == "failure") | "- `" + .name + "`"] | join("\n")')
+          echo "failed_jobs<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$FAILED" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Post failure comment on PR
+        if: steps.pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR="${{ steps.pr.outputs.pr_number }}"
+          ACTOR="${{ github.event.workflow_run.actor.login }}"
+          WF_NAME="${{ github.event.workflow_run.name }}"
+          RUN_URL="${{ github.event.workflow_run.html_url }}"
+          RUN_ID="${{ github.event.workflow_run.id }}"
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          FAILED_JOBS="${{ steps.jobs.outputs.failed_jobs }}"
+
+          {
+            echo "## CI Failed: ${WF_NAME}"
+            echo ""
+            echo "@${ACTOR} — CI checks on this PR failed. Resolve all failures before this PR can progress to In Review."
+            echo ""
+            echo "| Field | Value |"
+            echo "|-------|-------|"
+            echo "| Workflow | \`${WF_NAME}\` |"
+            echo "| Branch | \`${BRANCH}\` |"
+            echo "| Run | [View logs](${RUN_URL}) |"
+            echo ""
+            echo "### Failed Jobs"
+            echo ""
+            echo "${FAILED_JOBS}"
+            echo ""
+            echo "### Agent: Required Actions"
+            echo ""
+            echo "1. Inspect the failure output:"
+            echo '   ```bash'
+            echo "   gh run view ${RUN_ID} --log-failed"
+            echo '   ```'
+            echo "2. Fix the failures on branch \`${BRANCH}\` — do **not** open a new PR"
+            echo "3. Verify locally before pushing:"
+            echo '   ```bash'
+            echo "   make ci   # lint + typecheck + security + coverage — must all pass"
+            echo '   ```'
+            echo "4. Push your fix — CI re-runs automatically; the \`ci:failed\` label is removed on success"
+            echo ""
+            echo "> Auto-posted by the \`notify-ci-failure\` workflow."
+          } > comment.md
+
+          gh pr comment "$PR" \
+            --repo "${{ github.repository }}" \
+            --body-file comment.md
+
+      - name: Apply ci:failed label
+        if: steps.pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit "${{ steps.pr.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --add-label "ci:failed" \
+          || echo "::warning::Label 'ci:failed' not found — create it at github.com/${{ github.repository }}/labels"
+
+  # ── Success path — clear stale ci:failed label ───────────────────────────
+  clear-failure:
+    name: Remove ci:failed label (CI passed)
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Find open PR for this branch
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          PR_NUMBER=$(gh pr list \
+            --repo "${{ github.repository }}" \
+            --head "$BRANCH" \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')
+          echo "pr_number=${PR_NUMBER}" >> "$GITHUB_OUTPUT"
+
+      - name: Remove ci:failed label
+        if: steps.pr.outputs.pr_number != ''
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr edit "${{ steps.pr.outputs.pr_number }}" \
+            --repo "${{ github.repository }}" \
+            --remove-label "ci:failed" \
+          || echo "::notice::Label 'ci:failed' was not present — nothing to remove."
