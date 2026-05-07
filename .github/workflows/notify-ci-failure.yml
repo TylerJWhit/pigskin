@@ -31,8 +31,9 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          BRANCH="$HEAD_BRANCH"
           PR_NUMBER=$(gh pr list \
             --repo "${{ github.repository }}" \
             --head "$BRANCH" \
@@ -62,13 +63,18 @@ jobs:
         if: steps.pr.outputs.pr_number != ''
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
+          WF_ACTOR: ${{ github.event.workflow_run.actor.login }}
+          WF_NAME_ENV: ${{ github.event.workflow_run.name }}
+          RUN_URL_ENV: ${{ github.event.workflow_run.html_url }}
+          RUN_ID_ENV: ${{ github.event.workflow_run.id }}
         run: |
           PR="${{ steps.pr.outputs.pr_number }}"
-          ACTOR="${{ github.event.workflow_run.actor.login }}"
-          WF_NAME="${{ github.event.workflow_run.name }}"
-          RUN_URL="${{ github.event.workflow_run.html_url }}"
-          RUN_ID="${{ github.event.workflow_run.id }}"
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          ACTOR="$WF_ACTOR"
+          WF_NAME="$WF_NAME_ENV"
+          RUN_URL="$RUN_URL_ENV"
+          RUN_ID="$RUN_ID_ENV"
+          BRANCH="$HEAD_BRANCH"
           FAILED_JOBS="${{ steps.jobs.outputs.failed_jobs }}"
 
           {
@@ -127,8 +133,9 @@ jobs:
         id: pr
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          BRANCH="${{ github.event.workflow_run.head_branch }}"
+          BRANCH="$HEAD_BRANCH"
           PR_NUMBER=$(gh pr list \
             --repo "${{ github.repository }}" \
             --head "$BRANCH" \
