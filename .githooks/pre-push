@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# pre-push — full CI suite before any push
+#
+# Mirrors the App CI workflow (app-ci.yml):
+#   flake8 (lint) → mypy (type check) → bandit (security) → pytest (unit + 85% coverage)
+#
+# Integration tests are intentionally excluded here to keep push latency
+# reasonable; they run in CI after the push lands.
+#
+# To skip in an emergency (use sparingly):
+#   git push --no-verify
+#
+# Install: make install-hooks
+
+set -euo pipefail
+
+ROOT=$(git rev-parse --show-toplevel)
+cd "$ROOT"
+
+# ── helper: resolve binary from venv or PATH ─────────────────────────────────
+resolve() {
+  local bin="$1"
+  if [ -f "$ROOT/venv/bin/$bin" ]; then
+    echo "$ROOT/venv/bin/$bin"
+  elif command -v "$bin" >/dev/null 2>&1; then
+    echo "$bin"
+  else
+    echo ""
+  fi
+}
+
+FLAKE8=$(resolve flake8)
+MYPY=$(resolve mypy)
+BANDIT=$(resolve bandit)
+PYTEST=$(resolve pytest)
+
+MISSING=()
+[ -z "$FLAKE8" ]  && MISSING+=("flake8")
+[ -z "$MYPY" ]    && MISSING+=("mypy")
+[ -z "$BANDIT" ]  && MISSING+=("bandit")
+[ -z "$PYTEST" ]  && MISSING+=("pytest")
+
+if [ ${#MISSING[@]} -gt 0 ]; then
+  echo "[pre-push] Missing tools: ${MISSING[*]}"
+  echo "[pre-push] Run: pip install -r requirements-dev.txt"
+  exit 1
+fi
+
+EXCLUDE_DIRS="venv,pigskin_auction_draft.egg-info,lab"
+
+echo ""
+echo "╔══════════════════════════════════════════════════╗"
+echo "║  pre-push CI gate — mirrors App CI workflow      ║"
+echo "╚══════════════════════════════════════════════════╝"
+echo ""
+
+# ── 1. Lint ───────────────────────────────────────────────────────────────────
+echo "[1/4] Lint (flake8)..."
+"$FLAKE8" . \
+  --max-line-length=120 \
+  --select=F401,F811,F541,F841,E9,W6 \
+  --exclude="$EXCLUDE_DIRS" \
+  --count --show-source --statistics
+echo "      ✓ lint passed"
+echo ""
+
+# ── 2. Type check ─────────────────────────────────────────────────────────────
+echo "[2/4] Type check (mypy)..."
+"$MYPY" . --ignore-missing-imports --exclude venv --exclude lab
+echo "      ✓ type check passed"
+echo ""
+
+# ── 3. Security scan ──────────────────────────────────────────────────────────
+echo "[3/4] Security scan (bandit)..."
+"$BANDIT" -r . -ll \
+  --exclude ./venv,./tests,./pigskin_auction_draft.egg-info,./lab
+echo "      ✓ security scan passed"
+echo ""
+
+# ── 4. Unit tests + coverage gate ─────────────────────────────────────────────
+echo "[4/4] Unit tests + coverage gate (≥ 85%)..."
+"$PYTEST" tests/ -x -q --timeout=60 \
+  --cov=. --cov-fail-under=85 \
+  --cov-report=term-missing \
+  --ignore=tests/test_integration.py
+echo "      ✓ tests passed"
+echo ""
+
+echo "╔══════════════════════════════════════════════════╗"
+echo "║  All pre-push checks passed. Pushing...          ║"
+echo "╚══════════════════════════════════════════════════╝"
+echo ""
