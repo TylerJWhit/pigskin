@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# pre-commit — fast lint gate on staged Python files
+#
+# Mirrors the Lint Gate workflow (lint.yml): flake8 with logic-error selectors.
+# Runs only on staged .py files so it stays fast even in large repos.
+#
+# Install: make install-hooks
+
+set -euo pipefail
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# Resolve the project root (works from any subdirectory)
+ROOT=$(git rev-parse --show-toplevel)
+
+# Use the project venv if available, otherwise fall back to whatever is on PATH
+if [ -f "$ROOT/venv/bin/flake8" ]; then
+  FLAKE8="$ROOT/venv/bin/flake8"
+elif command -v flake8 >/dev/null 2>&1; then
+  FLAKE8="flake8"
+else
+  echo "[pre-commit] flake8 not found — skipping lint. Run: pip install flake8"
+  exit 0
+fi
+
+echo "[pre-commit] Running flake8 on staged files..."
+
+# shellcheck disable=SC2086
+"$FLAKE8" \
+  --max-line-length=120 \
+  --select=F401,F811,F541,F841,E9,W6 \
+  --exclude=venv,pigskin_auction_draft.egg-info \
+  --show-source \
+  $STAGED
+
+echo "[pre-commit] Lint passed."

@@ -1,6 +1,6 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate
+.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks
 
 # Default target
 help:
@@ -28,6 +28,7 @@ help:
 	@echo "Operations:"
 	@echo "  standup     - Print daily standup summary (git log + project board)"
 	@echo "  clean       - Clean up cache and temporary files"
+	@echo "  install-hooks - Install shared git hooks from .githooks/"
 	@echo ""
 	@echo "Lab (pigskin-lab — ADR-001/Sprint 5 migration required):"
 	@echo "  lab-bench   - Run simulation benchmark batch (STRATEGY=all or STRATEGY=<name>)"
@@ -128,6 +129,14 @@ audit:
 
 ci: lint typecheck security coverage
 	@echo "All CI checks passed."
+
+# Install shared git hooks so every developer runs CI checks locally
+install-hooks:
+	@echo "Installing git hooks from .githooks/..."
+	git config core.hooksPath .githooks
+	chmod +x .githooks/pre-commit .githooks/pre-push
+	@echo "Git hooks installed. pre-commit (lint) and pre-push (full CI) are active."
+	@echo "To bypass in an emergency: git push --no-verify"
 
 # Lab targets (pigskin-lab — requires ADR-001 Sprint 5 migration: lab/ directory must exist)
 # Usage:
