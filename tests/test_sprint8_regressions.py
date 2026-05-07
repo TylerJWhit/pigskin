@@ -53,6 +53,7 @@ import json
 import os
 import sys
 import unittest
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -65,7 +66,7 @@ from classes.team import Team
 # Shared helpers
 # ---------------------------------------------------------------------------
 
-def _make_player(player_id: str, position: str = "QB", name: str = None,
+def _make_player(player_id: str, position: str = "QB", name: Optional[str] = None,
                  auction_value: float = 20.0, projected_points: float = 15.0) -> Player:
     return Player(
         player_id=player_id,
@@ -77,7 +78,7 @@ def _make_player(player_id: str, position: str = "QB", name: str = None,
     )
 
 
-def _make_team(budget: int = 200, roster_config: dict = None) -> Team:
+def _make_team(budget: int = 200, roster_config: Optional[dict] = None) -> Team:
     cfg = roster_config or {"QB": 1, "RB": 2, "WR": 2, "TE": 1, "K": 1, "DST": 1}
     return Team("t1", "o1", "TestTeam", budget=budget, roster_config=cfg)
 
