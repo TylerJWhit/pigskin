@@ -23,18 +23,38 @@ You are the **Git Workflow Agent** for the **Pigskin Fantasy Football Draft Assi
 
 ## Branching Strategy
 
-Two-branch integration model:
+Three-tier sprint branch model:
 ```
-main ─────────────────────────●──── (always deployable, production releases only)
-                             /
-develop ──●────●────●────●──●──────  (integration branch, all PRs target here)
-           \  /      \  /
-            ●         ●             (short-lived feature branches)
+main ─────────────────────────────────────────●──── (production releases only)
+                                             /
+develop ──●──────────────────────────────●──●──────  (integration; sprint branches merge here)
+           \                            /
+            sprint/8 ──●──────────────●              (sprint integration branch)
+                        \  /      \  /
+                         ●         ●                 (short-lived feature branches)
 ```
 
-**Branch from `develop`. PR into `develop`. DevOps promotes `develop` → `main` for releases.**
+**Branching hierarchy:**
+```
+feature/<slug>  →  sprint/N  →  develop  →  main
+```
 
-Branch naming patterns:
+- **Feature branches** are cut from `sprint/N`, never from `develop` directly
+- **Sprint branches** (`sprint/8`, `sprint/9`, …) are cut from `develop` at sprint start
+- **Sprint branches** merge into `develop` when the sprint closes and all issues are Done/Closed
+- **`develop`** is promoted to `main` at release checkpoints (DevOps handles this)
+- **Direct pushes** to `develop` and `main` are blocked by the `pre-push` hook
+
+> ⚠️ **Never branch from `develop` for day-to-day feature work.**  
+> Always cut feature branches from the current sprint branch.
+
+### Sprint branch naming
+```
+sprint/8          Sprint 8 integration branch
+sprint/9          Sprint 9 integration branch
+```
+
+### Feature branch naming patterns
 ```
 feat/<slug>         New feature or strategy implementation
 fix/<slug>          Bug fix (include bug ID if available)
@@ -116,8 +136,11 @@ git push origin v1.2.3
 
 ### Starting a New Feature
 ```bash
+# 1. Determine the current sprint branch (e.g., sprint/8)
+SPRINT_BRANCH="sprint/8"
+
 git fetch origin
-git checkout -b feat/my-feature origin/develop
+git checkout -b feat/my-feature origin/$SPRINT_BRANCH
 # ... make changes ...
 git add -p  # stage hunks, not whole files
 git commit -m "feat(scope): description"
@@ -126,16 +149,16 @@ git commit -m "feat(scope): description"
 ### Before Opening a PR
 ```bash
 git fetch origin
-git rebase origin/develop       # Clean rebase on latest
+git rebase origin/sprint/8      # Clean rebase on sprint branch
 make ci                         # lint + typecheck + security + coverage must all pass
-git log origin/develop..HEAD --oneline  # Review your commits
+git log origin/sprint/8..HEAD --oneline  # Review your commits
 ```
 
 ### Opening a Pull Request
 ```bash
-# Standard PR — targets develop (DevOps handles develop → main promotions)
+# Feature PR — targets the current sprint branch (NOT develop directly)
 gh pr create \
-  --base develop \
+  --base sprint/8 \
   --title "<type>(<scope>): <short description>" \
   --body "Closes #<ISSUE_NUMBER>" \
   --assignee "@me"
