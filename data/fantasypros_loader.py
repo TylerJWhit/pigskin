@@ -352,7 +352,11 @@ def load_fantasypros_players(
     Returns:
         List of Player objects with auction values calculated
     """
-    loader = FantasyProsLoader(data_path)
+    try:
+        loader = FantasyProsLoader(data_path)
+    except ValueError:
+        logger.warning("load_fantasypros_players: invalid data path rejected")
+        return []
     players = loader.load_all_players(min_projected_points)
     loader.calculate_auction_values(players)
     return players
@@ -374,5 +378,9 @@ def get_position_rankings(
     Returns:
         List of player dictionaries sorted by projected points
     """
-    loader = FantasyProsLoader(data_path)
+    try:
+        loader = FantasyProsLoader(data_path)
+    except ValueError:
+        logger.warning("get_position_rankings: invalid data path rejected")
+        return []
     return loader.get_top_players(position, top_n)
