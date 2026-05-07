@@ -71,7 +71,9 @@ After implementation, hand off to the QA Agent for Phase 2 verification before m
    If the label is missing, do not start. Comment: "Waiting for QA Phase 1 (test definition) before starting implementation."
 3. **Create a feature branch from `develop`** — never work directly on `develop` or `main`:
    ```bash
-   git checkout develop && git pull origin develop
+   SPRINT="sprint/8"   # update to current sprint number
+   git fetch origin
+   git checkout -b feat/<slug> origin/$SPRINT
    git checkout -b feat/<slug>   # or fix/<slug>, etc.
    ```
 4. Check `launch_draft_ui.py` for server setup and route registration

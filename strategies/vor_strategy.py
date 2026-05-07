@@ -138,8 +138,8 @@ class VorStrategy(Strategy):
         scarcity_adjustment = 1.0 + (scarcity_factor * self.scarcity_weight)
         
         # Calculate base bid from VOR with more aggressive scaling
-        vor_scaling_factor = 0.25  # Increased from 0.15 to 0.25 per VOR point
-        base_bid = vor * vor_scaling_factor * scarcity_adjustment
+        # Use instance attribute so subclass overrides are respected (#147)
+        base_bid = vor * self._vor_scaling_factor * scarcity_adjustment
         
         # Apply aggression factor with boost
         base_bid *= (self.aggression * 1.3)  # 30% more aggressive

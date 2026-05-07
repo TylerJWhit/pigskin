@@ -68,10 +68,11 @@ class AdaptiveStrategy(Strategy):
         # Calculate maximum possible bid to ensure roster completion (needed for mandatory positions)
         max_possible_bid = self.calculate_max_bid(team, remaining_budget)
         
-        # Special handling for mandatory positions (K, DST) with very high priority
-        if position_priority >= 2.0 and player.position in ['K', 'DST']:
-            # We MUST have these positions - bid aggressively even if player value is low
-            min_mandatory_bid = min(10.0, remaining_budget * 0.1)  # At least $10 or 10% of budget
+        # Special handling for mandatory positions (K, DST) with high priority.
+        # _calculate_position_priority caps at 1.0, so use > 0.5 as the gate
+        # (position is still needed but not yet filled). (#143)
+        if player.position in ['K', 'DST'] and position_priority > 0.5:
+            min_mandatory_bid = min(10.0, remaining_budget * 0.1)
             return min(current_bid + min_mandatory_bid, max_possible_bid)
         
         # If position priority is very low, still bid minimally to fill roster if needed

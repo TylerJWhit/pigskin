@@ -5,7 +5,7 @@ from typing import AsyncGenerator
 from fastapi import FastAPI, Depends
 
 from api.deps import require_api_key
-from api.routers import auction, draft, players, strategies
+from api.routers import auction, draft, players, recommend, strategies
 
 
 @asynccontextmanager
@@ -36,6 +36,7 @@ def create_app() -> FastAPI:
     app.include_router(players.router, dependencies=_auth)
     app.include_router(draft.router, dependencies=_auth)
     app.include_router(auction.router, dependencies=_auth)
+    app.include_router(recommend.router, dependencies=_auth)
 
     return app
 

@@ -35,15 +35,19 @@ class AggressiveStrategy(Strategy):
         """Calculate aggressive bid."""
         # Check position priority for mandatory positions
         position_priority = self._calculate_position_priority(player, team)
-        
-        # Special handling for mandatory positions (K, DST) with very high priority
-        if position_priority >= 2.0 and player.position in ['K', 'DST']:
-            # We MUST have these positions - bid aggressively even if player value is low
-            min_mandatory_bid = min(15.0, remaining_budget * 0.15)  # At least $15 or 15% of budget
-            max_possible_bid = self.calculate_max_bid(team, remaining_budget)
+
+        max_possible_bid = self.calculate_max_bid(team, remaining_budget)
+
+        # Special handling for mandatory positions (K, DST) with high priority.
+        # _calculate_position_priority caps at 1.0, so the gate is > 0.5 when
+        # the position is still needed (not yet filled). (#143)
+        if player.position in ['K', 'DST'] and position_priority > 0.5:
+            min_mandatory_bid = min(15.0, remaining_budget * 0.15)
             return min(current_bid + min_mandatory_bid, max_possible_bid)
-        
-        budget_ratio = remaining_budget / team.initial_budget
+
+        # Guard against ZeroDivisionError when initial_budget is 0. (#145)
+        initial_budget = getattr(team, 'initial_budget', None) or remaining_budget or 1
+        budget_ratio = remaining_budget / initial_budget
         
         # If budget is low, be conservative
         if budget_ratio < self.parameters['budget_threshold']:

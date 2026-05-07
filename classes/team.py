@@ -419,36 +419,7 @@ class Team:
                 return True  # Can fill BN/BENCH slot
                 
         return False  # No available slots
-        direct_needed = config.get(pos, 0)
-        direct_filled = current_counts.get(pos, 0)
-        
-        if direct_filled < direct_needed:
-            return True  # Can fill direct position slot
-        
-        # Check FLEX slots (RB/WR/TE can fill FLEX)
-        if pos in ['RB', 'WR', 'TE'] and 'FLEX' in config:
-            flex_needed = config['FLEX']
-            flex_filled = self._count_flex_usage(current_counts)
-            if flex_filled < flex_needed:
-                return True  # Can fill FLEX slot
-        
-        # Check BN/BENCH slots with QB constraint
-        bench_key = 'BENCH' if 'BENCH' in config else 'BN'
-        if bench_key in config:
-            bn_needed = config[bench_key]
-            bn_filled = self._count_bench_usage(current_counts)
-            
-            # Special constraint: Only 1 QB allowed on bench
-            if pos == 'QB':
-                qb_on_bench = max(0, current_counts.get('QB', 0) - direct_needed)
-                if qb_on_bench >= 1:
-                    return False  # Already have max QBs on bench
-            
-            if bn_filled < bn_needed:
-                return True  # Can fill BN/BENCH slot
-                
-        return False  # No available slots
-    
+
     def _has_minimum_required_positions(self, current_counts: dict) -> bool:
         """Check if team has minimum required positions filled."""
         required_positions = self._get_required_positions()

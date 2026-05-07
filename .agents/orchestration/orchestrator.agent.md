@@ -53,14 +53,16 @@ READY  ←───────────────────────�
 IN PROGRESS                                               │
   Owner: Development Agents                               │
   • Dev picks up only after qa:tests-defined is present   │
-  • Dev creates a feature branch from `develop`:          │
-      git checkout develop && git pull origin develop     │
-      git checkout -b feat/<slug>  (fix/, refactor/, …)  │
+  • Dev creates a feature branch from the SPRINT BRANCH:  │
+      SPRINT="sprint/8"  # or current sprint              │
+      git checkout origin/$SPRINT -b feat/<slug>          │
+        (or fix/, refactor/, …)                           │
+  • Never branch from `develop` for feature work          │
   • All work happens on the feature branch — never        │
-    commit directly to `develop` or `main`               │
+    commit directly to `develop`, `sprint/N`, or `main`  │
   • If a question arises: move back to Ready →────────────┘
   • When implementation complete: open a PR targeting
-    `develop`, move to In Review
+    the current `sprint/N` branch, move to In Review
     ↓
 IN REVIEW
   Owner: QA + Planning
@@ -217,6 +219,41 @@ For a complex workflow:
 - Monitor delegated tasks for blockers
 - Collect outputs from each agent
 - Produce a summary when all subtasks complete
+
+### Mandatory Board-Sync Checkpoints
+
+The Orchestrator **must** update the project board at every status transition. Run these commands at the checkpoints listed below:
+
+```bash
+# Get the project item ID for an issue
+get_item_id() {
+  local issue_num="$1"
+  gh project item-list 2 --owner TylerJWhit --format json --limit 300 \
+    | jq -r --argjson num "$issue_num" '.items[] | select(.content.number == $num) | .id'
+}
+
+# Move issue to a status
+move_status() {
+  local issue_num="$1"
+  local option_id="$2"   # see Project Board ID Reference above
+  local item_id
+  item_id=$(get_item_id "$issue_num")
+  gh project item-edit \
+    --project-id PVT_kwHOABhKAM4BVbFX \
+    --id "$item_id" \
+    --field-id PVTSSF_lAHOABhKAM4BVbFXzhQ2_HU \
+    --single-select-option-id "$option_id"
+}
+```
+
+| Checkpoint | Board Action | Option ID |
+|------------|-------------|-----------|
+| QA Agent applies `qa:tests-defined` label | Ready → In Progress | `16cf461f` |
+| Developer opens PR | In Progress → In Review | `68c4a78a` |
+| QA Phase 2 + Planning approve PR | In Review → Done | `7fefbd66` |
+| DevOps merges PR and deletes branch | Done → Closed | `a0358230` |
+
+**Rule**: No agent may change their working status without also executing the corresponding board sync. The board must reflect reality within one action of any state change.
 
 ## Common Workflows
 

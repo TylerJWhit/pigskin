@@ -1,6 +1,6 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks
+.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks hooks
 
 # Default target
 help:
@@ -28,7 +28,7 @@ help:
 	@echo "Operations:"
 	@echo "  standup     - Print daily standup summary (git log + project board)"
 	@echo "  clean       - Clean up cache and temporary files"
-	@echo "  install-hooks - Install shared git hooks from .githooks/"
+	@echo "  install-hooks - Install shared git hooks from .githooks/ (aliases: hooks)"
 	@echo ""
 	@echo "Lab (pigskin-lab — ADR-001/Sprint 5 migration required):"
 	@echo "  lab-bench   - Run simulation benchmark batch (STRATEGY=all or STRATEGY=<name>)"
@@ -134,9 +134,14 @@ ci: lint typecheck security coverage
 install-hooks:
 	@echo "Installing git hooks from .githooks/..."
 	git config core.hooksPath .githooks
-	chmod +x .githooks/pre-commit .githooks/pre-push
-	@echo "Git hooks installed. pre-commit (lint) and pre-push (full CI) are active."
+	chmod +x .githooks/pre-commit .githooks/pre-push .githooks/commit-msg
+	@echo "Git hooks installed:"
+	@echo "  pre-commit  — flake8 lint on staged files"
+	@echo "  commit-msg  — Conventional Commits format validation"
+	@echo "  pre-push    — sprint-branch guard + full CI (lint/mypy/bandit/tests)"
 	@echo "To bypass in an emergency: git push --no-verify"
+
+hooks: install-hooks
 
 # Lab targets (pigskin-lab — requires ADR-001 Sprint 5 migration: lab/ directory must exist)
 # Usage:
