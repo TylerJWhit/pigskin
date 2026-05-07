@@ -3,6 +3,7 @@
 import csv
 import logging
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from pydantic import ValidationError
@@ -22,7 +23,11 @@ class FantasyProsLoader:
         Args:
             data_path: Path to the directory containing CSV files
         """
-        self.data_path = data_path
+        _allowed_boundary = Path(__file__).resolve().parent
+        _resolved = Path(data_path).resolve()
+        if not _resolved.is_relative_to(_allowed_boundary):
+            raise ValueError("Invalid data path: access outside allowed directory")
+        self.data_path = str(_resolved)
         self.position_files = {
             'QB': 'QB.csv',
             'RB': 'RB.csv', 
