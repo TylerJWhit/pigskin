@@ -430,16 +430,14 @@ class BidRecommendationService:
             target_player = None
             for player_id, player_data in players_data.items():
                 if player_data.get('full_name', '').lower() == player_name.lower():
-                    target_player = player_data
-                    target_player['player_id'] = player_id
+                    target_player = {**player_data, 'player_id': player_id}
                     break
             
             if not target_player:
                 # Try partial match
                 for player_id, player_data in players_data.items():
                     if player_name.lower() in player_data.get('full_name', '').lower():
-                        target_player = player_data
-                        target_player['player_id'] = player_id
+                        target_player = {**player_data, 'player_id': player_id}
                         break
             
             if not target_player:

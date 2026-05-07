@@ -205,8 +205,20 @@ class AuctionDraftCLI:
             else:
                 filtered_args.append(arg)
         
-        rounds = int(filtered_args[0]) if filtered_args else 10  # Number of drafts per group
-        teams_per_draft = int(filtered_args[1]) if len(filtered_args) > 1 else 10  # Teams per draft
+        rounds = 10
+        teams_per_draft = 10
+        if filtered_args:
+            try:
+                rounds = int(filtered_args[0])
+            except ValueError:
+                print(f"ERROR: Invalid rounds value '{filtered_args[0]}' — must be an integer")
+                return 1
+        if len(filtered_args) > 1:
+            try:
+                teams_per_draft = int(filtered_args[1])
+            except ValueError:
+                print(f"ERROR: Invalid teams_per_draft value '{filtered_args[1]}' — must be an integer")
+                return 1
         
         print("Starting elimination tournament...")
         print(f"Rounds (drafts per group): {rounds}")
@@ -523,19 +535,27 @@ class AuctionDraftCLI:
         """Display Sleeper API connectivity test results."""
         print("\nCONNECTIVITY TEST RESULTS")
         print("="*50)
-        
-        for test in result['tests']:
-            status_prefix = "PASS" if test['status'] == 'PASS' else "WARN" if test['status'] == 'WARN' else "FAIL"
-            print(f"[{status_prefix}] {test['test']:<20} {test['status']}")
-            print(f"       {test['details']}")
+
+        tests = result.get('tests')
+        if tests:
+            for test in tests:
+                status_prefix = "PASS" if test['status'] == 'PASS' else "WARN" if test['status'] == 'WARN' else "FAIL"
+                print(f"[{status_prefix}] {test['test']:<20} {test['status']}")
+                print(f"       {test['details']}")
+        else:
+            error_msg = result.get('error', 'No details available')
+            print(f"[FAIL] connectivity_check      ERROR")
+            print(f"       {error_msg}")
         
         print("="*50)
-        print(f"Summary: {result['summary']}")
-        print(f"Overall Status: {result['overall_status']}")
-        
-        if result['overall_status'] == 'HEALTHY':
+        summary = result.get('summary', 'N/A')
+        overall_status = result.get('overall_status', 'UNKNOWN')
+        print(f"Summary: {summary}")
+        print(f"Overall Status: {overall_status}")
+
+        if overall_status == 'HEALTHY':
             print("All systems operational!")
-        elif result['overall_status'] == 'DEGRADED':
+        elif overall_status == 'DEGRADED':
             print("Some features may be limited")
         else:
             print("Connection issues detected")
