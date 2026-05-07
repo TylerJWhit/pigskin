@@ -1,0 +1,201 @@
+# sync-board-status.yml — Keeps the GitHub Projects v2 board in sync
+# with issue and PR lifecycle events.
+#
+# Transitions automated:
+#   issue labeled (qa:tests-defined) → In Progress
+#   issue closed                     → Closed
+#   issue reopened                   → Backlog
+#   PR opened / reopened             → linked issues → In Review
+#   PR merged                        → linked issues → Done
+#   PR closed (unmerged)             → linked issues → In Progress
+#
+# "Linked issues" are detected from the PR body via the standard keywords:
+#   Closes/Close/Fixes/Fix/Resolves/Resolve #N  (case-insensitive)
+#
+# New issues are auto-added to the board if not already present,
+# matching the behaviour of add-to-project.yml.
+#
+# REQUIRED SECRET: ADD_TO_PROJECT_PAT
+#   Same PAT used by add-to-project.yml — must have `project` + `repo` scopes.
+
+name: Sync Project Board Status
+
+on:
+  issues:
+    types: [labeled, closed, reopened]
+  pull_request:
+    types: [opened, reopened, closed]
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync board status
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.ADD_TO_PROJECT_PAT }}
+      OWNER: TylerJWhit
+      REPO: pigskin
+      PROJECT_NUMBER: 2
+
+    steps:
+      # ── 1. Resolve project metadata (IDs for project, field, and each status option) ──
+      - name: Resolve project metadata
+        id: meta
+        run: |
+          DATA=$(gh api graphql -f query='
+            query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                  fields(first: 20) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f owner="$OWNER" -F number="$PROJECT_NUMBER")
+
+          PROJECT_ID=$(echo "$DATA" | jq -r '.data.user.projectV2.id')
+          FIELD_ID=$(echo "$DATA" | jq -r '
+            .data.user.projectV2.fields.nodes[]
+            | select(.name == "Status")
+            | .id')
+
+          opt() {
+            echo "$DATA" | jq -r --arg n "$1" '
+              .data.user.projectV2.fields.nodes[]
+              | select(.name == "Status")
+              | .options[]
+              | select(.name == $n)
+              | .id'
+          }
+
+          echo "project_id=$PROJECT_ID"          >> "$GITHUB_OUTPUT"
+          echo "field_id=$FIELD_ID"              >> "$GITHUB_OUTPUT"
+          echo "backlog=$(opt 'Backlog')"        >> "$GITHUB_OUTPUT"
+          echo "in_progress=$(opt 'In Progress')" >> "$GITHUB_OUTPUT"
+          echo "in_review=$(opt 'In Review')"    >> "$GITHUB_OUTPUT"
+          echo "done=$(opt 'Done')"              >> "$GITHUB_OUTPUT"
+          echo "closed=$(opt 'Closed')"          >> "$GITHUB_OUTPUT"
+
+      # ── 2. Handle all transitions in one step ─────────────────────────────
+      - name: Move issues to correct status
+        env:
+          PROJECT_ID:   ${{ steps.meta.outputs.project_id }}
+          FIELD_ID:     ${{ steps.meta.outputs.field_id }}
+          OPT_BACKLOG:     ${{ steps.meta.outputs.backlog }}
+          OPT_IN_PROGRESS: ${{ steps.meta.outputs.in_progress }}
+          OPT_IN_REVIEW:   ${{ steps.meta.outputs.in_review }}
+          OPT_DONE:        ${{ steps.meta.outputs.done }}
+          OPT_CLOSED:      ${{ steps.meta.outputs.closed }}
+          EVENT:  ${{ github.event_name }}
+          ACTION: ${{ github.event.action }}
+          # issue events
+          ISSUE_NUM:    ${{ github.event.issue.number }}
+          LABEL_NAME:   ${{ github.event.label.name }}
+          # PR events
+          PR_NUM:    ${{ github.event.number }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          set -euo pipefail
+
+          # ── Helper: ensure issue is on board, then move it ─────────────────
+          move_issue() {
+            local issue_num="$1"
+            local option_id="$2"
+            local label="$3"
+
+            [[ -z "$issue_num" || -z "$option_id" ]] && return
+
+            # Add to project if not already present (idempotent)
+            gh project item-add "$PROJECT_NUMBER" --owner "$OWNER" \
+              --url "https://github.com/$OWNER/$REPO/issues/$issue_num" \
+              2>/dev/null || true
+
+            # Fetch item ID
+            ITEM_ID=$(gh project item-list "$PROJECT_NUMBER" \
+              --owner "$OWNER" \
+              --format json \
+              --limit 300 \
+              | jq -r --argjson n "$issue_num" \
+                  '.items[] | select(.content.number == $n) | .id // empty')
+
+            if [[ -z "$ITEM_ID" ]]; then
+              echo "::warning::Issue #$issue_num not found on project board — skipping"
+              return
+            fi
+
+            gh project item-edit \
+              --project-id "$PROJECT_ID" \
+              --id         "$ITEM_ID" \
+              --field-id   "$FIELD_ID" \
+              --single-select-option-id "$option_id"
+
+            echo "✓ #$issue_num → $label"
+          }
+
+          # ── Helper: extract linked issue numbers from PR body ───────────────
+          extract_issue_nums() {
+            local body="$1"
+            echo "$body" \
+              | grep -oiE '(closes?|closed|fixes?|fixed|resolves?|resolved)[[:space:]]+#[0-9]+' \
+              | grep -oE '[0-9]+' \
+              || true
+          }
+
+          # ── Dispatch ────────────────────────────────────────────────────────
+          if [[ "$EVENT" == "issues" ]]; then
+
+            case "$ACTION" in
+              labeled)
+                if [[ "$LABEL_NAME" == "qa:tests-defined" ]]; then
+                  move_issue "$ISSUE_NUM" "$OPT_IN_PROGRESS" "In Progress"
+                fi
+                ;;
+              closed)
+                move_issue "$ISSUE_NUM" "$OPT_CLOSED" "Closed"
+                ;;
+              reopened)
+                move_issue "$ISSUE_NUM" "$OPT_BACKLOG" "Backlog"
+                ;;
+            esac
+
+          elif [[ "$EVENT" == "pull_request" ]]; then
+
+            # Fetch PR body safely via API (avoids shell-escaping issues)
+            PR_BODY=$(gh api "repos/$OWNER/$REPO/pulls/$PR_NUM" --jq '.body // ""')
+            ISSUE_NUMS=$(extract_issue_nums "$PR_BODY")
+
+            if [[ -z "$ISSUE_NUMS" ]]; then
+              echo "No linked issues found in PR #$PR_NUM body — nothing to sync"
+              exit 0
+            fi
+
+            case "$ACTION" in
+              opened|reopened)
+                while IFS= read -r num; do
+                  move_issue "$num" "$OPT_IN_REVIEW" "In Review"
+                done <<< "$ISSUE_NUMS"
+                ;;
+              closed)
+                if [[ "$PR_MERGED" == "true" ]]; then
+                  while IFS= read -r num; do
+                    move_issue "$num" "$OPT_DONE" "Done"
+                  done <<< "$ISSUE_NUMS"
+                else
+                  # PR closed without merge — push back to In Progress
+                  while IFS= read -r num; do
+                    move_issue "$num" "$OPT_IN_PROGRESS" "In Progress"
+                  done <<< "$ISSUE_NUMS"
+                fi
+                ;;
+            esac
+
+          fi
