@@ -15,7 +15,7 @@ Scenarios:
   7. request/response schema round-trips (field names, types)
 """
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from api.main import create_app
