@@ -78,6 +78,53 @@ After writing or updating tests, hand off to the QA Agent for test validation be
 6. Commit logical unit before moving to next refactoring
 7. Signal QA Agent for test review before closing the task
 
+## Proactive Scan Protocol
+
+> Run this scan at the start of every sprint to surface candidates before they become blockers.  
+> The **750-line threshold** is the single authoritative limit for file size across this codebase (defined in #289).
+
+### Step 1 — Oversize file scan
+```bash
+find . -name '*.py' \
+  -not -path './venv/*' \
+  -not -path './lab/*' \
+  -not -path './.git/*' \
+  | xargs wc -l \
+  | awk '$1 > 750 && !/total/' \
+  | sort -rn
+```
+For each result not already tracked by an open issue:
+```bash
+gh issue create \
+  --title "refactor: split <filename> (>750 lines)" \
+  --body "File exceeds the 750-line threshold (#289). Decompose into focused modules before new features are added. Current line count: <N>." \
+  --label "tech-debt" \
+  --repo TylerJWhit/pigskin
+```
+
+### Step 2 — Stub/dead function scan
+```bash
+# Find unimplemented stubs
+grep -rn "^\s*\.\.\.\s*$\|^\s*pass\s*$\|raise NotImplementedError" \
+  --include="*.py" \
+  --exclude-dir=venv --exclude-dir=lab --exclude-dir=tests \
+  .
+```
+For each stub that lacks a linked GitHub issue in a comment, file one:
+```bash
+gh issue create \
+  --title "chore: implement stub <function_name> in <file>" \
+  --body "Stub at <file>:<line> has no tracking issue. Either implement or add a TODO comment referencing an issue number." \
+  --label "tech-debt" \
+  --repo TylerJWhit/pigskin
+```
+
+### Step 3 — Dead code scan (when `vulture` is adopted)
+```bash
+vulture . --min-confidence 80 --exclude venv,lab
+```
+File an issue for each finding not already tracked.
+
 ## Refactoring Patterns for This Codebase
 
 ### Extract Strategy Helper
