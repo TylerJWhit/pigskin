@@ -207,7 +207,7 @@ class TestAuctionWinnerDetermination:
         
         # Should pick one of the tied teams
         assert winner_id in ["team1", "team2"]
-        assert winning_bid == 26.0  # Second highest (20) + 1, even with tie at top
+        assert winning_bid == 25.0  # Tie at top: winner pays top_bid (fixes #115)
     
     def test_determine_auction_winner_single_bid(self, configured_draft):
         """Test winner determination with single bid."""
