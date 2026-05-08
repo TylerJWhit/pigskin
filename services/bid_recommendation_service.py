@@ -706,52 +706,6 @@ class BidRecommendationService:
         return team
 
 
-# Convenience functions
-
-def recommend_bid(
-    player_name: str,
-    current_bid: float,
-    config_dir: str = "config",
-    strategy_override: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function to recommend a bid.
-    
-    Args:
-        player_name: Name of the player
-        current_bid: Current highest bid
-        config_dir: Configuration directory
-        strategy_override: Override strategy
-        
-    Returns:
-        Bid recommendation dictionary
-    """
-    config_manager = ConfigManager(config_dir)
-    service = BidRecommendationService(config_manager)
-    return service.recommend_bid(player_name, current_bid, strategy_override=strategy_override)
-
-
-def recommend_nomination(
-    config_dir: str = "config",
-    strategy_override: Optional[str] = None,
-    position_filter: Optional[List[str]] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function to recommend a nomination.
-    
-    Args:
-        config_dir: Configuration directory
-        strategy_override: Override strategy
-        position_filter: Filter by positions
-        
-    Returns:
-        Nomination recommendation dictionary
-    """
-    config_manager = ConfigManager(config_dir)
-    service = BidRecommendationService(config_manager)
-    return service.recommend_nomination(strategy_override, position_filter)
-
-
 # Convenience functions for easy access
 
 def get_bid_recommendation(
