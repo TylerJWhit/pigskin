@@ -40,6 +40,7 @@ class FantasyProsLoader:
                 raise ValueError("Invalid data path: access outside allowed directory")
         self.data_path = str(_resolved)
         self.total_budget = total_budget
+        self._cache: Dict[str, List[Player]] = {}
         self.position_files = {
             'QB': 'QB.csv',
             'RB': 'RB.csv', 
@@ -61,7 +62,10 @@ class FantasyProsLoader:
         """
         if position not in self.position_files:
             raise ValueError(f"Unknown position: {position}")
-            
+
+        if position in self._cache:
+            return self._cache[position]
+
         file_path = os.path.join(self.data_path, self.position_files[position])
         
         if not os.path.exists(file_path):
@@ -86,8 +90,13 @@ class FantasyProsLoader:
                         
         except Exception as e:
             logger.error("Error loading %s data: %s", position, e)
-            
+
+        self._cache[position] = players
         return players
+
+    def clear_cache(self) -> None:
+        """Clear the in-memory position cache, forcing re-reads on next access."""
+        self._cache = {}
         
     def _parse_player_row(self, row: Dict[str, str], position: str) -> Optional[Player]:
         """
