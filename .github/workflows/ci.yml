@@ -36,7 +36,7 @@ jobs:
         run: mypy . --ignore-missing-imports --exclude venv
 
       - name: Security scan with bandit
-        run: bandit -r . -ll --exclude ./venv,./tests,./pigskin_auction_draft.egg-info
+        run: bandit -r . -ll --exclude ./venv,./.venv,./tests,./pigskin_auction_draft.egg-info
 
       - name: Run unit tests with coverage
         run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=90 --cov-report=xml

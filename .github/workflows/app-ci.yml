@@ -62,7 +62,7 @@ jobs:
       - name: Security scan (bandit — fail on MEDIUM+ severity)
         run: |
           bandit -r . -ll \
-            --exclude ./venv,./tests,./pigskin_auction_draft.egg-info,./lab
+            --exclude ./venv,./.venv,./tests,./pigskin_auction_draft.egg-info,./lab
 
   test:
     name: Tests & Coverage Gate
