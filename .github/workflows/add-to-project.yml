@@ -16,6 +16,7 @@ on:
 jobs:
   add-to-project:
     runs-on: ubuntu-latest
+    permissions: {}
     steps:
       - name: Add issue to project
         id: add-to-project
