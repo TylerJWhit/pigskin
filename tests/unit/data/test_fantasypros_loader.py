@@ -27,11 +27,16 @@ def _make_csv_file(tmp_path, position, rows):
 class TestFantasyProsLoaderInit:
     def test_default_data_path(self):
         loader = FantasyProsLoader()
-        assert loader.data_path == "data/sheets"
+        # data_path is stored as an absolute resolved path
+        from pathlib import Path
+        assert loader.data_path == str(Path("data/sheets").resolve())
 
     def test_custom_data_path(self):
-        loader = FantasyProsLoader("/custom/path")
-        assert loader.data_path == "/custom/path"
+        # Custom absolute paths outside sensitive dirs are accepted
+        from pathlib import Path
+        valid_path = str(Path(__file__).resolve().parents[3] / "data" / "sheets")
+        loader = FantasyProsLoader(valid_path)
+        assert loader.data_path == valid_path
 
     def test_position_files(self):
         loader = FantasyProsLoader()
