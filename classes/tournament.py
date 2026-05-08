@@ -189,24 +189,6 @@ class Tournament:
                 
         # Run the simulation
         auction.start_auction()
-        
-        # Simulate the draft by forcing nominations and completions
-        max_iterations = len(players) * 2  # Safety limit
-        iterations = 0
-        
-        while draft.status == "started" and iterations < max_iterations:
-            if not draft.current_player:
-                # Force nomination
-                auction._auto_nominate_player()
-                
-            if draft.current_player:
-                # Let auto-bids process for a moment
-                auction._process_auto_bids()
-                # Force completion after brief bidding
-                auction.force_complete_auction()
-                
-            iterations += 1
-            
         auction.stop_auction()
         
         # Mark as completed if not already
@@ -227,7 +209,9 @@ class Tournament:
                 owner_id = team.owner_id
                 
                 # Extract strategy type from owner name
-                strategy_type = owner_id.split('_')[0]
+                # Format: {owner_name}_{simulation_id}_{team_index} — strip last two numeric parts
+                parts = owner_id.rsplit('_', 2)
+                strategy_type = parts[0] if len(parts) == 3 else owner_id.split('_')[0]
                 
                 if strategy_type not in strategy_stats:
                     strategy_stats[strategy_type] = {

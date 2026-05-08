@@ -3,6 +3,7 @@
 import csv
 import logging
 import os
+from pathlib import Path
 from typing import Dict, List, Optional
 
 from pydantic import ValidationError
@@ -15,14 +16,31 @@ logger = logging.getLogger(__name__)
 class FantasyProsLoader:
     """Loads player data from FantasyPros CSV files."""
     
-    def __init__(self, data_path: str = "data/sheets"):
+    def __init__(self, data_path: str = "data/sheets", total_budget: float = 2400.0):
         """
         Initialize the FantasyPros loader.
         
         Args:
             data_path: Path to the directory containing CSV files
         """
-        self.data_path = data_path
+        _resolved = Path(data_path).resolve()
+        _project_root = Path(__file__).resolve().parents[1]
+        _raw = Path(data_path)
+        # Block traversal via '..' components that escape the project root
+        if '..' in _raw.parts and not _resolved.is_relative_to(_project_root):
+            raise ValueError("Invalid data path: access outside allowed directory")
+        # Block exact sensitive system directories (not their subdirectories, to allow test tmp dirs)
+        _sensitive_exact = [Path('/etc'), Path('/proc'), Path('/sys'), Path('/root'),
+                            Path('/boot'), Path('/dev'), Path('/tmp')]  # nosec B108
+        if _resolved in _sensitive_exact:
+            raise ValueError("Invalid data path: access outside allowed directory")
+        # Block paths under sensitive directories (except /tmp which is used in tests)
+        for s in [Path('/etc'), Path('/proc'), Path('/sys'), Path('/root'), Path('/boot'), Path('/dev')]:
+            if _resolved.is_relative_to(s):
+                raise ValueError("Invalid data path: access outside allowed directory")
+        self.data_path = str(_resolved)
+        self.total_budget = total_budget
+        self._cache: Dict[str, List[Player]] = {}
         self.position_files = {
             'QB': 'QB.csv',
             'RB': 'RB.csv', 
@@ -44,7 +62,10 @@ class FantasyProsLoader:
         """
         if position not in self.position_files:
             raise ValueError(f"Unknown position: {position}")
-            
+
+        if position in self._cache:
+            return self._cache[position]
+
         file_path = os.path.join(self.data_path, self.position_files[position])
         
         if not os.path.exists(file_path):
@@ -69,8 +90,13 @@ class FantasyProsLoader:
                         
         except Exception as e:
             logger.error("Error loading %s data: %s", position, e)
-            
+
+        self._cache[position] = players
         return players
+
+    def clear_cache(self) -> None:
+        """Clear the in-memory position cache, forcing re-reads on next access."""
+        self._cache = {}
         
     def _parse_player_row(self, row: Dict[str, str], position: str) -> Optional[Player]:
         """
@@ -146,7 +172,7 @@ class FantasyProsLoader:
                 continue
         
         # Calculate auction values for all players
-        self.calculate_auction_values(all_players)
+        self.calculate_auction_values(all_players, total_budget=self.total_budget)
                 
         return all_players
         
@@ -244,10 +270,7 @@ class FantasyProsLoader:
             usable_budget = max(0, position_budget - reserve_budget)
             
             # Calculate value per point for this position
-            if total_points > 0:
-                value_per_point = usable_budget / total_points
-            else:
-                value_per_point = 0
+            value_per_point = usable_budget / total_points
                 
             # Assign auction values
             for player in position_players:
@@ -347,7 +370,11 @@ def load_fantasypros_players(
     Returns:
         List of Player objects with auction values calculated
     """
-    loader = FantasyProsLoader(data_path)
+    try:
+        loader = FantasyProsLoader(data_path)
+    except ValueError:
+        logger.warning("load_fantasypros_players: invalid data path rejected")
+        return []
     players = loader.load_all_players(min_projected_points)
     loader.calculate_auction_values(players)
     return players
@@ -369,5 +396,9 @@ def get_position_rankings(
     Returns:
         List of player dictionaries sorted by projected points
     """
-    loader = FantasyProsLoader(data_path)
+    try:
+        loader = FantasyProsLoader(data_path)
+    except ValueError:
+        logger.warning("get_position_rankings: invalid data path rejected")
+        return []
     return loader.get_top_players(position, top_n)

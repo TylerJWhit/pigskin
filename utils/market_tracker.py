@@ -6,20 +6,24 @@ and position scarcity in real time.
 """
 
 from typing import Dict
+import threading
 
 
 _market_tracker_instance = None
+_tracker_lock = threading.Lock()
 
 
 def get_market_tracker():
     """Return the market tracker singleton instance, or None if not initialized."""
-    return _market_tracker_instance
+    with _tracker_lock:
+        return _market_tracker_instance
 
 
 def set_market_tracker(tracker) -> None:
     """Set the market tracker singleton instance."""
     global _market_tracker_instance
-    _market_tracker_instance = tracker
+    with _tracker_lock:
+        _market_tracker_instance = tracker
 
 
 def get_dynamic_position_weights() -> Dict[str, float]:

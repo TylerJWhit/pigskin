@@ -2,7 +2,7 @@
 
 from typing import Dict, Literal, Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 class Player(BaseModel):
@@ -54,13 +54,6 @@ class Player(BaseModel):
             **kwargs,
         )
 
-    @field_validator('player_id')
-    @classmethod
-    def player_id_not_none(cls, v: str) -> str:
-        if v is None:
-            raise ValueError("player_id cannot be None")
-        return v
-
     @property
     def team(self) -> str:
         """Backward-compatible alias for nfl_team."""
@@ -96,6 +89,7 @@ class Player(BaseModel):
             'projected_points': self.projected_points,
             'auction_value': self.auction_value,
             'bye_week': self.bye_week,
+            'vor': self.vor,
             'is_drafted': self.is_drafted,
             'drafted_price': self.drafted_price,
             'drafted_by': self.drafted_by

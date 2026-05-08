@@ -1,6 +1,6 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install dev-install test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks hooks
+.PHONY: setup install dev-install lock test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks hooks
 
 # Default target
 help:
@@ -46,8 +46,14 @@ setup:
 
 # Install dependencies
 install:
-	@echo "Installing dependencies..."
-	python3 -m pip install -r requirements.txt
+	@echo "Installing dependencies with uv..."
+	uv sync --frozen
+
+# Update / regenerate the lockfile
+lock:
+	@echo "Updating uv.lock from pyproject.toml..."
+	uv lock
+	@echo "Lockfile updated. Commit uv.lock if it changed."
 
 # Install all three mono-repo packages in editable mode (ADR-001 Sprint 5 migration required)
 # Requires core/, app/, lab/ directories to each contain a valid pyproject.toml.
@@ -88,10 +94,11 @@ format:
 
 lint:
 	@echo "Running linting..."
-	@if command -v flake8 >/dev/null 2>&1; then \
-		flake8 --max-line-length=120 --exclude=venv,pigskin_auction_draft.egg-info --count --show-source --statistics .; \
+	@if command -v ruff >/dev/null 2>&1; then \
+		ruff check --select=F401,F811,F541,F841,E9,W605 --line-length=120 \
+			--exclude=venv,pigskin_auction_draft.egg-info,.agents .; \
 	else \
-		echo "Flake8 not installed. Run: pip install flake8"; \
+		echo "ruff not installed. Run: uv sync --frozen"; \
 	fi
 
 typecheck:
@@ -105,10 +112,10 @@ typecheck:
 coverage:
 	@echo "Running tests with coverage report..."
 	@if command -v pytest >/dev/null 2>&1; then \
-		pytest tests/ -q --timeout=60 --cov=. --cov-fail-under=85 \
+		pytest tests/ -q --timeout=60 --cov=. --cov-fail-under=90 \
 			--cov-report=term-missing --cov-omit="venv/*,tests/*,setup.py"; \
 	else \
-		echo "pytest not installed. Run: pip install pytest pytest-cov"; \
+		echo "pytest not installed. Run: uv sync --frozen"; \
 	fi
 
 security:

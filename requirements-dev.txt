@@ -1,3 +1,5 @@
+# GENERATED — do not edit directly. Source of truth is pyproject.toml.
+# Regenerate with: uv export --group dev -o requirements-dev.txt
 # Development dependencies for Pigskin Auction Draft Tool
 -r requirements-core.txt
 
@@ -20,6 +22,7 @@ flake8>=6.0.0
 isort>=5.12.0
 mypy>=1.0.0
 bandit>=1.7.0
+vulture>=2.11
 
 # Documentation
 sphinx>=5.0.0

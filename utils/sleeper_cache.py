@@ -30,28 +30,35 @@ class SleeperPlayerCache:
         self.cache_file = self.cache_dir / "sleeper_players.json"
         self.meta_file = self.cache_dir / "sleeper_players_meta.json"
         self.sleeper_api = SleeperAPI()
+        self._meta_cache: dict | None = None
         
         # Ensure cache directory exists
         ensure_dir_exists(self.cache_dir)
     
     def _get_cache_metadata(self) -> Dict[str, Any]:
         """Get cache metadata including last update time."""
+        if self._meta_cache is not None:
+            return self._meta_cache
+
         if not self.meta_file.exists():
-            return {
+            self._meta_cache = {
                 'last_updated': None,
                 'player_count': 0,
                 'cache_version': '1.0'
             }
+            return self._meta_cache
         
         try:
             with open(self.meta_file, 'r') as f:
-                return json.load(f)
+                self._meta_cache = json.load(f)
+            return self._meta_cache
         except (json.JSONDecodeError, FileNotFoundError):
-            return {
+            self._meta_cache = {
                 'last_updated': None,
                 'player_count': 0,
                 'cache_version': '1.0'
             }
+            return self._meta_cache
     
     def _save_cache_metadata(self, metadata: Dict[str, Any]) -> None:
         """Save cache metadata."""

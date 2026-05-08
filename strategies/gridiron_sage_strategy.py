@@ -378,8 +378,6 @@ class _GridironSageMCTS:
             self._simulate(root, features, remaining_budget, remaining_players, player, team)
 
         # Select child with highest visit count (greedy, temperature=0)
-        if not root.children:
-            return 0.0
         best = max(root.children, key=lambda n: n.visit_count)
         return best.bid
 

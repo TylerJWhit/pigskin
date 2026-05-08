@@ -121,7 +121,7 @@ class DraftLoadingService:
             # Resolve data path — prefer config value but fall back to known location
             try:
                 data_path = str(config.data_path)
-                if not data_path or not __import__('os').path.isdir(data_path):
+                if not data_path or not os.path.isdir(data_path):
                     data_path = 'data/sheets'
             except Exception:
                 data_path = 'data/sheets'

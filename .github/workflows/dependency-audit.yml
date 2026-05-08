@@ -8,6 +8,8 @@ on:
     - cron: "0 9 * * 1"
   push:
     paths:
+      - "pyproject.toml"
+      - "uv.lock"
       - "requirements*.txt"
       - "setup.py"
   workflow_dispatch:
@@ -29,16 +31,18 @@ jobs:
 
       - name: Install audit tools
         run: |
-          pip install -r requirements.txt
+          pip install --upgrade pip
+          pip install uv
+          uv sync --frozen
           pip install pip-audit pip-licenses
 
       - name: CVE scan
         id: cve
         run: |
-          pip-audit -r requirements.txt --format json -o cve-report.json || true
+          pip-audit --format json -o cve-report.json || true
           CRITICAL=$(jq '[.dependencies[].vulns[] | select(.fix_versions | length > 0)] | length' cve-report.json 2>/dev/null || echo 0)
           echo "critical_count=$CRITICAL" >> "$GITHUB_OUTPUT"
-          pip-audit -r requirements.txt 2>&1 | tee cve-summary.txt || true
+          pip-audit 2>&1 | tee cve-summary.txt || true
 
       - name: License audit
         id: licenses
