@@ -261,10 +261,7 @@ class FantasyProsLoader:
             usable_budget = max(0, position_budget - reserve_budget)
             
             # Calculate value per point for this position
-            if total_points > 0:
-                value_per_point = usable_budget / total_points
-            else:
-                value_per_point = 0
+            value_per_point = usable_budget / total_points
                 
             # Assign auction values
             for player in position_players:

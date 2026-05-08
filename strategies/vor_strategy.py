@@ -147,10 +147,6 @@ class VorStrategy(Strategy):
         # Apply position priority (how much we need this position)
         base_bid *= position_priority
         
-        # CRITICAL: If position priority is 0, don't bid at all
-        if position_priority == 0.0:
-            return 0.0
-        
         # Add per-player spending cap to prevent overpaying
         player_spending_cap = min(50.0, remaining_budget * 0.30)  # Never spend more than $50 or 30% of budget on one player
         base_bid = min(base_bid, player_spending_cap)

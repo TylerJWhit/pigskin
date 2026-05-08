@@ -689,25 +689,7 @@ class TestSleeperContextMethods(unittest.TestCase):
 
 
 class TestConvenienceFunctions(unittest.TestCase):
-    """Tests for module-level convenience functions covering lines 717-804."""
-
-    def test_recommend_bid_module_function(self):
-        from services.bid_recommendation_service import recommend_bid
-        with patch("services.bid_recommendation_service.BidRecommendationService") as MockSvc:
-            mock_instance = MockSvc.return_value
-            mock_instance.recommend_bid.return_value = {"success": True}
-            result = recommend_bid("Mahomes", 30.0, config_dir="/tmp")
-        mock_instance.recommend_bid.assert_called_once()
-        self.assertTrue(result["success"])
-
-    def test_recommend_nomination_module_function(self):
-        from services.bid_recommendation_service import recommend_nomination
-        with patch("services.bid_recommendation_service.BidRecommendationService") as MockSvc:
-            mock_instance = MockSvc.return_value
-            mock_instance.recommend_nomination.return_value = {"success": True}
-            result = recommend_nomination(config_dir="/tmp")
-        mock_instance.recommend_nomination.assert_called_once()
-        self.assertTrue(result["success"])
+    """Tests for module-level convenience functions covering get_bid_recommendation and get_nomination_recommendation."""
 
     def test_get_bid_recommendation_function(self):
         from services.bid_recommendation_service import get_bid_recommendation

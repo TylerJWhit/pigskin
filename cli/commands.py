@@ -812,10 +812,6 @@ class CommandProcessor:
                         # Create new pool with duplicates to fill teams_per_draft
                         new_pool = self._create_single_pool_with_duplicates(remaining_strategies, teams_per_draft)
                         pools.append(new_pool)
-                else:
-                    # Create new pool with duplicates
-                    new_pool = self._create_single_pool_with_duplicates(remaining_strategies, teams_per_draft)
-                    pools.append(new_pool)
         
         return pools
     
@@ -1059,15 +1055,8 @@ class CommandProcessor:
         
         # Create teams cycling through provided strategies
         for i in range(num_teams):
-            if isinstance(strategies, list) and len(strategies) >= 1:
-                # Use provided strategies in rotation (even if just one strategy repeated)
-                team_strategy = strategies[i % len(strategies)]
-            else:
-                # For single string strategy, use that strategy for all teams with some competition
-                single_strategy = strategies
-                # Use diverse, active strategies that are known to bid for competition
-                active_strategies = ['value', 'aggressive', 'conservative', single_strategy]
-                team_strategy = active_strategies[i % len(active_strategies)]
+            # Use provided strategies in rotation (even if just one strategy repeated)
+            team_strategy = strategies[i % len(strategies)]
                 
             strategy_obj = create_strategy(team_strategy)
             if hasattr(strategy_obj, 'enable_tournament_mode') and 'gridiron_sage' in team_strategy.lower():
