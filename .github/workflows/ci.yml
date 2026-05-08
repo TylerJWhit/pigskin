@@ -17,24 +17,29 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install uv
+        run: pip install uv
 
-      - name: Lint with flake8
+      - name: Install dependencies
         run: |
-          flake8 . --max-line-length=120 \
-            --select=F401,F811,F541,F841,E9,W6 \
-            --exclude=venv,pigskin_auction_draft.egg-info \
-            --count --show-source --statistics
+          uv sync --frozen
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Lint with ruff
+        run: |
+          ruff check . \
+            --select=F401,F811,F541,F841,E9,W605 \
+            --line-length=120 \
+            --exclude=venv,pigskin_auction_draft.egg-info,.agents
 
       - name: Type check with mypy
         run: mypy . --ignore-missing-imports --exclude venv
 
       - name: Security scan with bandit
-        run: bandit -r . -ll --exclude ./venv,./tests,./pigskin_auction_draft.egg-info
+        run: bandit -r . -ll --exclude ./venv,./.venv,./tests,./pigskin_auction_draft.egg-info
 
       - name: Run unit tests with coverage
-        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=85 --cov-report=xml
+        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=90 --cov-report=xml
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4

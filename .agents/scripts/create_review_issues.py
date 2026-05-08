@@ -7,7 +7,6 @@ during the Sprint 5 post-commit full-codebase review.
 Run from project root:
     python .agents/scripts/create_review_issues.py
 """
-import json
 import subprocess
 import sys
 import time

@@ -101,7 +101,7 @@ echo ""
 # ── 3. Security scan ──────────────────────────────────────────────────────────
 echo "[3/4] Security scan (bandit)..."
 "$BANDIT" -r . -ll \
-  --exclude ./venv,./tests,./pigskin_auction_draft.egg-info,./lab
+  --exclude ./venv,./.venv,./tests,./pigskin_auction_draft.egg-info,./lab
 echo "      ✓ security scan passed"
 echo ""
 
