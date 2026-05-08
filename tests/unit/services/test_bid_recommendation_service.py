@@ -259,13 +259,13 @@ class TestBidRecommendationServiceRecommendBid(unittest.TestCase):
         self.assertFalse(result["success"])
 
     def test_exception_in_recommend_bid_returns_error(self):
+        """Exceptions from recommend_bid now propagate (Issue #136 fix — no longer swallowed)."""
+        import pytest
         svc = _make_service()
         svc.config_manager.load_config.side_effect = RuntimeError("db down")
 
-        result = svc.recommend_bid("Mahomes", 10.0)
-
-        self.assertFalse(result["success"])
-        self.assertIn("Error", result["error"])
+        with pytest.raises(RuntimeError, match="db down"):
+            svc.recommend_bid("Mahomes", 10.0)
 
     def test_local_fallback_success_path(self):
         svc = _make_service()
