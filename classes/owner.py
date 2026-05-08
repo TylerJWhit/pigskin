@@ -106,7 +106,7 @@ class Owner:
             position_counts[pos] = position_counts.get(pos, 0) + 1
             roster_spots.append({
                 'position': pos,
-                'player': player,
+                'player': player.model_dump() if hasattr(player, 'model_dump') else vars(player),
                 'is_filled': True
             })
             

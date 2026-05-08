@@ -6,6 +6,7 @@ including draft order, picks, and league information.
 """
 
 import asyncio
+import datetime
 import logging
 from typing import Dict, Any
 
@@ -22,7 +23,7 @@ class SleeperDraftService:
     def __init__(self):
         self.sleeper_api = SleeperAPI()
         
-    async def get_user_drafts(self, username: str, season: str = "2024") -> Dict[str, Any]:
+    async def get_user_drafts(self, username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
         """
         Get all drafts for a user.
         
@@ -33,48 +34,41 @@ class SleeperDraftService:
         Returns:
             Dictionary with success status and draft information
         """
-        try:
-            # Get user info
-            user = await self.sleeper_api.get_user(username)
-            if not user:
-                return {
-                    'success': False,
-                    'error': f"User '{username}' not found"
-                }
-            
-            user_id = user['user_id']
-            
-            # Get user's leagues
-            leagues = await self.sleeper_api.get_user_leagues(user_id, season)
-            if not leagues:
-                return {
-                    'success': False,
-                    'error': f"No leagues found for user '{username}' in {season}"
-                }
-            
-            # Get drafts for each league
-            drafts = []
-            for league in leagues:
-                draft_id = league.get('draft_id')
-                
-                if draft_id:
-                    draft_info = await self.sleeper_api.get_draft(draft_id)
-                    if draft_info:
-                        draft_info['league_name'] = league.get('name', 'Unknown League')
-                        drafts.append(draft_info)
-            
-            return {
-                'success': True,
-                'user': user,
-                'leagues': leagues,
-                'drafts': drafts
-            }
-            
-        except Exception as e:
+        # Get user info
+        user = await self.sleeper_api.get_user(username)
+        if not user:
             return {
                 'success': False,
-                'error': f"Error fetching drafts: {e}"
+                'error': f"User '{username}' not found"
             }
+
+        user_id = user['user_id']
+
+        # Get user's leagues
+        leagues = await self.sleeper_api.get_user_leagues(user_id, season)
+        if not leagues:
+            return {
+                'success': False,
+                'error': f"No leagues found for user '{username}' in {season}"
+            }
+
+        # Get drafts for each league
+        drafts = []
+        for league in leagues:
+            draft_id = league.get('draft_id')
+
+            if draft_id:
+                draft_info = await self.sleeper_api.get_draft(draft_id)
+                if draft_info:
+                    draft_info['league_name'] = league.get('name', 'Unknown League')
+                    drafts.append(draft_info)
+
+        return {
+            'success': True,
+            'user': user,
+            'leagues': leagues,
+            'drafts': drafts
+        }
     
     async def display_draft_info(self, draft_id: str) -> Dict[str, Any]:
         """
@@ -105,7 +99,7 @@ class SleeperDraftService:
             if league_id:
                 # Get league users
                 users = await self.sleeper_api.get_league_users(league_id)
-                users_info = {user['user_id']: user for user in users}
+                users_info = {user['user_id']: user for user in (users or [])}
                 
             # Always get players info from cache (needed for player names)
             players_info = get_sleeper_players()
@@ -147,7 +141,7 @@ class SleeperDraftService:
             
             # Get league users
             users = await self.sleeper_api.get_league_users(league_id)
-            users_info = {user['user_id']: user for user in users}
+            users_info = {user['user_id']: user for user in (users or [])}
             
             # Get players info from cache
             players_info = get_sleeper_players()
@@ -167,7 +161,7 @@ class SleeperDraftService:
                 'error': f"Error displaying league rosters: {e}"
             }
     
-    async def list_user_leagues(self, username: str, season: str = "2024") -> Dict[str, Any]:
+    async def list_user_leagues(self, username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
         """
         List all leagues for a user.
         
@@ -230,7 +224,7 @@ class SleeperDraftService:
                 'error': f"Error listing leagues: {e}"
             }
     
-    async def get_current_draft_status(self, username: str, season: str = "2024") -> Dict[str, Any]:
+    async def get_current_draft_status(self, username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
         """
         Get current draft status for a user's leagues.
         
@@ -317,13 +311,13 @@ def display_sleeper_league(league_id: str) -> Dict[str, Any]:
     return asyncio.run(service.display_league_rosters(league_id))
 
 
-def list_sleeper_leagues(username: str, season: str = "2024") -> Dict[str, Any]:
+def list_sleeper_leagues(username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
     """List Sleeper leagues for a user."""
     service = SleeperDraftService()
     return asyncio.run(service.list_user_leagues(username, season))
 
 
-def get_sleeper_draft_status(username: str, season: str = "2024") -> Dict[str, Any]:
+def get_sleeper_draft_status(username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
     """Get current draft status for a user."""
     service = SleeperDraftService()
     return asyncio.run(service.get_current_draft_status(username, season))
