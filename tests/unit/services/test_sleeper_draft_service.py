@@ -65,15 +65,15 @@ class TestSleeperDraftServiceGetUserDrafts(unittest.TestCase):
         self.assertTrue(result["success"])
         self.assertEqual(result["drafts"], [])
 
-    # --- exception → failure dict ---
+    # --- exception now propagates (#275 fix) ---
     def test_exception_returns_error_dict(self):
+        """get_user_drafts exceptions now propagate (Issue #275 fix)."""
+        import pytest
         svc = self._service()
         svc.sleeper_api.get_user = AsyncMock(side_effect=RuntimeError("API down"))
 
-        result = asyncio.run(svc.get_user_drafts("testuser"))
-
-        self.assertFalse(result["success"])
-        self.assertIn("Error", result["error"])
+        with pytest.raises(RuntimeError, match="API down"):
+            asyncio.run(svc.get_user_drafts("testuser"))
 
 
 class TestSleeperDraftServiceDisplayDraftInfo(unittest.TestCase):
