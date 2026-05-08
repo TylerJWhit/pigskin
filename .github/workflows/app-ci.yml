@@ -47,12 +47,12 @@ jobs:
       - name: Install dev dependencies
         run: uv sync --frozen
 
-      - name: Lint (flake8)
+      - name: Lint (ruff)
         run: |
-          flake8 . --max-line-length=120 \
-            --select=F401,F811,F541,F841,E9,W6 \
-            --exclude=venv,pigskin_auction_draft.egg-info,lab \
-            --count --show-source --statistics
+          ruff check . \
+            --select=F401,F811,F541,F841,E9,W605 \
+            --line-length=120 \
+            --exclude=venv,pigskin_auction_draft.egg-info,lab,.agents
 
       - name: Type check (mypy)
         run: mypy . --ignore-missing-imports --exclude venv --exclude lab

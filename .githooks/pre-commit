@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # pre-commit — fast lint gate on staged Python files
 #
-# Mirrors the Lint Gate workflow (lint.yml): flake8 with logic-error selectors.
+# Mirrors the Lint Gate workflow (lint.yml): ruff with logic-error selectors.
 # Runs only on staged .py files so it stays fast even in large repos.
 #
 # Install: make install-hooks
@@ -18,23 +18,22 @@ fi
 ROOT=$(git rev-parse --show-toplevel)
 
 # Use the project venv if available, otherwise fall back to whatever is on PATH
-if [ -f "$ROOT/venv/bin/flake8" ]; then
-  FLAKE8="$ROOT/venv/bin/flake8"
-elif command -v flake8 >/dev/null 2>&1; then
-  FLAKE8="flake8"
+if [ -f "$ROOT/venv/bin/ruff" ]; then
+  RUFF="$ROOT/venv/bin/ruff"
+elif command -v ruff >/dev/null 2>&1; then
+  RUFF="ruff"
 else
-  echo "[pre-commit] flake8 not found — skipping lint. Run: pip install flake8"
+  echo "[pre-commit] ruff not found — skipping lint. Run: uv sync --frozen"
   exit 0
 fi
 
-echo "[pre-commit] Running flake8 on staged files..."
+echo "[pre-commit] Running ruff on staged files..."
 
 # shellcheck disable=SC2086
-"$FLAKE8" \
-  --max-line-length=120 \
-  --select=F401,F811,F541,F841,E9,W6 \
-  --exclude=venv,pigskin_auction_draft.egg-info \
-  --show-source \
+"$RUFF" check \
+  --select=F401,F811,F541,F841,E9,W605 \
+  --line-length=120 \
+  --exclude=venv,pigskin_auction_draft.egg-info,.agents \
   $STAGED
 
 echo "[pre-commit] Lint passed."

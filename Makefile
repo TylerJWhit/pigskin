@@ -94,10 +94,11 @@ format:
 
 lint:
 	@echo "Running linting..."
-	@if command -v flake8 >/dev/null 2>&1; then \
-		flake8 --max-line-length=120 --exclude=venv,pigskin_auction_draft.egg-info --count --show-source --statistics .; \
+	@if command -v ruff >/dev/null 2>&1; then \
+		ruff check --select=F401,F811,F541,F841,E9,W605 --line-length=120 \
+			--exclude=venv,pigskin_auction_draft.egg-info,.agents .; \
 	else \
-		echo "Flake8 not installed. Run: pip install flake8"; \
+		echo "ruff not installed. Run: uv sync --frozen"; \
 	fi
 
 typecheck:
