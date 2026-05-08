@@ -76,30 +76,24 @@ print_info "Activating virtual environment..."
 source venv/bin/activate
 print_status "Virtual environment activated"
 
-# Upgrade pip
-print_info "Upgrading pip..."
-pip install --upgrade pip > /dev/null 2>&1
-print_status "Pip upgraded"
+# Install uv
+print_info "Installing uv package manager..."
+pip install uv > /dev/null 2>&1
+print_status "uv installed ($(uv --version 2>/dev/null || echo 'version unknown'))"
 
-# Install requirements
+# Install all dependencies via uv
 echo
-print_info "Installing Python dependencies..."
-if [ -f "requirements.txt" ]; then
+print_info "Installing Python dependencies with uv..."
+if [ -f "pyproject.toml" ] && [ -f "uv.lock" ]; then
+    uv sync --frozen
+    print_status "Dependencies installed from uv.lock (reproducible)"
+elif [ -f "pyproject.toml" ]; then
+    uv sync
+    print_status "Dependencies installed from pyproject.toml"
+else
+    print_warning "pyproject.toml not found — falling back to requirements.txt"
     pip install -r requirements.txt
     print_status "Dependencies installed from requirements.txt"
-else
-    print_warning "requirements.txt not found, installing basic dependencies..."
-    pip install requests pandas numpy
-    print_status "Basic dependencies installed"
-fi
-
-# Install development dependencies (optional)
-read -p "Install development dependencies? (y/N): " -n 1 -r
-echo
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Installing development dependencies..."
-    pip install pytest pytest-cov black flake8 mypy
-    print_status "Development dependencies installed"
 fi
 
 # Create necessary directories

@@ -15,7 +15,9 @@ class CheatsheetParser:
         Returns:
             List of player dicts with undervalued auction values.
         """
-        return []
+        raise NotImplementedError(
+            "CheatsheetParser is a stub. Implement a concrete subclass to use this method."
+        )
 
     def find_undervalued_players(self, threshold: float = 10.0) -> List[Dict]:
         """Return detailed undervalued player analysis.
@@ -26,7 +28,9 @@ class CheatsheetParser:
         Returns:
             List of player dicts with detailed valuation breakdown.
         """
-        return []
+        raise NotImplementedError(
+            "CheatsheetParser is a stub. Implement a concrete subclass to use this method."
+        )
 
     def get_all_players(self) -> Dict[str, Dict]:
         """Return all players from the cheatsheet.
@@ -34,7 +38,9 @@ class CheatsheetParser:
         Returns:
             Dict mapping player name to player data.
         """
-        return {}
+        raise NotImplementedError(
+            "CheatsheetParser is a stub. Implement a concrete subclass to use this method."
+        )
 
 
 def get_cheatsheet_parser() -> CheatsheetParser:

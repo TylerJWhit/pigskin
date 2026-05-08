@@ -259,13 +259,13 @@ class TestBidRecommendationServiceRecommendBid(unittest.TestCase):
         self.assertFalse(result["success"])
 
     def test_exception_in_recommend_bid_returns_error(self):
+        """Exceptions from recommend_bid now propagate (Issue #136 fix — no longer swallowed)."""
+        import pytest
         svc = _make_service()
         svc.config_manager.load_config.side_effect = RuntimeError("db down")
 
-        result = svc.recommend_bid("Mahomes", 10.0)
-
-        self.assertFalse(result["success"])
-        self.assertIn("Error", result["error"])
+        with pytest.raises(RuntimeError, match="db down"):
+            svc.recommend_bid("Mahomes", 10.0)
 
     def test_local_fallback_success_path(self):
         svc = _make_service()
@@ -465,10 +465,12 @@ class TestRecommendNomination(unittest.TestCase):
         self.assertEqual(result["player_position"], "QB")
 
     def test_exception_returns_error(self):
+        """recommend_nomination exceptions now propagate (Issue #136 fix)."""
+        import pytest
         svc = _make_service()
         svc.config_manager.load_config.side_effect = RuntimeError("boom")
-        result = svc.recommend_nomination()
-        self.assertFalse(result["success"])
+        with pytest.raises(RuntimeError, match="boom"):
+            svc.recommend_nomination()
 
     def test_no_players_available(self):
         svc = _make_service()
@@ -687,25 +689,7 @@ class TestSleeperContextMethods(unittest.TestCase):
 
 
 class TestConvenienceFunctions(unittest.TestCase):
-    """Tests for module-level convenience functions covering lines 717-804."""
-
-    def test_recommend_bid_module_function(self):
-        from services.bid_recommendation_service import recommend_bid
-        with patch("services.bid_recommendation_service.BidRecommendationService") as MockSvc:
-            mock_instance = MockSvc.return_value
-            mock_instance.recommend_bid.return_value = {"success": True}
-            result = recommend_bid("Mahomes", 30.0, config_dir="/tmp")
-        mock_instance.recommend_bid.assert_called_once()
-        self.assertTrue(result["success"])
-
-    def test_recommend_nomination_module_function(self):
-        from services.bid_recommendation_service import recommend_nomination
-        with patch("services.bid_recommendation_service.BidRecommendationService") as MockSvc:
-            mock_instance = MockSvc.return_value
-            mock_instance.recommend_nomination.return_value = {"success": True}
-            result = recommend_nomination(config_dir="/tmp")
-        mock_instance.recommend_nomination.assert_called_once()
-        self.assertTrue(result["success"])
+    """Tests for module-level convenience functions covering get_bid_recommendation and get_nomination_recommendation."""
 
     def test_get_bid_recommendation_function(self):
         from services.bid_recommendation_service import get_bid_recommendation
@@ -1030,7 +1014,8 @@ class TestSleeperContextPartialMatch(unittest.TestCase):
         assert isinstance(result, dict)
 
     def test_local_context_exception_path(self):
-        """Cover lines 647-648: exception inside _recommend_bid_with_local_context."""
+        """_recommend_bid_with_local_context re-raises exceptions (Issue #136 fix)."""
+        import pytest
         svc = _make_service()
         mock_config = MagicMock()
         mock_config.budget = 200.0
@@ -1041,8 +1026,8 @@ class TestSleeperContextPartialMatch(unittest.TestCase):
 
         # Make draft_service.load_current_draft raise to trigger exception handler
         svc.draft_service.load_current_draft.side_effect = RuntimeError("disk error")
-        result = svc._recommend_bid_with_local_context("Josh Allen", 10.0, strategy, None, mock_config)
-        assert result['success'] is False
+        with pytest.raises(RuntimeError, match="disk error"):
+            svc._recommend_bid_with_local_context("Josh Allen", 10.0, strategy, None, mock_config)
 
 
 if __name__ == "__main__":

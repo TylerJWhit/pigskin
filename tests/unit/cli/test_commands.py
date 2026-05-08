@@ -1,5 +1,6 @@
 """Unit tests for CLI commands — cheatsheet_parser integration."""
 
+import pytest
 from unittest.mock import MagicMock, AsyncMock, patch, mock_open
 
 
@@ -13,18 +14,18 @@ class TestAnalyzeUndervaluedPlayersCommands:
         assert parser is not None
 
     def test_cheatsheet_parser_find_undervalued_simple(self):
-        """CheatsheetParser.find_undervalued_players_simple returns a list."""
+        """CheatsheetParser.find_undervalued_players_simple raises NotImplementedError (stub)."""
         from utils.cheatsheet_parser import get_cheatsheet_parser
         parser = get_cheatsheet_parser()
-        result = parser.find_undervalued_players_simple(threshold=10.0)
-        assert isinstance(result, list)
+        with pytest.raises(NotImplementedError):
+            parser.find_undervalued_players_simple(threshold=10.0)
 
     def test_cheatsheet_parser_find_undervalued_detailed(self):
-        """CheatsheetParser.find_undervalued_players returns a list."""
+        """CheatsheetParser.find_undervalued_players raises NotImplementedError (stub)."""
         from utils.cheatsheet_parser import get_cheatsheet_parser
         parser = get_cheatsheet_parser()
-        result = parser.find_undervalued_players(threshold=10.0)
-        assert isinstance(result, list)
+        with pytest.raises(NotImplementedError):
+            parser.find_undervalued_players(threshold=10.0)
 
     def test_get_cheatsheet_parser_mock(self):
         """utils.cheatsheet_parser.get_cheatsheet_parser can be mocked."""
@@ -40,12 +41,15 @@ class TestAnalyzeUndervaluedPlayersCommands:
             assert results[0]["name"] == "Josh Allen"
 
     def test_cheatsheet_parser_default_threshold(self):
-        """CheatsheetParser methods work with default threshold."""
+        """CheatsheetParser stub methods raise NotImplementedError."""
         from utils.cheatsheet_parser import CheatsheetParser
         parser = CheatsheetParser()
-        assert parser.find_undervalued_players_simple() == []
-        assert parser.find_undervalued_players() == []
-        assert parser.get_all_players() == {}
+        with pytest.raises(NotImplementedError):
+            parser.find_undervalued_players_simple()
+        with pytest.raises(NotImplementedError):
+            parser.find_undervalued_players()
+        with pytest.raises(NotImplementedError):
+            parser.get_all_players()
 
 
 # ---------------------------------------------------------------------------

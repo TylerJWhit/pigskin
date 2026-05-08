@@ -1,7 +1,10 @@
 """Bid recommendation service for the auction draft tool."""
 
 import asyncio
+import logging
 from typing import Optional, Dict, Any, List
+
+logger = logging.getLogger(__name__)
 
 from classes import Player, Team, Owner, Strategy, create_strategy, Draft
 from config.config_manager import ConfigManager
@@ -55,37 +58,33 @@ class BidRecommendationService:
         Returns:
             Dictionary with bid recommendation and reasoning
         """
-        try:
-            config = self.config_manager.load_config()
-            strategy_type = strategy_override or config.strategy_type
-            
-            # Get or create strategy
-            strategy = self._get_strategy(strategy_type)
-            
-            # Try to get Sleeper draft context first
-            sleeper_context = None
-            if self.sleeper_available and sleeper_draft_id:
-                sleeper_context = asyncio.run(self._get_sleeper_draft_context(sleeper_draft_id, player_name))
-            
-            # If no sleeper_draft_id provided, try to get from config
-            if self.sleeper_available and not sleeper_context and not sleeper_draft_id:
-                default_draft_id = getattr(config, 'sleeper_draft_id', None)
-                if default_draft_id:
-                    sleeper_context = asyncio.run(self._get_sleeper_draft_context(default_draft_id, player_name))
-            
-            # Use Sleeper context if available, otherwise fallback to local draft
-            if sleeper_context and sleeper_context.get('success'):
-                return self._recommend_bid_with_sleeper_context(
-                    player_name, current_bid, strategy, sleeper_context, team_context
-                )
-            else:
-                # Fallback to existing FantasyPros functionality
-                return self._recommend_bid_with_local_context(
-                    player_name, current_bid, strategy, team_context, config
-                )
-                
-        except Exception as e:
-            return self._error_response(f"Error generating bid recommendation: {e}")
+        config = self.config_manager.load_config()
+        strategy_type = strategy_override or config.strategy_type
+        
+        # Get or create strategy
+        strategy = self._get_strategy(strategy_type)
+        
+        # Try to get Sleeper draft context first
+        sleeper_context = None
+        if self.sleeper_available and sleeper_draft_id:
+            sleeper_context = asyncio.run(self._get_sleeper_draft_context(sleeper_draft_id, player_name))
+        
+        # If no sleeper_draft_id provided, try to get from config
+        if self.sleeper_available and not sleeper_context and not sleeper_draft_id:
+            default_draft_id = getattr(config, 'sleeper_draft_id', None)
+            if default_draft_id:
+                sleeper_context = asyncio.run(self._get_sleeper_draft_context(default_draft_id, player_name))
+        
+        # Use Sleeper context if available, otherwise fallback to local draft
+        if sleeper_context and sleeper_context.get('success'):
+            return self._recommend_bid_with_sleeper_context(
+                player_name, current_bid, strategy, sleeper_context, team_context
+            )
+        else:
+            # Fallback to existing FantasyPros functionality
+            return self._recommend_bid_with_local_context(
+                player_name, current_bid, strategy, team_context, config
+            )
     
     def recommend_nomination(
         self,
@@ -102,84 +101,80 @@ class BidRecommendationService:
         Returns:
             Dictionary with nomination recommendation
         """
-        try:
-            config = self.config_manager.load_config()
-            strategy_type = strategy_override or config.strategy_type
-            
-            # Get strategy
-            strategy = self._get_strategy(strategy_type)
-            
-            # Load current draft
-            draft = self.draft_service.load_current_draft()
-            if not draft:
-                return self._error_response("Could not load draft")
-            
-            # Get team context
-            team = self._get_team_context(draft, None, config)
-            owner = self._get_owner_context(draft, team)
-            
-            # Get available players
-            available_players = [p for p in draft.available_players if not p.is_drafted]
-            if position_filter:
-                available_players = [p for p in available_players if p.position in position_filter]
-            
-            # Find best nomination candidates
-            candidates = []
-            for player in available_players:
-                should_nominate = strategy.should_nominate(player, team, owner, team.budget)
-                if should_nominate:
-                    # Calculate potential bid to gauge interest
-                    potential_bid = strategy.calculate_bid(
-                        player, team, owner, 1.0, team.budget, available_players
-                    )
-                    candidates.append({
-                        'player': player,
-                        'potential_bid': potential_bid,
-                        'value_score': player.auction_value - potential_bid
-                    })
-            
-            if not candidates:
-                # Fall back to highest value players
-                candidates = [
-                    {
-                        'player': player,
-                        'potential_bid': 1.0,
-                        'value_score': player.auction_value
-                    }
-                    for player in sorted(available_players, key=lambda p: p.auction_value, reverse=True)[:10]
-                ]
-            
-            # Sort by value score (higher is better)
-            candidates.sort(key=lambda c: c['value_score'], reverse=True)
-            
-            if candidates:
-                best_candidate = candidates[0]
-                player = best_candidate['player']
-                
-                return {
-                    'success': True,
-                    'recommended_player': player.name,
-                    'player_position': player.position,
-                    'player_team': player.team,
-                    'projected_points': player.projected_points,
-                    'auction_value': player.auction_value,
-                    'suggested_opening_bid': 1.0,
-                    'strategy_used': strategy.name,
-                    'reasoning': self._generate_nomination_reasoning(player, strategy, team),
-                    'alternatives': [
-                        {
-                            'name': c['player'].name,
-                            'position': c['player'].position,
-                            'auction_value': c['player'].auction_value
-                        }
-                        for c in candidates[1:6]  # Top 5 alternatives
-                    ]
+        config = self.config_manager.load_config()
+        strategy_type = strategy_override or config.strategy_type
+        
+        # Get strategy
+        strategy = self._get_strategy(strategy_type)
+
+        # Load current draft
+        draft = self.draft_service.load_current_draft()
+        if not draft:
+            return self._error_response("Could not load draft")
+
+        # Get team context
+        team = self._get_team_context(draft, None, config)
+        owner = self._get_owner_context(draft, team)
+
+        # Get available players
+        available_players = [p for p in draft.available_players if not p.is_drafted]
+        if position_filter:
+            available_players = [p for p in available_players if p.position in position_filter]
+
+        # Find best nomination candidates
+        candidates = []
+        for player in available_players:
+            should_nominate = strategy.should_nominate(player, team, owner, team.budget)
+            if should_nominate:
+                # Calculate potential bid to gauge interest
+                potential_bid = strategy.calculate_bid(
+                    player, team, owner, 1.0, team.budget, available_players
+                )
+                candidates.append({
+                    'player': player,
+                    'potential_bid': potential_bid,
+                    'value_score': player.auction_value - potential_bid
+                })
+
+        if not candidates:
+            # Fall back to highest value players
+            candidates = [
+                {
+                    'player': player,
+                    'potential_bid': 1.0,
+                    'value_score': player.auction_value
                 }
-            else:
-                return self._error_response("No suitable players found for nomination")
-                
-        except Exception as e:
-            return self._error_response(f"Error generating nomination recommendation: {e}")
+                for player in sorted(available_players, key=lambda p: p.auction_value, reverse=True)[:10]
+            ]
+
+        # Sort by value score (higher is better)
+        candidates.sort(key=lambda c: c['value_score'], reverse=True)
+
+        if candidates:
+            best_candidate = candidates[0]
+            player = best_candidate['player']
+
+            return {
+                'success': True,
+                'recommended_player': player.name,
+                'player_position': player.position,
+                'player_team': player.team,
+                'projected_points': player.projected_points,
+                'auction_value': player.auction_value,
+                'suggested_opening_bid': 1.0,
+                'strategy_used': strategy.name,
+                'reasoning': self._generate_nomination_reasoning(player, strategy, team),
+                'alternatives': [
+                    {
+                        'name': c['player'].name,
+                        'position': c['player'].position,
+                        'auction_value': c['player'].auction_value
+                    }
+                    for c in candidates[1:6]  # Top 5 alternatives
+                ]
+            }
+        else:
+            return self._error_response("No suitable players found for nomination")
     
     def analyze_team_value(self, team_context: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """
@@ -642,8 +637,9 @@ class BidRecommendationService:
                 'data_source': 'fantasypros'
             }
             
-        except Exception as e:
-            return self._error_response(f"Error with local context: {e}")
+        except Exception:
+            logger.exception("Error with local context for recommend_bid")
+            raise
     
     def _convert_sleeper_player_to_auction_format(self, sleeper_player: Dict) -> 'Player':
         """Convert Sleeper player data to auction tool Player format."""
@@ -708,52 +704,6 @@ class BidRecommendationService:
             team.roster.append(player)
         
         return team
-
-
-# Convenience functions
-
-def recommend_bid(
-    player_name: str,
-    current_bid: float,
-    config_dir: str = "config",
-    strategy_override: Optional[str] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function to recommend a bid.
-    
-    Args:
-        player_name: Name of the player
-        current_bid: Current highest bid
-        config_dir: Configuration directory
-        strategy_override: Override strategy
-        
-    Returns:
-        Bid recommendation dictionary
-    """
-    config_manager = ConfigManager(config_dir)
-    service = BidRecommendationService(config_manager)
-    return service.recommend_bid(player_name, current_bid, strategy_override=strategy_override)
-
-
-def recommend_nomination(
-    config_dir: str = "config",
-    strategy_override: Optional[str] = None,
-    position_filter: Optional[List[str]] = None
-) -> Dict[str, Any]:
-    """
-    Convenience function to recommend a nomination.
-    
-    Args:
-        config_dir: Configuration directory
-        strategy_override: Override strategy
-        position_filter: Filter by positions
-        
-    Returns:
-        Nomination recommendation dictionary
-    """
-    config_manager = ConfigManager(config_dir)
-    service = BidRecommendationService(config_manager)
-    return service.recommend_nomination(strategy_override, position_filter)
 
 
 # Convenience functions for easy access
