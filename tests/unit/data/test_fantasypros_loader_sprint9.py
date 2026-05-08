@@ -1,12 +1,17 @@
-"""Sprint 9 QA tests — Issue #167: calculate_auction_values hardcodes total_budget=2400.0.
+"""Sprint 9 QA tests — Issue #167 and #166.
+
+Issue #167: calculate_auction_values hardcodes total_budget=2400.0.
+Issue #166: CSV files re-read from disk on every load_position_data call — no caching.
 
 Expected outcome:
-  - FAILS before fix  (FantasyProsLoader has no budget param; load_all_players always uses 2400.0)
-  - PASSES after fix  (loader accepts/stores total_budget; load_all_players uses it)
+  - FAILS before fix  (FantasyProsLoader has no budget param; no cache; no clear_cache)
+  - PASSES after fix  (loader accepts/stores total_budget; caches per-position; clear_cache works)
 """
 
 import csv
 import io
+import os
+from unittest.mock import patch
 from data.fantasypros_loader import FantasyProsLoader
 from classes.player import Player
 
@@ -119,3 +124,114 @@ class TestCalculateAuctionValuesHardcodedBudget:
             "load_all_players() with total_budget=1000.0 must produce lower auction "
             "values than the default 2400.0 (Issue #167)"
         )
+
+
+# ---------------------------------------------------------------------------
+# Issue #166 — per-position in-memory cache
+# ---------------------------------------------------------------------------
+
+class TestLoadPositionDataCaching:
+    """Acceptance criteria for #166: each position CSV read at most once per instance."""
+
+    _CSV_CONTENT = (
+        "Player,Team,Bye,Projected,Auction Value\n"
+        "Patrick Mahomes,KC,6,380,52\n"
+        "Josh Allen,BUF,12,370,50\n"
+    )
+
+    def _make_loader(self, tmp_path):
+        return FantasyProsLoader(data_path=str(tmp_path))
+
+    def _write_csv(self, tmp_path, filename="QB.csv", content=None):
+        path = tmp_path / filename
+        path.write_text(content or self._CSV_CONTENT)
+
+    def test_load_position_data_reads_file_only_once(self, tmp_path):
+        """Three consecutive calls for the same position open the file exactly once."""
+        self._write_csv(tmp_path)
+        loader = self._make_loader(tmp_path)
+
+        with patch("builtins.open", wraps=open) as mock_file:
+            loader.load_position_data("QB")
+            loader.load_position_data("QB")
+            loader.load_position_data("QB")
+
+        qb_path = os.path.join(str(tmp_path.resolve()), "QB.csv")
+        open_calls = [str(c.args[0]) for c in mock_file.call_args_list]
+        assert open_calls.count(qb_path) == 1, (
+            f"QB.csv opened {open_calls.count(qb_path)} times; expected 1 (Issue #166)"
+        )
+
+    def test_load_position_data_returns_same_object_on_cache_hit(self, tmp_path):
+        """The cached call must return the identical list (not a new copy)."""
+        self._write_csv(tmp_path)
+        loader = self._make_loader(tmp_path)
+
+        first = loader.load_position_data("QB")
+        second = loader.load_position_data("QB")
+        assert first is second, "Cached result must be the same list object (Issue #166)"
+
+    def test_clear_cache_method_exists(self, tmp_path):
+        """FantasyProsLoader must expose a clear_cache() method."""
+        loader = self._make_loader(tmp_path)
+        assert hasattr(loader, "clear_cache") and callable(loader.clear_cache), (
+            "FantasyProsLoader.clear_cache() must exist (Issue #166)"
+        )
+
+    def test_clear_cache_forces_re_read(self, tmp_path):
+        """After clear_cache(), the next call must re-read from disk."""
+        self._write_csv(tmp_path)
+        loader = self._make_loader(tmp_path)
+
+        first = loader.load_position_data("QB")
+        loader.clear_cache()
+
+        with patch("builtins.open", wraps=open) as mock_file:
+            second = loader.load_position_data("QB")
+
+        qb_path = os.path.join(str(tmp_path.resolve()), "QB.csv")
+        open_calls = [str(c.args[0]) for c in mock_file.call_args_list]
+        assert open_calls.count(qb_path) == 1, (
+            "clear_cache() must cause the next call to re-read the file (Issue #166)"
+        )
+        assert first is not second, (
+            "clear_cache() must return a fresh list on the next call (Issue #166)"
+        )
+
+    def test_different_positions_cached_independently(self, tmp_path):
+        """Each position CSV is read at most once independently."""
+        self._write_csv(tmp_path, "QB.csv")
+        self._write_csv(tmp_path, "RB.csv",
+                        "Player,Team,Bye,Projected,Auction Value\nC. McCaffrey,SF,9,320,48\n")
+        loader = self._make_loader(tmp_path)
+
+        with patch("builtins.open", wraps=open) as mock_file:
+            loader.load_position_data("QB")
+            loader.load_position_data("RB")
+            loader.load_position_data("QB")   # cache hit
+            loader.load_position_data("RB")   # cache hit
+
+        qb_path = os.path.join(str(tmp_path.resolve()), "QB.csv")
+        rb_path = os.path.join(str(tmp_path.resolve()), "RB.csv")
+        open_calls = [str(c.args[0]) for c in mock_file.call_args_list]
+        assert open_calls.count(qb_path) == 1
+        assert open_calls.count(rb_path) == 1
+
+    def test_load_all_players_warms_cache(self, tmp_path):
+        """After load_all_players(), load_position_data hits the cache."""
+        for pos, fname in [("QB", "QB.csv"), ("RB", "RB.csv"), ("WR", "WR.csv"),
+                           ("TE", "TE.csv"), ("K", "K.csv"), ("DST", "DST.csv")]:
+            (tmp_path / fname).write_text(
+                f"Player,Team,Bye,Projected,Auction Value\nPlayer {pos},NYG,6,100,10\n"
+            )
+        loader = self._make_loader(tmp_path)
+        loader.load_all_players()
+
+        with patch("builtins.open", wraps=open) as mock_file:
+            loader.load_position_data("QB")
+            loader.load_position_data("RB")
+
+        assert len(mock_file.call_args_list) == 0, (
+            "load_position_data must hit the cache populated by load_all_players (Issue #166)"
+        )
+
