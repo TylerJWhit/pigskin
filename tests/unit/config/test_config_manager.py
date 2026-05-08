@@ -86,7 +86,7 @@ class TestConfigManagerLoad:
         assert cfg.budget == 200
 
     def test_get_settings_raises_is_swallowed(self, tmp_config_dir):
-        """Cover lines 110-111: exception in get_settings is caught and ignored."""
+        """get_settings exceptions now propagate (Issue #164 fix — no longer swallowed)."""
         import json
         import os
         from unittest.mock import patch
@@ -96,9 +96,8 @@ class TestConfigManagerLoad:
             json.dump({"budget": 150}, f)
         mgr = ConfigManager(config_dir=tmp_config_dir)
         with patch('config.settings.get_settings', side_effect=Exception("env error")):
-            cfg = mgr.load_config()
-        # Should still return valid config
-        assert cfg is not None
+            with pytest.raises(Exception, match="env error"):
+                mgr.load_config()
 
 
 class TestConfigManagerSave:
