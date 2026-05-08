@@ -1,7 +1,7 @@
 """Tournament service for testing auction draft strategies."""
 
 import logging
-import os
+from pathlib import Path
 from typing import Optional, Dict, Any, List, Tuple
 import json
 from datetime import datetime
@@ -278,6 +278,14 @@ class TournamentService:
         
         # Tournament doesn't have a built-in stop method, so we just mark it
         self.current_tournament.is_running = False
+
+        # Cancel pending futures and shut down the executor (Issue #137)
+        for f in getattr(self, '_pending_futures', []):
+            if not f.done():
+                f.cancel()
+        executor = getattr(self, '_executor', None)
+        if executor is not None:
+            executor.shutdown(wait=False)
         
         return {
             'success': True,
@@ -442,13 +450,14 @@ class TournamentService:
     
     def _save_tournament_results(self, results: Dict[str, Any]) -> None:
         """Save tournament results to file."""
+        results_dir = Path(__file__).resolve().parent.parent / "results"
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"tournament_results_{timestamp}.json"
+        filepath = (results_dir / filename).resolve()
+        if not filepath.is_relative_to(results_dir.resolve()):
+            raise ValueError("Invalid results path")
         try:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"tournament_results_{timestamp}.json"
-            filepath = os.path.join("results", filename)
-            
-            # Ensure results directory exists
-            os.makedirs("results", exist_ok=True)
+            results_dir.mkdir(parents=True, exist_ok=True)
             
             # Save results
             with open(filepath, 'w', encoding='utf-8') as f:

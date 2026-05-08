@@ -301,8 +301,8 @@ class Auction:
         tied_winners = [tid for tid, bid in sorted_bids if bid == top_bid]
         winner_id = random.choice(tied_winners)
         if len(tied_winners) > 1:
-            # Tie at the top: winner pays top_bid + 1 (can't use second-price)
-            return winner_id, top_bid + 1.0
+            # Tie at the top: winner pays the tied top_bid (second-price not applicable)
+            return winner_id, top_bid
         return winner_id, second_bid + 1.0
 
     def _award_player_to_team(

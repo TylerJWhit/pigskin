@@ -227,7 +227,9 @@ class Tournament:
                 owner_id = team.owner_id
                 
                 # Extract strategy type from owner name
-                strategy_type = owner_id.split('_')[0]
+                # Format: {owner_name}_{simulation_id}_{team_index} — strip last two numeric parts
+                parts = owner_id.rsplit('_', 2)
+                strategy_type = parts[0] if len(parts) == 3 else owner_id.split('_')[0]
                 
                 if strategy_type not in strategy_stats:
                     strategy_stats[strategy_type] = {

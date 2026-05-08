@@ -57,10 +57,9 @@ class TestCompleteAuctionFlow(BaseTestCase):
             bid_service = BidRecommendationService()
             
             if len(draft.teams) > 0 and len(draft.available_players) > 0:
-                team = draft.teams[0]
                 player = draft.available_players[0]
                 
-                bid_result = bid_service.recommend_bid(auction, player, team)
+                bid_result = bid_service.recommend_bid(player.name, 1.0)
                 
                 # Should get some kind of recommendation
                 self.assertIn('success', bid_result)

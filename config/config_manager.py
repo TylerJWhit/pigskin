@@ -92,23 +92,20 @@ class ConfigManager:
             config_data = self._migrate_config(data)
             self._config = DraftConfig.from_dict(config_data)
             
-        except (json.JSONDecodeError, FileNotFoundError, KeyError) as e:
+        except (json.JSONDecodeError, FileNotFoundError, KeyError, PermissionError, OSError) as e:
             logger.error("Error loading config: %s", e)
             logger.info("Using default configuration")
             self._config = DraftConfig()
 
         # Layer environment / .env settings on top of any json values
-        try:
-            from config.settings import get_settings
-            s = get_settings()
-            if s.sleeper_user_id:
-                self._config.sleeper_user_id = s.sleeper_user_id
-            if s.sleeper_username:
-                self._config.sleeper_username = s.sleeper_username
-            if s.strategy_type and s.strategy_type != 'value':
-                self._config.strategy_type = s.strategy_type
-        except Exception:
-            pass  # settings layer is best-effort; json fallback still works
+        from config.settings import get_settings
+        s = get_settings()
+        if s.sleeper_user_id:
+            self._config.sleeper_user_id = s.sleeper_user_id
+        if s.sleeper_username:
+            self._config.sleeper_username = s.sleeper_username
+        if s.strategy_type and s.strategy_type != 'value':
+            self._config.strategy_type = s.strategy_type
 
         return self._config
     
