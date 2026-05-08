@@ -40,6 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     # Allow 90 min: 500-sim batch + gate evaluation (larger than lab-ci single-run cap)
     timeout-minutes: 90
+    permissions:
+      contents: read
     outputs:
       gate_result: ${{ steps.gate.outputs.gate_result }}
 
@@ -132,6 +134,9 @@ jobs:
     # Only proceeds if gate PASSED and this is not a dry run.
     # NEVER auto-merges — human review is always required (ADR-003 §4).
     if: needs.promotion-gate.outputs.gate_result == 'PASS' && !inputs.dry_run
+    permissions:
+      contents: write
+      pull-requests: write
 
     steps:
       - uses: actions/checkout@v4

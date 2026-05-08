@@ -19,6 +19,8 @@ jobs:
   lint:
     name: ruff logic-error gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -42,6 +44,8 @@ jobs:
   dead-code:
     name: vulture dead-code gate
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
