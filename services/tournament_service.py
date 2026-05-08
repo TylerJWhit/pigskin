@@ -278,6 +278,14 @@ class TournamentService:
         
         # Tournament doesn't have a built-in stop method, so we just mark it
         self.current_tournament.is_running = False
+
+        # Cancel pending futures and shut down the executor (Issue #137)
+        for f in getattr(self, '_pending_futures', []):
+            if not f.done():
+                f.cancel()
+        executor = getattr(self, '_executor', None)
+        if executor is not None:
+            executor.shutdown(wait=False)
         
         return {
             'success': True,

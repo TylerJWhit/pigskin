@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     )
 
 
+from functools import lru_cache
+
+
+@lru_cache(maxsize=1)
 def get_settings() -> Settings:
     """Return a Settings instance, reading from .env file and environment variables."""
     return Settings()

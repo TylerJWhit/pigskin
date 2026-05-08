@@ -96,6 +96,7 @@ class Player(BaseModel):
             'projected_points': self.projected_points,
             'auction_value': self.auction_value,
             'bye_week': self.bye_week,
+            'vor': self.vor,
             'is_drafted': self.is_drafted,
             'drafted_price': self.drafted_price,
             'drafted_by': self.drafted_by

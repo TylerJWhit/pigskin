@@ -102,6 +102,7 @@ class Team:
                 self.budget += int(player.drafted_price)  # Ensure integer operation
             player.is_drafted = False
             player.drafted_price = None
+            player.draft_price = None
             player.drafted_by = None
             return True
         return False
