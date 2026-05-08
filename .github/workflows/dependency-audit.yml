@@ -31,6 +31,7 @@ jobs:
 
       - name: Install audit tools
         run: |
+          pip install --upgrade pip
           pip install uv
           uv sync --frozen
           pip install pip-audit pip-licenses
