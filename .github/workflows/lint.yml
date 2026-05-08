@@ -13,6 +13,7 @@ on:
     branches:
       - main
       - develop
+      - "sprint/**"
 
 jobs:
   lint:
@@ -39,3 +40,24 @@ jobs:
             --count \
             --show-source \
             --statistics
+
+  dead-code:
+    name: vulture dead-code gate
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install vulture
+        run: pip install vulture>=2.11
+
+      - name: Run vulture
+        run: |
+          python -m vulture . \
+            --min-confidence 80 \
+            --exclude venv,tests,lab,pigskin_auction_draft.egg-info

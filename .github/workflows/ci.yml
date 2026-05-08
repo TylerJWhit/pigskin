@@ -34,7 +34,7 @@ jobs:
         run: bandit -r . -ll --exclude ./venv,./tests,./pigskin_auction_draft.egg-info
 
       - name: Run unit tests with coverage
-        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=85 --cov-report=xml
+        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=90 --cov-report=xml
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
