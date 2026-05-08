@@ -465,10 +465,12 @@ class TestRecommendNomination(unittest.TestCase):
         self.assertEqual(result["player_position"], "QB")
 
     def test_exception_returns_error(self):
+        """recommend_nomination exceptions now propagate (Issue #136 fix)."""
+        import pytest
         svc = _make_service()
         svc.config_manager.load_config.side_effect = RuntimeError("boom")
-        result = svc.recommend_nomination()
-        self.assertFalse(result["success"])
+        with pytest.raises(RuntimeError, match="boom"):
+            svc.recommend_nomination()
 
     def test_no_players_available(self):
         svc = _make_service()
