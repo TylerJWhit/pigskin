@@ -60,13 +60,16 @@ jobs:
           print(f'SQLite {sqlite3.sqlite_version} OK')
           "
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Install dependencies
         run: |
-          pip install -r requirements-dev.txt
+          uv sync --frozen
           # Install lab package in editable mode once lab/ exists (post ADR-001 Sprint 5 migration)
           if [ -f "lab/pyproject.toml" ]; then
-            pip install -e . --no-deps
-            pip install -e lab/
+            uv pip install -e . --no-deps
+            uv pip install -e lab/
           else
             echo "lab/ not yet migrated (ADR-001, Sprint 5) — skipping lab install"
           fi
@@ -116,12 +119,15 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Install dependencies
         run: |
-          pip install -r requirements-dev.txt
+          uv sync --frozen
           if [ -f "lab/pyproject.toml" ]; then
-            pip install -e . --no-deps
-            pip install -e lab/
+            uv pip install -e . --no-deps
+            uv pip install -e lab/
           else
             echo "lab/ not yet migrated — skipping lab install"
           fi

@@ -41,8 +41,11 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Install uv
+        run: pip install uv
+
       - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
+        run: uv sync --frozen
 
       - name: Lint (flake8)
         run: |
@@ -72,13 +75,16 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install dev dependencies
-        run: pip install -r requirements-dev.txt
+      - name: Install uv
+        run: pip install uv
 
-      - name: Unit tests + coverage gate (≥ 85%)
+      - name: Install dev dependencies
+        run: uv sync --frozen
+
+      - name: Unit tests + coverage gate (≥ 90%)
         run: |
           pytest tests/ -x -q --timeout=60 \
-            --cov=. --cov-fail-under=85 \
+            --cov=. --cov-fail-under=90 \
             --cov-report=xml
 
       - name: Upload coverage report

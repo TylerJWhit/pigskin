@@ -1,3 +1,5 @@
+# GENERATED — do not edit directly. Source of truth is pyproject.toml.
+# Regenerate with: uv export --group dev -o requirements-dev.txt
 # Development dependencies for Pigskin Auction Draft Tool
 -r requirements-core.txt
 

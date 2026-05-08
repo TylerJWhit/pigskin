@@ -1,3 +1,5 @@
+# GENERATED — do not edit directly. Source of truth is pyproject.toml.
+# Regenerate with: uv export --no-dev -o requirements.txt
 # Core dependencies for Pigskin Auction Draft Tool
 requests>=2.31.0
 pandas>=2.0.0
