@@ -267,15 +267,16 @@ class TestServiceIntegration(BaseTestCase):
         draft_result = draft_service.load_draft_from_config()
         
         if draft_result['success']:
-            # Use loaded draft for bid recommendation
-            auction = draft_result['auction']
-            draft = draft_result['draft']
-            team = draft.teams[0] if draft.teams else self.create_mock_team()
             player = test_players[0] if test_players else self.create_mock_player()
             
             # Get bid recommendation
             bid_service = BidRecommendationService()
-            bid_result = bid_service.recommend_bid(auction, player, team)
+            bid_service.draft_service = Mock()
+            bid_service.draft_service.load_current_draft.return_value = None
+            bid_service.sleeper_available = False
+            bid_result = bid_service.recommend_bid(
+                player.name if hasattr(player, 'name') else "TestPlayer", 10.0
+            )
             
             self.assertIn('success', bid_result)
             
