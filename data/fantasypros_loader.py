@@ -31,7 +31,7 @@ class FantasyProsLoader:
             raise ValueError("Invalid data path: access outside allowed directory")
         # Block exact sensitive system directories (not their subdirectories, to allow test tmp dirs)
         _sensitive_exact = [Path('/etc'), Path('/proc'), Path('/sys'), Path('/root'),
-                            Path('/boot'), Path('/dev'), Path('/tmp')]
+                            Path('/boot'), Path('/dev'), Path('/tmp')]  # nosec B108
         if _resolved in _sensitive_exact:
             raise ValueError("Invalid data path: access outside allowed directory")
         # Block paths under sensitive directories (except /tmp which is used in tests)
