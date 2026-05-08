@@ -1032,7 +1032,8 @@ class TestSleeperContextPartialMatch(unittest.TestCase):
         assert isinstance(result, dict)
 
     def test_local_context_exception_path(self):
-        """Cover lines 647-648: exception inside _recommend_bid_with_local_context."""
+        """_recommend_bid_with_local_context re-raises exceptions (Issue #136 fix)."""
+        import pytest
         svc = _make_service()
         mock_config = MagicMock()
         mock_config.budget = 200.0
@@ -1043,8 +1044,8 @@ class TestSleeperContextPartialMatch(unittest.TestCase):
 
         # Make draft_service.load_current_draft raise to trigger exception handler
         svc.draft_service.load_current_draft.side_effect = RuntimeError("disk error")
-        result = svc._recommend_bid_with_local_context("Josh Allen", 10.0, strategy, None, mock_config)
-        assert result['success'] is False
+        with pytest.raises(RuntimeError, match="disk error"):
+            svc._recommend_bid_with_local_context("Josh Allen", 10.0, strategy, None, mock_config)
 
 
 if __name__ == "__main__":
