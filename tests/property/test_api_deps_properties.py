@@ -21,12 +21,17 @@ from config.settings import Settings
 # Helpers
 # ---------------------------------------------------------------------------
 
-# secrets.compare_digest requires ASCII-only strings; restrict to printable ASCII.
+# Now that api/deps.py encodes to UTF-8 before compare_digest, we can test
+# arbitrary unicode including non-ASCII inputs.  API keys should be printable
+# ASCII in practice, but the code must not crash on anything else.
 _ASCII_TEXT = st.text(
     alphabet=st.characters(min_codepoint=0x21, max_codepoint=0x7E),  # printable ASCII (no space)
     min_size=1,
     max_size=64,
 )
+
+# Any non-empty text (including unicode) must never crash — worst case 403.
+_ANY_TEXT = st.text(min_size=1, max_size=64)
 
 
 def _settings(api_key: str) -> Settings:
@@ -102,3 +107,26 @@ def test_wrong_key_never_raises_401(api_key, configured_key):
         assert exc.status_code != 401, (
             f"Expected 403 for wrong key, got 401. api_key={api_key!r}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Non-ASCII robustness invariants (regression for #350)
+# ---------------------------------------------------------------------------
+
+@given(
+    api_key=_ANY_TEXT,
+    configured_key=_ASCII_TEXT,
+)
+@settings(max_examples=50)
+def test_non_ascii_key_never_crashes(api_key, configured_key):
+    """Any non-empty api_key (including unicode) must never raise a 500-level error.
+
+    It must either pass silently (matching key) or raise HTTP 401/403.
+    A TypeError / UnicodeEncodeError must never propagate — regression for #350.
+    """
+    try:
+        _call(api_key=api_key, configured_key=configured_key)
+        # If it didn't raise, key must exactly match
+        assert api_key == configured_key
+    except HTTPException as exc:
+        assert exc.status_code in (401, 403)

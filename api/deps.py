@@ -27,7 +27,17 @@ def require_api_key(
             headers={"WWW-Authenticate": "ApiKey"},
         )
     configured_key = settings.api_key
-    if not configured_key or not secrets.compare_digest(api_key, configured_key):
+    try:
+        keys_match = bool(
+            configured_key
+            and secrets.compare_digest(
+                api_key.encode("utf-8"), configured_key.encode("utf-8")
+            )
+        )
+    except (UnicodeEncodeError, TypeError):
+        # Non-encodable or incompatible types — treat as invalid key (403)
+        keys_match = False
+    if not keys_match:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key",
