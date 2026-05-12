@@ -12,13 +12,13 @@ promoted to the core `pigskin` package via the gate process in `lab/promotion/`.
 | `strategies/` | Experimental strategy implementations | #82 |
 | `gridiron_sage/` | GridironSage MCTS training | #83 |
 | `simulation/` | Tournament runner | #187 |
-| `benchmarks/` | Strategy comparison harness | — |
-| `promotion/` | Gate evaluation for production promotion | #80 |
-| `results_db/` | SQLite results store + Alembic migrations | #79 |
-| `experiments/` | Named experiment configuration files | — |
-| `data/` | Auction data scraper, projection snapshots | #192 |
-| `backtest/` | Value-efficiency replay harness | — |
-| `eval/` | Projection accuracy evaluator | — |
+| `benchmarks/` | Strategy comparison harness | #227 |
+| `promotion/` | Gate evaluation for production promotion | #80, #227 |
+| `results_db/` | SQLite results store + Alembic migrations | #79, #228 |
+| `experiments/` | Named experiment configuration files | #226 |
+| `data/` | Auction data scraper, projection snapshots | #192, #228 |
+| `backtest/` | Value-efficiency replay harness | #228 |
+| `eval/` | Projection accuracy evaluator | #228 |
 
 ## Usage
 
