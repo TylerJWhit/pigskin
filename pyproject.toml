@@ -47,6 +47,7 @@ dev = [
     "bandit>=1.7.0",
     "vulture>=2.11",
     "ruff>=0.3",
+    "hypothesis>=6.100",
 ]
 
 [build-system]
