@@ -237,7 +237,8 @@ def test_conservative_always_below_value(team, player, remaining_budget):
     from strategies.conservative_strategy import ConservativeStrategy
     from classes.owner import Owner
 
-    assume(player.auction_value > 0)
+    # Minimum bid is $1; invariant only meaningful when auction_value >= $1
+    assume(player.auction_value >= 1.0)
 
     strategy = ConservativeStrategy()
     team.budget = remaining_budget
