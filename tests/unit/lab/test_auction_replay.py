@@ -1,12 +1,26 @@
 """Failing tests for AuctionBacktester — acceptance criteria for issue #196.
 
-`lab/backtest/auction_replay.py` does not exist yet.  Importing it will raise
-`ModuleNotFoundError`, which makes every test in this file fail at collection
-time — exactly the right signal for QA Phase 1.
+`lab/backtest/auction_replay.py` does not exist yet.  All tests are marked
+xfail(strict=True): they are expected to fail until #196 is implemented.
+Remove the pytestmark (and verify green) once AuctionBacktester is available.
 """
 
-# This import will raise ModuleNotFoundError until #196 is implemented.
-from lab.backtest.auction_replay import AuctionBacktester  # noqa: F401
+import pytest
+
+# Graceful import — module does not exist yet; tests fail at runtime, not at
+# collection time, which keeps the full suite collectable.
+try:
+    from lab.backtest.auction_replay import AuctionBacktester
+    _AUCTION_REPLAY_AVAILABLE = True
+except ModuleNotFoundError:
+    AuctionBacktester = None  # type: ignore[assignment,misc]
+    _AUCTION_REPLAY_AVAILABLE = False
+
+# All tests are expected to fail until issue #196 is implemented.
+pytestmark = pytest.mark.xfail(
+    strict=True,
+    reason="lab/backtest/auction_replay.AuctionBacktester not yet implemented (issue #196)",
+)
 
 
 # ---------------------------------------------------------------------------
