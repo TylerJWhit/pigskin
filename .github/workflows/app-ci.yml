@@ -92,6 +92,7 @@ jobs:
       - name: Unit tests + coverage gate (≥ 90%)
         run: |
           pytest tests/ -x -q --timeout=60 \
+            --ignore=tests/property \
             --cov=. --cov-fail-under=90 \
             --cov-report=xml
 

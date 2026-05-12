@@ -35,7 +35,10 @@ class SigmoidStrategy(Strategy):
         if midpoint is None:
             midpoint = self.parameters['midpoint']
             
-        return 1 / (1 + math.exp(-steepness * (x - midpoint)))
+        try:
+            return 1 / (1 + math.exp(-steepness * (x - midpoint)))
+        except OverflowError:
+            return 0.0 if steepness * (x - midpoint) < 0 else 1.0
         
     def _calculate_draft_progress(self, remaining_players: List['Player']) -> float:
         """Calculate how far we are through the draft (0.0 to 1.0)."""
