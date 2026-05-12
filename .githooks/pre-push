@@ -110,7 +110,8 @@ echo "[4/4] Unit tests + coverage gate (≥ 85%)..."
 "$PYTEST" tests/ -x -q --timeout=60 \
   --cov=. --cov-fail-under=85 \
   --cov-report=term-missing \
-  --ignore=tests/test_integration.py
+  --ignore=tests/test_integration.py \
+  --ignore=tests/property
 echo "      ✓ tests passed"
 echo ""
 

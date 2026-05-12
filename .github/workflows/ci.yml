@@ -8,6 +8,8 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +41,7 @@ jobs:
         run: bandit -r . -ll --exclude ./venv,./.venv,./tests,./pigskin_auction_draft.egg-info
 
       - name: Run unit tests with coverage
-        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=90 --cov-report=xml
+        run: pytest tests/ -x -q --timeout=60 --cov=. --cov-fail-under=90 --cov-report=xml --ignore=tests/property
 
       - name: Upload coverage report
         uses: actions/upload-artifact@v4
@@ -50,3 +52,40 @@ jobs:
 
       - name: Run integration tests
         run: pytest tests/test_integration.py -v --timeout=120
+
+  property-tests:
+    runs-on: ubuntu-latest
+    # Stubs are intentionally failing until Dev implements each track (Sprint 10).
+    # Remove continue-on-error once all NotImplementedError stubs are replaced.
+    continue-on-error: true
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Install dependencies
+        run: |
+          uv sync --frozen
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Cache Hypothesis database
+        uses: actions/cache@v4
+        with:
+          path: .hypothesis
+          key: hypothesis-${{ hashFiles('requirements-dev.txt') }}
+          restore-keys: |
+            hypothesis-
+
+      - name: Run property tests
+        env:
+          HYPOTHESIS_PROFILE: ci
+        run: pytest tests/property/ -v --timeout=300

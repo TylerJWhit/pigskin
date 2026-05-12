@@ -72,7 +72,11 @@ class Team:
         """Add a player to the team if budget allows and roster space is available."""
         if price > self.budget:
             return False
-        
+
+        # Prevent drafting the same player twice
+        if player.is_drafted:
+            return False
+
         # Check if we have roster space
         if not self._can_add_player(player):
             return False

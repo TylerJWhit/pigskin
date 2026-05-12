@@ -135,17 +135,19 @@ class TestPlayerManagement:
         assert len(team.roster) == 2
     
     def test_add_already_drafted_player(self, team, sample_qb):
-        """Test adding a player that's already been drafted."""
+        """Test adding a player that's already been drafted is rejected.
+
+        fix(sprint10): Hypothesis property testing (Track B, #315) identified
+        that allowing duplicate drafted players violated the no-duplicate-players
+        invariant. The is_drafted guard was added to add_player to fix this.
+        """
         sample_qb.mark_as_drafted(30.0, "other_owner")
-        
+
         result = team.add_player(sample_qb, 25.0)
-        
-        # Note: Current implementation allows adding already drafted players
-        # This might be a bug or intentional behavior to test
-        # For now, we test the actual behavior
-        assert result is True  # Current behavior allows this
-        assert len(team.roster) == 1
-        assert team.budget == 175.0
+
+        assert result is False  # Correctly rejected — player is already drafted
+        assert len(team.roster) == 0
+        assert team.budget == 200  # Budget unchanged
     
     def test_get_position_count(self, team):
         """Test position counting functionality."""
