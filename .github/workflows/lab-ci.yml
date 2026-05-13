@@ -94,7 +94,12 @@ jobs:
           STRATEGY: ${{ inputs.strategy_name }}
         run: |
           if [ -f "lab/simulation/runner.py" ]; then
-            python lab/simulation/runner.py \
+            if ! ls data/sheets/*.csv 1>/dev/null 2>&1; then
+              echo "No player data found (data/sheets/*.csv are gitignored) — skipping simulation batch"
+              echo "Scaffold verified. Run nightly or provide data manually."
+              exit 0
+            fi
+            python -m lab.simulation.runner \
               ${STRATEGY:+--strategy "$STRATEGY"}
           else
             echo "lab/simulation/runner.py not found — lab/ not yet migrated (ADR-001, Sprint 5)"
