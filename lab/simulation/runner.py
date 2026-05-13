@@ -20,12 +20,23 @@ import json
 import logging
 import subprocess
 import uuid
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Dict, List, Optional
 
 from classes.tournament import Tournament  # type: ignore
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SimulationResult:
+    """Result of a single simulation run."""
+
+    strategy_name: str
+    score: float
+    rank: int = field(default=0)
 
 
 def _git_sha() -> str:
@@ -168,6 +179,7 @@ class SimulationRunner:
         num_opponents: int = 11,
         db_url: str = "sqlite+aiosqlite:///lab/results_db/pigskin_lab.db",
         experiment_id: Optional[str] = None,
+        max_workers: int = 4,
     ) -> None:
         self.strategies = strategies or ["all"]
         self.runs = runs
@@ -176,14 +188,71 @@ class SimulationRunner:
         self.num_opponents = num_opponents
         self.db_url = db_url
         self.experiment_id = experiment_id or str(uuid.uuid4())[:8]
+        self.max_workers = max_workers
 
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self) -> Dict[str, Dict]:
-        """Execute the benchmark synchronously. Returns per-strategy summaries."""
+    def run(self, n_simulations: int = None) -> "List[SimulationResult] | Dict[str, Dict]":
+        """Run simulations and return results.
+
+        When *n_simulations* is provided, runs that many individual simulations
+        in parallel via :class:`ThreadPoolExecutor` and returns a ranked
+        ``List[SimulationResult]`` (rank 1 = highest score).
+
+        When called with no arguments (legacy mode), executes the full benchmark
+        pipeline via ``asyncio`` and returns per-strategy summary dicts.
+        """
+        if n_simulations is not None:
+            return self._run_parallel(n_simulations)
         return asyncio.run(self._run_async())
+
+    def _run_parallel(self, n_simulations: int) -> List[SimulationResult]:
+        """Run *n_simulations* individual simulations via ThreadPoolExecutor."""
+        results: List[SimulationResult] = []
+        workers = min(self.max_workers, n_simulations)
+        with ThreadPoolExecutor(max_workers=workers) as executor:
+            futures = {
+                executor.submit(self._run_single, i): i
+                for i in range(n_simulations)
+            }
+            for future in as_completed(futures):
+                sim_id = futures[future]
+                try:
+                    results.append(future.result())
+                except Exception as exc:  # noqa: BLE001
+                    logger.warning("Simulation %d failed: %s", sim_id, exc)
+                    results.append(SimulationResult(strategy_name="error", score=0.0))
+
+        results.sort(key=lambda r: r.score, reverse=True)
+        for rank, result in enumerate(results, start=1):
+            result.rank = rank
+        return results
+
+    def _run_single(self, sim_id: int) -> SimulationResult:
+        """Run one simulation and return a :class:`SimulationResult`.
+
+        The strategy is cycled from :attr:`strategies` by *sim_id* index.
+        Exceptions are propagated so the caller can record an error result.
+        """
+        keys = [
+            k for k in (self.strategies or [])
+            if k != "all"
+        ] or ["balanced"]
+        strategy_key = keys[sim_id % len(keys)]
+        players = _load_players()
+        all_results = _run_tournament_for_strategy(
+            strategy_key=strategy_key,
+            players=players,
+            budget=self.budget,
+            roster_size=self.roster_size,
+            num_opponents=self.num_opponents,
+            runs=1,
+        )
+        focal = all_results.get(strategy_key, {})
+        score = float(focal.get("win_rate", 0.0))
+        return SimulationResult(strategy_name=strategy_key, score=score)
 
     # ------------------------------------------------------------------
     # Internals
