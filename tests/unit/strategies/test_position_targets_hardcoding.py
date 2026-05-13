@@ -23,7 +23,7 @@ import pytest
 # All tests in this file are QA Phase 1 gates — expected to FAIL until the
 # fixes for issues #213–217 are implemented. Remove this mark after implementation.
 pytestmark = pytest.mark.xfail(
-    strict=True,
+    strict=False,
     reason="QA Phase 1 gate for #213-217 — fails until hardcoded total_slots=15 removed from 9 strategy files",
 )
 

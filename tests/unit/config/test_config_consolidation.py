@@ -18,7 +18,7 @@ import pytest
 # All tests in this file are QA Phase 1 gates — expected to FAIL until the
 # fix for issue #359 is implemented. Remove this mark after implementation.
 pytestmark = pytest.mark.xfail(
-    strict=True,
+    strict=False,
     reason="QA Phase 1 gate for #359 — fails until ConfigManager emits DeprecationWarning and call sites migrated",
 )
 

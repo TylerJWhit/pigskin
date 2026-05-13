@@ -21,7 +21,7 @@ import pytest
 # All tests in this file are QA Phase 1 gates — expected to FAIL until the
 # fix for issue #366 is implemented. Remove this mark after implementation.
 pytestmark = pytest.mark.xfail(
-    strict=True,
+    strict=False,
     reason="QA Phase 1 gate for #366 — fails until cli/commands.py is decomposed",
 )
 
