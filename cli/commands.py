@@ -17,7 +17,7 @@ from services.sleeper_draft_service import SleeperDraftService
 class CommandProcessor:
     """Processes individual CLI commands with enhanced functionality."""
     
-    def __init__(self, config_manager: ConfigManager = None, sleeper_api: SleeperAPI = None):
+    def __init__(self, config_manager: Optional[ConfigManager] = None, sleeper_api: Optional[SleeperAPI] = None):
         self.config_manager = config_manager if config_manager is not None else ConfigManager()
         self.sleeper_api = sleeper_api if sleeper_api is not None else SleeperAPI()
         self.sleeper_draft_service = SleeperDraftService(sleeper_api=self.sleeper_api)
