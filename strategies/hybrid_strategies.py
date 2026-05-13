@@ -159,11 +159,6 @@ class ValueRandomStrategy(Strategy):
         need_ratio = (target_count - current_count) / target_count
         return min(1.0, need_ratio + 0.2)
     
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        total_slots = 15
-        current_roster_size = len(getattr(team, 'roster', []))
-        return max(0, total_slots - current_roster_size)
 
 
 class ValueSmartStrategy(Strategy):
@@ -323,11 +318,6 @@ class ValueSmartStrategy(Strategy):
         need_ratio = (target_count - current_count) / target_count
         return min(1.0, need_ratio + 0.2)
     
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        total_slots = 15
-        current_roster_size = len(getattr(team, 'roster', []))
-        return max(0, total_slots - current_roster_size)
 
 
 class ImprovedValueStrategy(Strategy):
@@ -469,9 +459,8 @@ class ImprovedValueStrategy(Strategy):
         # Higher priority if we have fewer of this position
         need_ratio = (target_count - current_count) / target_count
         return min(1.0, need_ratio + 0.2)
-    
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        total_slots = 15
-        current_roster_size = len(getattr(team, 'roster', []))
-        return max(0, total_slots - current_roster_size)
+
+
+# Alias for backward compatibility with tests
+from strategies.aggressive_strategy import AggressiveStrategy as AggressiveValueStrategy
+__all__ = ['ValueRandomStrategy', 'ValueSmartStrategy', 'ImprovedValueStrategy', 'AggressiveValueStrategy']

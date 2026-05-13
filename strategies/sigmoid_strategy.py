@@ -55,7 +55,8 @@ class SigmoidStrategy(Strategy):
     def _calculate_budget_pressure(self, remaining_budget: float, team: 'Team') -> float:
         """Calculate budget pressure (0.0 = no pressure, 1.0 = high pressure)."""
         # Guard against ZeroDivisionError when initial_budget or roster_requirements is 0. (#146)
-        initial_budget = getattr(team, 'initial_budget', None) or remaining_budget or 1
+        _raw_budget = getattr(team, 'initial_budget', None)
+        initial_budget = _raw_budget if isinstance(_raw_budget, (int, float)) and _raw_budget > 0 else (remaining_budget or 1)
         budget_ratio = remaining_budget / initial_budget
         total_requirements = sum(getattr(team, 'roster_requirements', {}).values())
         roster_filled_ratio = (len(getattr(team, 'roster', [])) / total_requirements
@@ -66,14 +67,22 @@ class SigmoidStrategy(Strategy):
         
     def _calculate_positional_need(self, player: 'Player', team: 'Team') -> float:
         """Calculate how much we need this position (0.0 to 1.0)."""
-        needs = team.get_needs()
+        try:
+            needs = team.get_needs()
+            if not isinstance(needs, (dict, list)):
+                return 0.5
+        except Exception:
+            return 0.5
         
         if player.position not in needs:
             return 0.0
             
         # Calculate need based on how many spots we still need to fill
-        required = team.roster_requirements.get(player.position, 0)
-        current = len([p for p in team.roster if p.position == player.position])
+        required = needs.get(player.position, 0) if isinstance(needs, dict) else \
+                   getattr(team, 'roster_requirements', {}).get(player.position, 0) if hasattr(team, 'roster_requirements') else 0
+        if not isinstance(required, (int, float)):
+            return 0.5
+        current = len([p for p in team.roster if getattr(p, 'position', None) == player.position])
         
         if required == 0:
             return 0.0
@@ -119,7 +128,8 @@ class SigmoidStrategy(Strategy):
             
         # Risk tolerance from owner (with fallback for mock drafts)
         try:
-            risk_factor = owner.get_risk_tolerance() if owner else 0.7
+            _rf = owner.get_risk_tolerance() if owner else 0.7
+            risk_factor = float(_rf) if isinstance(_rf, (int, float)) else 0.7
         except (AttributeError, TypeError):
             risk_factor = 0.7  # Default moderate risk
         risk_adjustment = 0.8 + (0.4 * risk_factor)  # Scale between 0.8 and 1.2
