@@ -9,20 +9,11 @@ Issue #153: InflationAwareVorStrategy._calculate_inflation_factor() hard-codes
             use them in the inflation calculation.
 """
 
-import pytest
+import pytest  # noqa: F401 — kept for potential future xfail marks
 from unittest.mock import MagicMock
 
 from strategies import AVAILABLE_STRATEGIES, create_strategy
 from strategies.enhanced_vor_strategy import InflationAwareVorStrategy
-
-# All tests in this module are expected to fail until issues #151 and #153 are
-# implemented.  Remove pytestmark (and verify green) once:
-#   #151 — 'inflation_aware_vor' is registered in AVAILABLE_STRATEGIES
-#   #153 — InflationAwareVorStrategy accepts budget / roster_size kwargs
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    reason="InflationAwareVorStrategy registration (#151) and custom budget/roster_size (#153) not yet implemented",
-)
 
 
 # ---------------------------------------------------------------------------
