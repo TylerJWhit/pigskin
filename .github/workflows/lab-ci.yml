@@ -79,7 +79,7 @@ jobs:
       - name: Apply database migrations (Alembic)
         run: |
           if [ -f "lab/results_db/migrations/env.py" ]; then
-            cd lab && python -m alembic -c results_db/alembic.ini upgrade head
+            cd lab && uv run python -m alembic -c results_db/alembic.ini upgrade head
           else
             echo "No Alembic migrations found — lab/ not yet migrated (ADR-001, Sprint 5), skipping"
           fi
