@@ -16,10 +16,11 @@ except ModuleNotFoundError:
     AuctionBacktester = None  # type: ignore[assignment,misc]
     _AUCTION_REPLAY_AVAILABLE = False
 
-# All tests are expected to fail until issue #196 is implemented.
-pytestmark = pytest.mark.xfail(
+# Instantiation tests now pass since the scaffold provides a working __init__.
+# run() tests remain xfail(strict=True) until issue #196 is implemented.
+_RUN_NOT_IMPLEMENTED = pytest.mark.xfail(
     strict=True,
-    reason="lab/backtest/auction_replay.AuctionBacktester not yet implemented (issue #196)",
+    reason="AuctionBacktester.run() not yet implemented (issue #196)",
 )
 
 
@@ -76,6 +77,7 @@ class TestAuctionBacktesterInstantiation:
 # 2. run() return shape
 # ---------------------------------------------------------------------------
 
+@_RUN_NOT_IMPLEMENTED
 class TestAuctionBacktesterRun:
     """run() must return a dict with the three required keys."""
 
@@ -122,6 +124,7 @@ class TestAuctionBacktesterRun:
 # 3. Empty player_data edge case
 # ---------------------------------------------------------------------------
 
+@_RUN_NOT_IMPLEMENTED
 class TestAuctionBacktesterEmptyData:
     """run() with empty player_data must return efficiency_score=0.0 or raise ValueError."""
 
@@ -141,6 +144,7 @@ class TestAuctionBacktesterEmptyData:
 # 4. Determinism — same input → same output
 # ---------------------------------------------------------------------------
 
+@_RUN_NOT_IMPLEMENTED
 class TestAuctionBacktesterDeterminism:
     """run() must be deterministic for the same input."""
 

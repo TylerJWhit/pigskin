@@ -24,10 +24,6 @@ class TestCliSeasonDefault:
 
     CURRENT_YEAR = str(datetime.now().year)
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="handle_sleeper_status() still uses hardcoded '2024' (issue #171)",
-    )
     def test_handle_sleeper_status_uses_current_year_as_default(self):
         """handle_sleeper_status() with no season arg must use the current year.
 
@@ -60,10 +56,6 @@ class TestCliSeasonDefault:
             f"got '{captured_season[0]}' — hardcoded '2024' not yet removed (#171)"
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="handle_sleeper_leagues() still uses hardcoded '2024' (issue #171)",
-    )
     def test_handle_sleeper_leagues_uses_current_year_as_default(self):
         """handle_sleeper_leagues() with no season arg must use the current year."""
         from cli.main import AuctionDraftCLI
@@ -110,10 +102,6 @@ class TestCliSingletonDependencies:
     instances.  After #172 is fixed they must share a single instance.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ConfigManager is instantiated twice per CLI run (issue #172)",
-    )
     def test_config_manager_instantiated_once(self):
         """ConfigManager() is constructed exactly once when AuctionDraftCLI is created.
 
@@ -138,10 +126,6 @@ class TestCliSingletonDependencies:
             "expected exactly 1.  Duplicate instantiation not yet removed (#172)."
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="SleeperAPI is instantiated twice per CLI run (issue #172)",
-    )
     def test_sleeper_api_instantiated_once(self):
         """SleeperAPI() is constructed exactly once when AuctionDraftCLI is created.
 
@@ -166,10 +150,6 @@ class TestCliSingletonDependencies:
             "expected exactly 1.  Duplicate instantiation not yet removed (#172)."
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="ConfigManager instance not shared between AuctionDraftCLI and CommandProcessor (issue #172)",
-    )
     def test_command_processor_receives_shared_config_manager(self):
         """CommandProcessor must use the same ConfigManager instance as AuctionDraftCLI."""
         from cli.main import AuctionDraftCLI
@@ -180,10 +160,6 @@ class TestCliSingletonDependencies:
             "different objects — the instance is not shared (#172)."
         )
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="SleeperAPI instance not shared between AuctionDraftCLI and CommandProcessor (issue #172)",
-    )
     def test_command_processor_receives_shared_sleeper_api(self):
         """CommandProcessor must use the same SleeperAPI instance as AuctionDraftCLI."""
         from cli.main import AuctionDraftCLI

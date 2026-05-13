@@ -33,6 +33,7 @@ Examples:
 """
 
 import sys
+from datetime import datetime
 from typing import List, Dict
 
 # Add parent directory to path for imports
@@ -52,7 +53,7 @@ class AuctionDraftCLI:
     def __init__(self):
         self.config_manager = ConfigManager()
         self.sleeper_api = SleeperAPI()
-        self.command_processor = CommandProcessor()
+        self.command_processor = CommandProcessor(config_manager=self.config_manager, sleeper_api=self.sleeper_api)
         
     def _get_config_default(self, key: str, default=None):
         """Helper to get config values with error handling."""
@@ -285,7 +286,7 @@ class AuctionDraftCLI:
             return 1
         
         username = args[0] if args else default_username
-        season = args[1] if len(args) > 1 else "2024"
+        season = args[1] if len(args) > 1 else str(datetime.now().year)
         
         result = self.command_processor.get_sleeper_draft_status(username, season)
         
@@ -336,7 +337,7 @@ class AuctionDraftCLI:
             return 1
         
         username = args[0] if args else default_username
-        season = args[1] if len(args) > 1 else "2024"
+        season = args[1] if len(args) > 1 else str(datetime.now().year)
         
         result = self.command_processor.list_sleeper_leagues(username, season)
         return self._handle_command_result(result, "Failed to list leagues")
