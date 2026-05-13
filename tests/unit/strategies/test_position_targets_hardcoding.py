@@ -221,7 +221,7 @@ class TestAllStrategiesNonStandardRoster:
         non-standard 8-slot roster config without crashing."""
         strategy_cls = AVAILABLE_STRATEGIES[key]
         try:
-            strategy = strategy_cls()
+            strategy = strategy_cls()  # type: ignore[abstract]
         except Exception as e:
             pytest.skip(f"Could not instantiate {key}: {e}")
 
@@ -233,7 +233,7 @@ class TestAllStrategiesNonStandardRoster:
         player = _mock_player("RB")
 
         try:
-            bid = strategy.bid(player, team, owners, budget=200.0)
+            bid = strategy.calculate_bid(player, team, owners, budget=200.0)
         except Exception as e:
             pytest.fail(
                 f"Strategy '{key}' raised {type(e).__name__}: {e} when called "
