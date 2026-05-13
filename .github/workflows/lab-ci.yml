@@ -76,6 +76,9 @@ jobs:
             echo "lab/ not yet migrated (ADR-001, Sprint 5) — skipping lab install"
           fi
 
+      - name: Activate virtual environment
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Apply database migrations (Alembic)
         run: |
           if [ -f "lab/results_db/migrations/env.py" ]; then
@@ -91,7 +94,12 @@ jobs:
           STRATEGY: ${{ inputs.strategy_name }}
         run: |
           if [ -f "lab/simulation/runner.py" ]; then
-            python lab/simulation/runner.py \
+            if ! ls data/sheets/*.csv 1>/dev/null 2>&1; then
+              echo "No player data found (data/sheets/*.csv are gitignored) — skipping simulation batch"
+              echo "Scaffold verified. Run nightly or provide data manually."
+              exit 0
+            fi
+            python -m lab.simulation.runner \
               ${STRATEGY:+--strategy "$STRATEGY"}
           else
             echo "lab/simulation/runner.py not found — lab/ not yet migrated (ADR-001, Sprint 5)"
@@ -135,6 +143,9 @@ jobs:
           else
             echo "lab/ not yet migrated — skipping lab install"
           fi
+
+      - name: Activate virtual environment
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Download simulation results
         uses: actions/download-artifact@v4

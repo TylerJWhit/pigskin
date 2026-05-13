@@ -126,6 +126,30 @@ class BasicStrategy(Strategy):
         
         return False
     
+    def _calculate_position_priority(self, player: 'Player', team: 'Team') -> float:
+        """Calculate priority based on team's actual roster_config."""
+        get_prio = getattr(team, 'calculate_position_priority', None)
+        if callable(get_prio):
+            result = get_prio(getattr(player, 'position', 'UNKNOWN'))
+            if isinstance(result, (int, float)):
+                return float(result)
+        position = getattr(player, 'position', 'UNKNOWN')
+        current_roster = getattr(team, 'roster', [])
+        position_counts: dict = {}
+        for p in current_roster:
+            pos = getattr(p, 'position', 'UNKNOWN')
+            position_counts[pos] = position_counts.get(pos, 0) + 1
+        roster_config = getattr(team, 'roster_config', None)
+        if isinstance(roster_config, dict):
+            needed = roster_config.get(position, 1)
+        else:
+            needed = {'QB': 1, 'RB': 2, 'WR': 2, 'TE': 1, 'K': 1, 'DST': 1,
+                      'FLEX': 1}.get(position, 1)
+        current = position_counts.get(position, 0)
+        if current >= needed:
+            return 0.1
+        return min(1.0, (needed - current) / max(needed, 1) + 0.2)
+
     def _calculate_position_urgency(self, player: 'Player', team: 'Team') -> float:
         """Calculate urgency multiplier based on position needs."""
         position = player.position
@@ -162,7 +186,3 @@ class BasicStrategy(Strategy):
         else:
             return 1.0  # Normal urgency
     
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        # Use base class implementation
-        return super()._get_remaining_roster_slots(team)

@@ -8,7 +8,6 @@ from .team import Team
 from .owner import Owner
 from .draft import Draft
 from .strategy import Strategy, create_strategy
-from api.sleeper_api import SleeperAPI
 
 logger = logging.getLogger(__name__)
 
@@ -119,19 +118,24 @@ class DraftSetup:
     @staticmethod
     def import_players_from_sleeper(
         position_filter: Optional[List[str]] = None,
-        min_projected_points: float = 0.0
+        min_projected_points: float = 0.0,
+        sleeper_api=None,
     ) -> List[Player]:
         """
         Import players from Sleeper API and convert to Player objects.
-        
+
         Args:
             position_filter: List of positions to include (e.g., ['QB', 'RB', 'WR'])
             min_projected_points: Minimum projected points to include player
-            
+            sleeper_api: Optional pre-constructed SleeperAPI client. If None,
+                one is created internally (allows testing via injection).
+
         Returns:
             List of Player objects
         """
-        sleeper_api = SleeperAPI()
+        if sleeper_api is None:
+            from api.sleeper_api import SleeperAPI  # lazy import — keeps domain layer independent
+            sleeper_api = SleeperAPI()
         
         try:
             # Get player data from Sleeper
