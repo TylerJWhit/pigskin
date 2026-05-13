@@ -3,6 +3,12 @@
 Provides common Player, Team, Owner, and Draft fixtures to reduce
 boilerplate duplication across test files.
 """
+import os
+
+# Mark this process as a test environment so create_app() does not raise
+# RuntimeError for a missing PIGSKIN_API_KEY (see api/main.py).
+os.environ.setdefault("TESTING", "true")
+
 import pytest
 
 from classes.player import Player

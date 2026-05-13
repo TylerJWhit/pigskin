@@ -21,12 +21,14 @@ if TYPE_CHECKING:
 class InflationAwareVorStrategy(Strategy):
     """Enhanced VOR strategy that adjusts for market inflation."""
     
-    def __init__(self, aggression: float = 1.0, scarcity_weight: float = 0.7, inflation_sensitivity: float = 0.5):
-        super().__init__("inflation_vor", "VOR strategy with market inflation adjustment")
+    def __init__(self, aggression: float = 1.0, scarcity_weight: float = 0.7, inflation_sensitivity: float = 0.5, budget: float = 200, roster_size: int = 15):
+        super().__init__("inflation_aware_vor", "VOR strategy with market inflation adjustment")
         
         self.aggression = aggression
         self.scarcity_weight = scarcity_weight
         self.inflation_sensitivity = inflation_sensitivity
+        self.budget = budget
+        self.roster_size = roster_size
         
         # Position baselines for VOR calculation
         self.position_baselines = {
@@ -115,8 +117,8 @@ class InflationAwareVorStrategy(Strategy):
         # Calculate average budget per remaining slot
         avg_budget_per_slot = total_remaining_budget / total_remaining_slots if total_remaining_slots > 0 else 1.0
         
-        # Standard budget per slot in a typical auction (e.g., $200/15 slots = $13.33)
-        standard_budget_per_slot = 200 / 15  # ~$13.33
+        # Standard budget per slot derived from configured budget and roster size
+        standard_budget_per_slot = self.budget / self.roster_size
         
         # Calculate raw inflation ratio
         raw_inflation = avg_budget_per_slot / standard_budget_per_slot

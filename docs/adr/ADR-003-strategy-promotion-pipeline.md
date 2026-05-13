@@ -2,7 +2,7 @@
 
 **Status:** Revised and Accepted
 **Date:** 2026-04-28
-**Revised:** 2026-04-28
+**Revised:** 2026-04-28, 2026-05-12
 **Author:** Architecture Agent (via Orchestrator)
 **Reviewer:** Architecture Agent
 **Deciders:** Engineering team
@@ -203,3 +203,57 @@ The rollback policy requires "post-promotion monitoring" and "user analytics" �
 - [ ] Should the gate use win-rate (binary: did this team win the league?) or expected rank (continuous: avg finish position)? Expected rank is more statistically powerful at small N.
 - [ ] How is "current production strategy" tracked in `results_db/`? Suggest a `production_registry` table with a `is_current` flag.
 - [ ] Should the lab auto-create GitHub issues for near-miss gate results (e.g., p=0.06, improvement=1.8pp)? This would surface close calls for manual investigation.
+
+---
+
+## Amendment — 2026-05-12: Shadow Mode Stage (Orchestrator + Blind Architecture Review)
+
+**Authored by:** Orchestrator Agent
+**Issues:** #363 (ARCH-007)
+**Revision of:** Promotion Workflow (Steps 3–6 above)
+
+### Context
+
+The original ADR-003 promotion workflow moves a gate-passing strategy directly from lab benchmarks to a production PR. The blind architecture review (2026-05-12) identified a missing safety stage: **shadow mode**. Without shadow mode, the first time a promoted strategy's recommendations are evaluated against real-world outcomes is after it is live for all users — there is no intermediate validation layer.
+
+### Shadow Mode Stage (new Stage 3.5)
+
+Insert the following stage between the gate PASS and the auto-generated promotion PR:
+
+```
+3.5. Shadow Mode (new — required before promotion PR)
+     └─ Strategy runs in production code but recommendations are LOGGED ONLY
+     └─ Users see current production strategy's recommendations
+     └─ Shadow recommendations stored in lab/results_db/ (shadow_recommendations table)
+     └─ Duration: minimum one full draft season of active use
+     └─ Evaluation: compare shadow recommendations vs. actual draft outcomes
+        post-season (requires season-end stats)
+     └─ Shadow gate: predicted vs. actual outcome correlation r > 0.50
+        (conservative threshold for v1; tighten as data accumulates)
+     └─ FAIL → return to lab; do not promote; file new issue with shadow failure report
+     └─ PASS → proceed to Step 4 (auto-generate promotion PR)
+```
+
+### Revised Promotion Workflow Summary
+
+```
+1. Lab CI simulation batch (≥ 500 runs)
+2. Statistical gate (gate.py) — p < 0.01, 5pp improvement, variance/sanity checks
+3. [PASS] → Shadow mode activation (feature flag, log-only)
+3.5. Shadow evaluation (one draft season minimum)
+4. [PASS] → Auto-generate promotion PR with gate + shadow report
+5. Human review (required)
+6. Merge → CI/CD → staging → production
+7. Rollback policy (as specified in original ADR-003)
+```
+
+### Shadow Mode Infrastructure Requirements
+
+- `Settings`/`config`: `PIGSKIN_SHADOW_STRATEGY` env var specifies the shadow strategy name (empty = no shadow active)
+- `services/recommendation_service.py`: when `PIGSKIN_SHADOW_STRATEGY` is set, compute recommendations for both strategies; return current production strategy's result to user; log shadow result to `lab/results_db/`
+- `lab/results_db/` schema: new `shadow_recommendations` table (`id`, `strategy`, `draft_id`, `player_id`, `recommended_bid`, `actual_outcome`, `timestamp`)
+- Shadow evaluation: post-season script computes correlation between `recommended_bid` and `actual_outcome` columns
+
+### Impact on Issue #363
+
+Issue #363 (ARCH-007, promotion gate implementation) must implement both the statistical gate **and** the shadow mode infrastructure. The `GateResult` schema gains a `shadow_mode_status: Literal["not_started", "in_progress", "passed", "failed"]` field.

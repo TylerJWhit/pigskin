@@ -2,7 +2,7 @@
 
 **Status:** Revised and Accepted
 **Date:** 2026-04-28
-**Revised:** 2026-04-30
+**Revised:** 2026-04-30, 2026-05-12
 **Author:** Architecture Agent (via Orchestrator)
 **Reviewer:** Architecture Agent
 **Deciders:** Engineering team
@@ -85,6 +85,7 @@ The live draft view needs sub-second bid updates. Options:
 
 ### Authentication
 - Phase 1: API key in `X-API-Key` header (simple, sufficient for single-user/commissioner use)
+  - **Security constraint (2026-05-12, ARCH-002 #355):** `PIGSKIN_API_KEY` **must** be non-empty at startup; raise `RuntimeError` if unset in non-test environments. The empty-key-as-bypass design is explicitly prohibited. Auto-generated docs (`/docs`, `/openapi.json`, `/redoc`) must be gated behind `PIGSKIN_DOCS_ENABLED=true` (default `false`).
 - Phase 2: JWT for multi-user/multi-team scenarios (deferred; requires user model)
 
 ---
@@ -202,3 +203,39 @@ Each connection has a dedicated coroutine: async for msg in queue: await ws.send
 | 5 (early) | asyncio migration of `Auction` (issue #12) + httpx for SleeperAPI (issue #14) | Must complete before WebSocket |
 | 5 (late) | WebSocket endpoint (issue #13) | Requires Phase 2 complete |
 | 6 | Live testing + monitoring | |
+
+---
+
+## Amendment — 2026-05-12 (Architecture Review, Orchestrator Synthesis)
+
+**Authored by:** Orchestrator Agent (Architecture Review + Blind Proposal synthesis)
+**Issues:** #355 (ARCH-002), #361 (ARCH-003), #364 (ARCH-010)
+
+### A. Security Hardening — API Key Auth (ARCH-002)
+
+The `Settings.api_key` default of `''` and the documented "empty key disables auth" bypass design are **prohibited**. The following constraints are now in force:
+
+1. **Startup validation:** If `PIGSKIN_API_KEY` is unset or empty at process startup, the application must raise `RuntimeError` in any non-test environment. The empty-key bypass must never be implemented.
+2. **Docs endpoints gated:** `/docs`, `/openapi.json`, and `/redoc` must be gated behind the `PIGSKIN_DOCS_ENABLED=true` environment variable (default: `false`). These endpoints must never be publicly accessible in production.
+3. **Documentation updated:** `docs/api/api-key-auth.md` must be updated to reflect the corrected behavior — empty key is always rejected, not bypassed.
+
+### B. Route Versioning (ARCH-003)
+
+The `/api/v1/` prefix specified in this ADR has not been applied to any router as of 2026-05-12. All routers — existing and new — **must** use the `/api/v1/` prefix. This change must be made atomically (all routers at once) while the external client surface is still zero. Issue: #361.
+
+### C. Async Boundary Enforcement (ARCH-010)
+
+Per the Phase 4 amendment (`ADR-002-amendment-phase4-async-boundary.md`), `Auction` and all domain objects remain synchronous. All FastAPI route handlers that call synchronous domain logic must use:
+
+```python
+import asyncio
+
+loop = asyncio.get_event_loop()
+result = await loop.run_in_executor(None, sync_domain_fn, *args)
+```
+
+This pattern must be established in the `/recommend/bid` route (the only currently live route calling domain code) and is **mandatory** for all routes implemented as part of ARCH-003. Issue: #364.
+
+### D. Phase 2 Auth Milestone
+
+The blind architecture review (2026-05-12) recommends JWT + OAuth2 (Sleeper OAuth as social login) for the multi-user Phase 2 auth model. This is consistent with the existing "Phase 2: JWT" note. When implemented, all draft room participants must have per-user identity; the single shared API key is insufficient for multi-tenant draft rooms.

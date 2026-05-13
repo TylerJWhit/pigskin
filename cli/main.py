@@ -33,6 +33,7 @@ Examples:
 """
 
 import sys
+from datetime import datetime
 from typing import List, Dict
 
 # Add parent directory to path for imports
@@ -52,7 +53,7 @@ class AuctionDraftCLI:
     def __init__(self):
         self.config_manager = ConfigManager()
         self.sleeper_api = SleeperAPI()
-        self.command_processor = CommandProcessor()
+        self.command_processor = CommandProcessor(config_manager=self.config_manager, sleeper_api=self.sleeper_api)
         
     def _get_config_default(self, key: str, default=None):
         """Helper to get config values with error handling."""
@@ -65,7 +66,7 @@ class AuctionDraftCLI:
     def _handle_command_result(self, result: Dict, error_message: str = "Command failed") -> int:
         """Helper to handle standard command result patterns."""
         if not result.get('success', False):
-            print(f"ERROR: {result.get('error', error_message)}")
+            print(f"ERROR: {result.get('error', error_message)}", file=sys.stderr)
             return 1
         return 0
 
@@ -92,7 +93,7 @@ class AuctionDraftCLI:
                 self.show_help()
                 return 0
             else:
-                print(f"ERROR: Unknown command: {command}")
+                print(f"ERROR: Unknown command: {command}", file=sys.stderr)
                 print("Use 'help' to see available commands")
                 return 1
                 
@@ -100,13 +101,13 @@ class AuctionDraftCLI:
             print("\nOperation cancelled by user")
             return 130
         except Exception as e:
-            print(f"ERROR: {e}")
+            print(f"ERROR: {e}", file=sys.stderr)
             return 1
     
     def handle_bid_command(self, args: List[str]) -> int:
         """Handle bid recommendation command."""
         if not args:
-            print("ERROR: Player name required")
+            print("ERROR: Player name required", file=sys.stderr)
             print("Usage: bid <player_name> [current_bid] [sleeper_draft_id]")
             print("Note: Use quotes for multi-word names: bid 'Josh Allen' 25")
             return 1
@@ -127,7 +128,7 @@ class AuctionDraftCLI:
             self._display_bid_recommendation(result)
             return 0
         else:
-            print(f"ERROR: {result.get('error', 'Failed to get bid recommendation')}")
+            print(f"ERROR: {result.get('error', 'Failed to get bid recommendation')}", file=sys.stderr)
             return 1
     
     def handle_mock_command(self, args: List[str]) -> int:
@@ -167,14 +168,14 @@ class AuctionDraftCLI:
             strategies = [s.strip() for s in strategy_arg.split(',')]
             invalid_strategies = [s for s in strategies if s not in AVAILABLE_STRATEGIES]
             if invalid_strategies:
-                print(f"ERROR: Invalid strategies: {', '.join(invalid_strategies)}")
+                print(f"ERROR: Invalid strategies: {', '.join(invalid_strategies)}", file=sys.stderr)
                 print(f"Available strategies: {', '.join(AVAILABLE_STRATEGIES)}")
                 return 1
             strategy_display = f"{len(strategies)} strategies: {', '.join(strategies)}"
         else:
             strategies = strategy_arg
             if strategy_arg not in AVAILABLE_STRATEGIES:
-                print(f"ERROR: Invalid strategy: {strategy_arg}")
+                print(f"ERROR: Invalid strategy: {strategy_arg}", file=sys.stderr)
                 print(f"Available strategies: {', '.join(AVAILABLE_STRATEGIES)}")
                 return 1
             strategy_display = strategy_arg
@@ -190,7 +191,7 @@ class AuctionDraftCLI:
             self._display_mock_results(result)
             return 0
         else:
-            print(f"ERROR: {result.get('error', 'Mock draft failed')}")
+            print(f"ERROR: {result.get('error', 'Mock draft failed')}", file=sys.stderr)
             return 1
     
     def handle_tournament_command(self, args: List[str]) -> int:
@@ -211,13 +212,13 @@ class AuctionDraftCLI:
             try:
                 rounds = int(filtered_args[0])
             except ValueError:
-                print(f"ERROR: Invalid rounds value '{filtered_args[0]}' — must be an integer")
+                print(f"ERROR: Invalid rounds value '{filtered_args[0]}' — must be an integer", file=sys.stderr)
                 return 1
         if len(filtered_args) > 1:
             try:
                 teams_per_draft = int(filtered_args[1])
             except ValueError:
-                print(f"ERROR: Invalid teams_per_draft value '{filtered_args[1]}' — must be an integer")
+                print(f"ERROR: Invalid teams_per_draft value '{filtered_args[1]}' — must be an integer", file=sys.stderr)
                 return 1
         
         print("Starting elimination tournament...")
@@ -233,7 +234,7 @@ class AuctionDraftCLI:
             self._display_tournament_results(result)
             return 0
         else:
-            print(f"ERROR: Tournament failed: {result.get('error', 'Unknown error')}")
+            print(f"ERROR: Tournament failed: {result.get('error', 'Unknown error')}", file=sys.stderr)
             return 1
     
     def handle_ping_command(self, args: List[str]) -> int:
@@ -251,7 +252,7 @@ class AuctionDraftCLI:
     def handle_sleeper_command(self, args: List[str]) -> int:
         """Handle Sleeper draft commands."""
         if not args:
-            print("ERROR: Sleeper command requires subcommand")
+            print("ERROR: Sleeper command requires subcommand", file=sys.stderr)
             print("Usage: sleeper <subcommand> [options]")
             print("Subcommands: status, draft, league, leagues")
             return 1
@@ -269,7 +270,7 @@ class AuctionDraftCLI:
         elif subcommand == "cache":
             return self.handle_sleeper_cache(args[1:])
         else:
-            print(f"ERROR: Unknown Sleeper subcommand: {subcommand}")
+            print(f"ERROR: Unknown Sleeper subcommand: {subcommand}", file=sys.stderr)
             print("Available subcommands: status, draft, league, leagues, cache")
             return 1
     
@@ -279,13 +280,13 @@ class AuctionDraftCLI:
         default_username = self._get_config_default('sleeper_username')
         
         if not args and not default_username:
-            print("ERROR: Username required (not provided and not set in config)")
+            print("ERROR: Username required (not provided and not set in config)", file=sys.stderr)
             print("Usage: sleeper status <username> [season]")
             print("Or set 'sleeper_username' in config/config.json")
             return 1
         
         username = args[0] if args else default_username
-        season = args[1] if len(args) > 1 else "2024"
+        season = args[1] if len(args) > 1 else str(datetime.now().year)
         
         result = self.command_processor.get_sleeper_draft_status(username, season)
         
@@ -298,7 +299,7 @@ class AuctionDraftCLI:
         default_draft_id = getattr(config, 'sleeper_draft_id', None)
         
         if not args and not default_draft_id:
-            print("ERROR: Draft ID required (not provided and not set in config)")
+            print("ERROR: Draft ID required (not provided and not set in config)", file=sys.stderr)
             print("Usage: sleeper draft <draft_id>")
             print("Or set 'sleeper_draft_id' in config/config.json")
             return 1
@@ -314,7 +315,7 @@ class AuctionDraftCLI:
         # For league command, we could potentially derive league_id from user's current leagues
         # but for now, require explicit league_id as there's no direct config default
         if not args:
-            print("ERROR: League ID required")
+            print("ERROR: League ID required", file=sys.stderr)
             print("Usage: sleeper league <league_id>")
             print("Tip: Use 'sleeper leagues <username>' to find league IDs")
             return 1
@@ -330,13 +331,13 @@ class AuctionDraftCLI:
         default_username = self._get_config_default('sleeper_username')
         
         if not args and not default_username:
-            print("ERROR: Username required (not provided and not set in config)")
+            print("ERROR: Username required (not provided and not set in config)", file=sys.stderr)
             print("Usage: sleeper leagues <username> [season]")
             print("Or set 'sleeper_username' in config/config.json")
             return 1
         
         username = args[0] if args else default_username
-        season = args[1] if len(args) > 1 else "2024"
+        season = args[1] if len(args) > 1 else str(datetime.now().year)
         
         result = self.command_processor.list_sleeper_leagues(username, season)
         return self._handle_command_result(result, "Failed to list leagues")
@@ -390,7 +391,7 @@ class AuctionDraftCLI:
                 print("Failed to clear player cache")
                 return 1
         else:
-            print(f"ERROR: Unknown cache action: {action}")
+            print(f"ERROR: Unknown cache action: {action}", file=sys.stderr)
             print("Available actions: info, refresh, clear")
             return 1
     
@@ -617,7 +618,7 @@ class AuctionDraftCLI:
                 print("  No undervalued players found.")
             return 0
         else:
-            print(f"ERROR: {result.get('error', 'Analysis failed')}")
+            print(f"ERROR: {result.get('error', 'Analysis failed')}", file=sys.stderr)
             return 1
 
 

@@ -1,94 +1,234 @@
-openapi: "3.1.0"
-info:
-  title: Pigskin Draft Assistant API
-  version: "0.1.0"
-  description: |
-    Fantasy football auction draft assistant.
-    All endpoints are versioned under /api/v1/ (planned).
-    Current scaffold uses root paths.
-  contact:
-    name: Pigskin Dev Team
-
-servers:
-  - url: http://localhost:8000
-    description: Local development
-
-paths:
-  /health:
-    get:
-      summary: Health check
-      tags: [meta]
-      responses:
-        "200":
-          description: Service is healthy
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/HealthResponse"
-
-  /strategies/:
-    get:
-      summary: List available bidding strategies
-      tags: [strategies]
-      responses:
-        "200":
-          description: List of strategy names
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  type: string
-
-  /players/:
-    get:
-      summary: List players (not yet implemented)
-      tags: [players]
-      responses:
-        "200":
-          description: Placeholder
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /draft/:
-    get:
-      summary: Draft status (not yet implemented)
-      tags: [draft]
-      responses:
-        "200":
-          description: Placeholder
-          content:
-            application/json:
-              schema:
-                type: object
-
-  /auction/:
-    get:
-      summary: Auction operations (not yet implemented)
-      tags: [auction]
-      responses:
-        "200":
-          description: Placeholder
-          content:
-            application/json:
-              schema:
-                type: object
-
 components:
   schemas:
-    HealthResponse:
-      type: object
+    BidRecommendationRequest:
+      description: Request body for POST /recommend/bid.
       properties:
-        status:
+        current_bid:
+          description: Current highest bid (0 if no bids yet)
+          minimum: 0.0
+          title: Current Bid
+          type: number
+        player_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Sleeper player ID (optional)
+          title: Player Id
+        player_name:
+          description: Name of the player to bid on
+          minLength: 1
+          title: Player Name
           type: string
-          example: ok
-
+        roster_spots_remaining:
+          default: 1
+          description: Number of roster spots still to fill
+          minimum: 1.0
+          title: Roster Spots Remaining
+          type: integer
+        sleeper_draft_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Sleeper draft ID for live draft context
+          title: Sleeper Draft Id
+        strategy_override:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Override the configured strategy
+          title: Strategy Override
+        team_budget:
+          description: Remaining team budget in dollars
+          minimum: 0.0
+          title: Team Budget
+          type: number
+      required:
+      - player_name
+      - current_bid
+      - team_budget
+      title: BidRecommendationRequest
+      type: object
+    BidRecommendationResponse:
+      description: Response body for POST /recommend/bid.
+      properties:
+        confidence:
+          description: Confidence score [0, 1]
+          maximum: 1.0
+          minimum: 0.0
+          title: Confidence
+          type: number
+        rationale:
+          description: Human-readable explanation for the recommendation
+          title: Rationale
+          type: string
+        recommended_bid:
+          description: Recommended bid amount in dollars
+          title: Recommended Bid
+          type: number
+      required:
+      - recommended_bid
+      - confidence
+      - rationale
+      title: BidRecommendationResponse
+      type: object
+    HTTPValidationError:
+      properties:
+        detail:
+          items:
+            $ref: '#/components/schemas/ValidationError'
+          title: Detail
+          type: array
+      title: HTTPValidationError
+      type: object
+    ValidationError:
+      properties:
+        ctx:
+          title: Context
+          type: object
+        input:
+          title: Input
+        loc:
+          items:
+            anyOf:
+            - type: string
+            - type: integer
+          title: Location
+          type: array
+        msg:
+          title: Message
+          type: string
+        type:
+          title: Error Type
+          type: string
+      required:
+      - loc
+      - msg
+      - type
+      title: ValidationError
+      type: object
   securitySchemes:
-    ApiKeyAuth:
-      type: apiKey
+    APIKeyHeader:
       in: header
       name: X-API-Key
-
-security: []
+      type: apiKey
+info:
+  description: Fantasy football auction draft assistant API
+  title: Pigskin Draft Assistant
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /auction/:
+    get:
+      operationId: auction_index_auction__get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Auction Index Auction  Get
+                type: object
+          description: Successful Response
+      security:
+      - APIKeyHeader: []
+      summary: Auction operations (not yet implemented)
+      tags:
+      - auction
+  /draft/:
+    get:
+      operationId: draft_index_draft__get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Draft Index Draft  Get
+                type: object
+          description: Successful Response
+      security:
+      - APIKeyHeader: []
+      summary: Draft operations (not yet implemented)
+      tags:
+      - draft
+  /health:
+    get:
+      operationId: health_health_get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Health Health Get
+                type: object
+          description: Successful Response
+      summary: Health
+      tags:
+      - meta
+  /players/:
+    get:
+      operationId: list_players_players__get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response List Players Players  Get
+                type: object
+          description: Successful Response
+      security:
+      - APIKeyHeader: []
+      summary: List players (not yet implemented)
+      tags:
+      - players
+  /recommend/bid:
+    post:
+      description: Returns a recommended bid amount, confidence score, and rationale
+        for the requested player based on the configured bidding strategy. Returns
+        HTTP 503 if no draft context is available.
+      operationId: recommend_bid_recommend_bid_post
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BidRecommendationRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BidRecommendationResponse'
+          description: Successful Response
+        '422':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
+          description: Validation Error
+      security:
+      - APIKeyHeader: []
+      summary: Get a bid recommendation for a player
+      tags:
+      - recommend
+  /strategies/:
+    get:
+      description: Return the names of all available bidding strategies.
+      operationId: list_strategies_strategies__get
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                title: Response List Strategies Strategies  Get
+                type: array
+          description: Successful Response
+      security:
+      - APIKeyHeader: []
+      summary: List available strategies
+      tags:
+      - strategies

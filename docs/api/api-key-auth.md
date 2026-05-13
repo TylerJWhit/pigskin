@@ -55,10 +55,10 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 # config/settings.py
 class Settings(BaseSettings):
     ...
-    api_key: str = ""   # empty string = auth disabled (local dev only)
+    api_key: str = Field(default='', validation_alias='PIGSKIN_API_KEY')
 ```
 
-If `api_key` is empty, the auth dependency is a **no-op** — all requests pass. This preserves local dev workflow without requiring a key. In production or CI, `PIGSKIN_API_KEY` must be set.
+> **`PIGSKIN_API_KEY` is required.** The application will refuse to start if the key is empty or unset in any non-test environment. There is no "auth disabled" or empty-key bypass mode. Set a strong key in `.env` (local dev) or your deployment environment before starting the server.
 
 ### Key Rotation
 
@@ -76,8 +76,8 @@ A rotation admin endpoint is deferred to v2 (requires a session/token store for 
 | Route | Method | Auth Required | Reason |
 |-------|--------|--------------|--------|
 | `GET /health` | GET | ❌ Public | Liveness probe; must be callable without credentials |
-| `GET /docs` | GET | ❌ Public | OpenAPI UI; acceptable to expose schema |
-| `GET /openapi.json` | GET | ❌ Public | Consumed by `/docs` |
+| `GET /docs` | GET | ⚙️ Gated | Only accessible when `PIGSKIN_DOCS_ENABLED=true` |
+| `GET /openapi.json` | GET | ⚙️ Gated | Only accessible when `PIGSKIN_DOCS_ENABLED=true` |
 | `GET /api/v1/players` | GET | ✅ Required | Returns player data |
 | `POST /api/v1/players/search` | POST | ✅ Required | |
 | `GET /api/v1/draft` | GET | ✅ Required | Returns draft state |
@@ -86,40 +86,53 @@ A rotation admin endpoint is deferred to v2 (requires a session/token store for 
 | `GET /api/v1/strategies` | GET | ✅ Required | Returns strategy list |
 | All other `/api/v1/...` | Any | ✅ Required | Default: protect all |
 
-**Rule:** Any route registered under the `/api/v1/` prefix requires auth. Routes at the root (`/health`, `/docs`, `/openapi.json`) are public.
+**Rule:** Any route registered under the `/api/v1/` prefix requires auth. `/health` is always public. `/docs`, `/openapi.json`, and `/redoc` are only available when the `PIGSKIN_DOCS_ENABLED=true` environment variable is set.
 
 ---
 
 ## Implementation Sketch
 
 ```python
-# api/deps.py
-from fastapi import Depends, Header, HTTPException
-from config.settings import get_settings
+# api/main.py — startup guard
+import os
 
-async def require_api_key(
-    x_api_key: str = Header(default=""),
-) -> None:
+def create_app(*, api_key: str | None = None, docs_enabled: bool | None = None) -> FastAPI:
     settings = get_settings()
-    if not settings.api_key:
-        return  # auth disabled (local dev mode)
-    if x_api_key != settings.api_key:
-        if not x_api_key:
-            raise HTTPException(status_code=401, detail="Missing X-API-Key header")
+    resolved_api_key = api_key if api_key is not None else settings.api_key
+    resolved_docs_enabled = docs_enabled if docs_enabled is not None else settings.docs_enabled
+
+    # Refuse to start with no key outside of test environments
+    if not resolved_api_key and os.getenv("TESTING") != "true":
+        raise RuntimeError(
+            "PIGSKIN_API_KEY must be set. "
+            "An empty API key is not allowed in non-test environments."
+        )
+
+    # Gate /docs behind PIGSKIN_DOCS_ENABLED
+    app = FastAPI(
+        docs_url="/docs" if resolved_docs_enabled else None,
+        openapi_url="/openapi.json" if resolved_docs_enabled else None,
+        redoc_url="/redoc" if resolved_docs_enabled else None,
+        ...
+    )
+```
+
+```python
+# api/deps.py
+import secrets
+from fastapi import Depends, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
+
+def require_api_key(api_key: str | None = Security(_api_key_header), ...) -> None:
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing API key")
+    if not secrets.compare_digest(api_key.encode(), configured_key.encode()):
         raise HTTPException(status_code=403, detail="Invalid API key")
 ```
 
-Apply as a router-level dependency in each router:
-
-```python
-# api/routers/draft.py
-from fastapi import APIRouter, Depends
-from api.deps import require_api_key
-
-router = APIRouter(prefix="/api/v1/draft", dependencies=[Depends(require_api_key)])
-```
-
-Or as an application-level middleware that exempts `/health`, `/docs`, and `/openapi.json`.
+Applied as a router-level dependency in `api/main.py` — all routers except `/health` require auth.
 
 ---
 
