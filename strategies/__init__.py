@@ -38,7 +38,7 @@ AVAILABLE_STRATEGIES = {
     'balanced': BalancedStrategy,
     'basic': BasicStrategy,
     'elite_hybrid': EliteHybridStrategy,
-    'inflation_vor': InflationAwareVorStrategy,
+    'inflation_aware_vor': InflationAwareVorStrategy,
     'value_random': ValueRandomStrategy,
     'value_smart': ValueSmartStrategy,
     'league': LeagueStrategy,

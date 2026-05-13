@@ -17,10 +17,10 @@ from services.sleeper_draft_service import SleeperDraftService
 class CommandProcessor:
     """Processes individual CLI commands with enhanced functionality."""
     
-    def __init__(self):
-        self.config_manager = ConfigManager()
-        self.sleeper_api = SleeperAPI()
-        self.sleeper_draft_service = SleeperDraftService()
+    def __init__(self, config_manager: ConfigManager = None, sleeper_api: SleeperAPI = None):
+        self.config_manager = config_manager if config_manager is not None else ConfigManager()
+        self.sleeper_api = sleeper_api if sleeper_api is not None else SleeperAPI()
+        self.sleeper_draft_service = SleeperDraftService(sleeper_api=self.sleeper_api)
     
     def get_bid_recommendation_detailed(self, player_name: str, current_bid: float = 1.0, sleeper_draft_id: Optional[str] = None) -> Dict:
         """Get detailed bid recommendation with enhanced display."""

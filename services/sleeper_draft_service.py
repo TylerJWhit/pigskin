@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 class SleeperDraftService:
     """Service for fetching and displaying Sleeper draft information."""
     
-    def __init__(self):
-        self.sleeper_api = SleeperAPI()
+    def __init__(self, sleeper_api: SleeperAPI = None):
+        self.sleeper_api = sleeper_api if sleeper_api is not None else SleeperAPI()
         
     async def get_user_drafts(self, username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
         """
