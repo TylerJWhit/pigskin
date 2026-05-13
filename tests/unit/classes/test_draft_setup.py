@@ -78,7 +78,7 @@ class TestImportPlayersFromSleeper:
             {'player_id': 'p1', 'name': 'Josh Allen', 'position': 'QB', 'team': 'BUF',
              'projected_points': 350.0, 'auction_value': 50.0, 'bye_week': 7}
         ]
-        with patch('classes.draft_setup.SleeperAPI') as MockAPI:
+        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
             instance = MockAPI.return_value
             instance.bulk_convert_players.return_value = player_data
             players = DraftSetup.import_players_from_sleeper()
@@ -93,7 +93,7 @@ class TestImportPlayersFromSleeper:
             {'player_id': 'p2', 'name': 'Backup K', 'position': 'K', 'team': 'CLE',
              'projected_points': 5.0, 'auction_value': 1.0, 'bye_week': 9},
         ]
-        with patch('classes.draft_setup.SleeperAPI') as MockAPI:
+        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
             instance = MockAPI.return_value
             instance.bulk_convert_players.return_value = player_data
             players = DraftSetup.import_players_from_sleeper(min_projected_points=100.0)
@@ -101,7 +101,7 @@ class TestImportPlayersFromSleeper:
 
     def test_returns_empty_on_exception(self):
         from classes.draft_setup import DraftSetup
-        with patch('classes.draft_setup.SleeperAPI') as MockAPI:
+        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
             instance = MockAPI.return_value
             instance.bulk_convert_players.side_effect = ConnectionError("API down")
             players = DraftSetup.import_players_from_sleeper()
@@ -113,7 +113,7 @@ class TestImportPlayersFromSleeper:
             {'player_id': 'p1', 'name': 'Josh Allen', 'position': 'QB', 'team': 'BUF',
              'projected_points': 350.0, 'auction_value': 50.0, 'bye_week': 7},
         ]
-        with patch('classes.draft_setup.SleeperAPI') as MockAPI:
+        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
             instance = MockAPI.return_value
             instance.bulk_convert_players.return_value = player_data
             players = DraftSetup.import_players_from_sleeper(position_filter=['QB'])
