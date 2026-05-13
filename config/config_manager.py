@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import warnings
 from typing import Dict, Any, Optional
 from dataclasses import dataclass, asdict
 
@@ -57,10 +58,20 @@ class ConfigManager:
     def __init__(self, config_dir: str = "config"):
         """
         Initialize the configuration manager.
-        
+
+        .. deprecated::
+            Use :func:`config.settings.get_settings` instead.
+            ``ConfigManager`` is a compatibility shim and will be removed in a
+            future release.
+
         Args:
             config_dir: Directory containing configuration files
         """
+        warnings.warn(
+            "ConfigManager is deprecated. Use get_settings() from config.settings instead.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
         self.config_dir = config_dir
         self.config_file = os.path.join(config_dir, "config.json")
         self._config: Optional[DraftConfig] = None
