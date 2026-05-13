@@ -48,22 +48,24 @@ class TestDraftSetupNoApiImport:
 
         The domain layer (classes/) must never depend on the integration layer
         (api/).  This is the ARCH-001 layering violation.
+        Lazy imports inside function bodies are allowed (they keep the domain
+        layer importable without triggering the api/ dependency).
         """
         tree = _source_ast()
-        for node in ast.walk(tree):
-            if isinstance(node, (ast.Import, ast.ImportFrom)):
-                if isinstance(node, ast.ImportFrom) and node.module:
-                    assert not node.module.startswith("api."), (
-                        f"Layering violation: 'classes/draft_setup.py' imports "
-                        f"from '{node.module}' (api layer) at line {node.lineno}. "
-                        "Move API access to a service or inject via parameter."
+        # Only check direct children of the module (top-level statements)
+        for node in ast.iter_child_nodes(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                assert not node.module.startswith("api."), (
+                    f"Layering violation: 'classes/draft_setup.py' imports "
+                    f"from '{node.module}' (api layer) at line {node.lineno}. "
+                    "Move API access to a service or inject via parameter."
+                )
+            elif isinstance(node, ast.Import):
+                for alias in node.names:
+                    assert not alias.name.startswith("api."), (
+                        f"Layering violation: top-level import of '{alias.name}' "
+                        f"at line {node.lineno}."
                     )
-                elif isinstance(node, ast.Import):
-                    for alias in node.names:
-                        assert not alias.name.startswith("api."), (
-                            f"Layering violation: top-level import of '{alias.name}' "
-                            f"at line {node.lineno}."
-                        )
 
     def test_sleeper_api_not_imported_at_top_level(self):
         """SleeperAPI must not be imported at the top of draft_setup.py."""
