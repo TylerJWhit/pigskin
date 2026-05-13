@@ -233,7 +233,10 @@ class TestAllStrategiesNonStandardRoster:
         player = _mock_player("RB")
 
         try:
-            bid = strategy.calculate_bid(player, team, owners, budget=200.0)
+            bid = strategy.calculate_bid(  # type: ignore[abstract]
+                player, team, owners[0], current_bid=1.0,
+                remaining_budget=200.0, remaining_players=[player],
+            )
         except Exception as e:
             pytest.fail(
                 f"Strategy '{key}' raised {type(e).__name__}: {e} when called "
