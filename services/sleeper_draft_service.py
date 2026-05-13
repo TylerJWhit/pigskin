@@ -8,7 +8,7 @@ including draft order, picks, and league information.
 import asyncio
 import datetime
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from api.sleeper_api import SleeperAPI
 from utils.print_module import print_sleeper_draft, print_sleeper_league
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class SleeperDraftService:
     """Service for fetching and displaying Sleeper draft information."""
     
-    def __init__(self, sleeper_api: SleeperAPI = None):
+    def __init__(self, sleeper_api: Optional[SleeperAPI] = None):
         self.sleeper_api = sleeper_api if sleeper_api is not None else SleeperAPI()
         
     async def get_user_drafts(self, username: str, season: str = str(datetime.date.today().year)) -> Dict[str, Any]:
