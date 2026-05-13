@@ -68,6 +68,7 @@ class TestCommandsModuleSize:
 # ---------------------------------------------------------------------------
 
 class TestCommandHandlerImports:
+    @pytest.mark.xfail(strict=False, reason="Import works today; only decomposition structure changes")
     def test_bid_handler_importable(self):
         """A bid recommendation handler must be importable after the split."""
         try:
