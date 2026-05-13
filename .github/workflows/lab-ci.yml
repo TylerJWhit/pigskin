@@ -76,10 +76,13 @@ jobs:
             echo "lab/ not yet migrated (ADR-001, Sprint 5) — skipping lab install"
           fi
 
+      - name: Activate virtual environment
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
       - name: Apply database migrations (Alembic)
         run: |
           if [ -f "lab/results_db/migrations/env.py" ]; then
-            cd lab && ../.venv/bin/python -m alembic -c results_db/alembic.ini upgrade head
+            cd lab && python -m alembic -c results_db/alembic.ini upgrade head
           else
             echo "No Alembic migrations found — lab/ not yet migrated (ADR-001, Sprint 5), skipping"
           fi
@@ -135,6 +138,9 @@ jobs:
           else
             echo "lab/ not yet migrated — skipping lab install"
           fi
+
+      - name: Activate virtual environment
+        run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
 
       - name: Download simulation results
         uses: actions/download-artifact@v4
