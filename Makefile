@@ -1,6 +1,6 @@
 # Makefile for Pigskin Auction Draft Tool
 
-.PHONY: setup install dev-install lock test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate install-hooks hooks
+.PHONY: setup install dev-install lock test clean help run-tests format lint typecheck coverage security audit ci standup lab-bench lab-gate openapi install-hooks hooks
 
 # Default target
 help:
@@ -29,6 +29,9 @@ help:
 	@echo "  standup     - Print daily standup summary (git log + project board)"
 	@echo "  clean       - Clean up cache and temporary files"
 	@echo "  install-hooks - Install shared git hooks from .githooks/ (aliases: hooks)"
+	@echo ""
+	@echo "API:"
+	@echo "  openapi     - Generate docs/api/openapi.yaml from the FastAPI app"
 	@echo ""
 	@echo "Lab (pigskin-lab — ADR-001/Sprint 5 migration required):"
 	@echo "  lab-bench   - Run simulation benchmark batch (STRATEGY=all or STRATEGY=<name>)"
@@ -187,6 +190,16 @@ lab-gate:
 		echo "The lab/ structure requires the ADR-001 Sprint 5 migration to be complete."; \
 		exit 1; \
 	fi
+
+# Generate OpenAPI schema from FastAPI app
+openapi:
+	@echo "Generating OpenAPI schema..."
+	@python -c "\
+import json, yaml; \
+from api.main import app; \
+schema = app.openapi(); \
+open('docs/api/openapi.yaml', 'w').write(yaml.dump(schema, default_flow_style=False)); \
+print('Written to docs/api/openapi.yaml')"
 
 standup:
 	@echo "=== Daily Standup — $$(date +%Y-%m-%d) ==="
