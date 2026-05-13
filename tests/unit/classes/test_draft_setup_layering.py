@@ -16,6 +16,15 @@ import inspect
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
+import pytest
+
+# All tests in this file are QA Phase 1 gates — expected to FAIL until the
+# fix for issue #358 is implemented. Remove this mark after implementation.
+pytestmark = pytest.mark.xfail(
+    strict=True,
+    reason="QA Phase 1 gate for #358 — fails until classes/draft_setup.py is decoupled from api/",
+)
+
 
 
 # ---------------------------------------------------------------------------
