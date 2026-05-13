@@ -135,7 +135,28 @@ class TestAuctionBacktesterEmptyData:
 
 
 # ---------------------------------------------------------------------------
-# 4. Determinism — same input → same output
+# 4. Strategy is consulted during run()
+# ---------------------------------------------------------------------------
+
+class TestAuctionBacktesterStrategyConsulted:
+    """run() must invoke the strategy for every player in player_data."""
+
+    def test_strategy_is_consulted(self):
+        """run() calls strategy.bid() exactly once per player."""
+        from unittest.mock import MagicMock
+        mock_strategy = MagicMock()
+        mock_strategy.bid.return_value = 100  # always high enough to win
+        data = _sample_player_data()
+        bt = AuctionBacktester(strategy=mock_strategy, player_data=data)
+        bt.run()
+        assert mock_strategy.bid.call_count == len(data), (
+            f"Expected strategy.bid() called {len(data)} times, "
+            f"got {mock_strategy.bid.call_count}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# 5. Determinism — same input → same output
 # ---------------------------------------------------------------------------
 
 @_RUN_NOT_IMPLEMENTED
