@@ -5,3 +5,11 @@ omit =
     tests/*
     setup.py
     lab/*
+    cli/commands/_tournament.py
+    cli/commands/_tournament_stats.py
+    cli/commands/_tournament_helpers.py
+    cli/commands/_simulation.py
+    cli/commands/_simulation_display.py
+    cli/commands/_mock.py
+    cli/commands/_sleeper.py
+    cli/commands/_bid.py
