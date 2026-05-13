@@ -5,8 +5,6 @@ xfail(strict=True): they are expected to fail until #196 is implemented.
 Remove the pytestmark (and verify green) once AuctionBacktester is available.
 """
 
-import pytest
-
 # Graceful import — module does not exist yet; tests fail at runtime, not at
 # collection time, which keeps the full suite collectable.
 try:
@@ -16,12 +14,8 @@ except ModuleNotFoundError:
     AuctionBacktester = None  # type: ignore[assignment,misc]
     _AUCTION_REPLAY_AVAILABLE = False
 
-# Instantiation tests now pass since the scaffold provides a working __init__.
-# run() tests remain xfail(strict=True) until issue #196 is implemented.
-_RUN_NOT_IMPLEMENTED = pytest.mark.xfail(
-    strict=True,
-    reason="AuctionBacktester.run() not yet implemented (issue #196)",
-)
+# run() is now implemented — xfail mark removed.
+_RUN_NOT_IMPLEMENTED = lambda cls: cls  # no-op: was xfail before issue #196
 
 
 # ---------------------------------------------------------------------------
