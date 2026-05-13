@@ -23,7 +23,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union, overload
 
 from classes.tournament import Tournament  # type: ignore
 
@@ -194,7 +194,11 @@ class SimulationRunner:
     # Public API
     # ------------------------------------------------------------------
 
-    def run(self, n_simulations: int = None) -> "List[SimulationResult] | Dict[str, Dict]":
+    @overload
+    def run(self, n_simulations: int) -> List[SimulationResult]: ...
+    @overload
+    def run(self, n_simulations: None = None) -> Dict[str, Dict]: ...
+    def run(self, n_simulations: Optional[int] = None) -> Union[List[SimulationResult], Dict[str, Dict]]:
         """Run simulations and return results.
 
         When *n_simulations* is provided, runs that many individual simulations
