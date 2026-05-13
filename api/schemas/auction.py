@@ -3,9 +3,9 @@ from pydantic import BaseModel, Field
 
 
 class BidRequest(BaseModel):
-    player_id: str
+    player_id: str = Field(min_length=1)
     bid_amount: int = Field(ge=1)
-    team_name: str
+    team_name: str = Field(min_length=1)
 
 
 class BidResponse(BaseModel):

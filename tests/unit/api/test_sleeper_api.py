@@ -187,7 +187,10 @@ class TestSleeperAPIUserMethods:
         
         assert len(result) == 2
         assert result[0]['league_id'] == 'league1'
-        self.api._make_request.assert_called_once_with('/user/user123/leagues/nfl/2024')
+        from datetime import datetime
+        self.api._make_request.assert_called_once_with(
+            f'/user/user123/leagues/nfl/{datetime.now().year}'
+        )
     
     async def test_get_user_leagues_custom_season(self):
         """Test getting user leagues for custom season."""
@@ -335,7 +338,10 @@ class TestSleeperAPIPlayerMethods:
         
         assert 'player1' in result
         assert result['player1']['pts'] == 300.5
-        self.api._make_request.assert_called_once_with('/projections/nfl/regular/2024')
+        from datetime import datetime
+        self.api._make_request.assert_called_once_with(
+            f'/projections/nfl/regular/{datetime.now().year}'
+        )
     
     async def test_get_player_projections_with_week(self):
         """Test getting player projections for specific week."""
