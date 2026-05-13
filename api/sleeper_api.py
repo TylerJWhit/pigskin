@@ -3,6 +3,7 @@
 import asyncio
 import random
 import httpx
+from datetime import datetime
 from typing import Dict, List, Optional, Any
 import time
 from urllib.parse import quote
@@ -105,7 +106,7 @@ class SleeperAPI:
             return None
 
     # League methods
-    async def get_user_leagues(self, user_id: str, season: str = "2024") -> List[Dict]:
+    async def get_user_leagues(self, user_id: str, season: str = str(datetime.now().year)) -> List[Dict]:
         """Get leagues for a user in a specific season."""
         try:
             return await self._make_request(
@@ -222,7 +223,7 @@ class SleeperAPI:
             
     # Stats methods
     async def get_player_stats(
-        self, season: str = "2024", week: Optional[int] = None
+        self, season: str = str(datetime.now().year), week: Optional[int] = None
     ) -> Dict[str, Dict]:
         """Get player stats for season or specific week."""
         try:
@@ -238,7 +239,7 @@ class SleeperAPI:
             return {}
             
     async def get_player_projections(
-        self, season: str = "2024", week: Optional[int] = None
+        self, season: str = str(datetime.now().year), week: Optional[int] = None
     ) -> Dict[str, Dict]:
         """Get player projections for season or specific week."""
         try:

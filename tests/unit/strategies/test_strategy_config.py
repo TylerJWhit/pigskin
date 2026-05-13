@@ -86,7 +86,7 @@ class TestStrategyRegistryCreate:
         assert available == sorted(available)
         assert "vor" in available
         assert "balanced" in available
-        assert "inflation_vor" in available
+        assert "inflation_aware_vor" in available
 
 
 # ---------------------------------------------------------------------------

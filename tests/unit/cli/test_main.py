@@ -65,7 +65,8 @@ class TestAuctionDraftCLI:
         result = {'success': False, 'error': 'Test error'}
         exit_code = cli._handle_command_result(result)
         assert exit_code == 1
-        mock_print.assert_called_with("ERROR: Test error")
+        import sys
+        mock_print.assert_called_with("ERROR: Test error", file=sys.stderr)
 
 
 class TestCommandRouting:
