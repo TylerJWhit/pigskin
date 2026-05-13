@@ -2,7 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-04-28
-**Reviewed:** 2026-04-28
+**Reviewed:** 2026-04-28, 2026-05-12
 **Author:** Architecture Agent (via Orchestrator)
 **Reviewer:** Architecture Agent
 **Deciders:** Engineering team
@@ -134,3 +134,50 @@ A two-package split (core + app, with lab as a folder in app/) was considered. R
 ### Bootstrap Production Strategy Decision
 
 On the day migration begins, `app/strategies/production_strategy.py` is populated by copying `EnhancedVORStrategy` from `lab/strategies/` as the baseline. This single exception to the promotion gate is recorded as a manual promotion entry in `lab/results_db/promotions` with `promoted_by = 'bootstrap'` and no benchmark run ID. All subsequent promotions must pass the gate (ADR-003).
+
+---
+
+## Amendment — 2026-05-12: Known Layering Violations Blocking Migration (Orchestrator Architecture Review)
+
+**Authored by:** Orchestrator Agent
+**Issues:** #358 (ARCH-001), #359 (ARCH-005)
+
+The 2026-05-12 architecture review found five confirmed violations of the layering rules specified in this ADR. These must be resolved **before** the `classes/ → core/`, `strategies/ → core/strategies/`, `api/ → app/api/` migration can begin. Attempting the migration with these violations in place will break package imports.
+
+### Confirmed Violations (must be resolved first)
+
+| # | Violation | File | Resolution |
+|---|-----------|------|-----------|
+| L-001 | Domain imports integration | `classes/draft_setup.py` imports `api.sleeper_api` | Define `FantasyDataProvider` protocol; inject via constructor — Issue #358 |
+| L-002 | Services import integration directly | `services/sleeper_draft_service.py`, `services/draft_loading_service.py`, `services/bid_recommendation_service.py` import `api.sleeper_api` | Define `FantasyDataProvider` protocol; inject — companion to #358 |
+| L-003 | CLI imports integration directly | `cli/commands.py` imports `api.sleeper_api` | Route all Sleeper access through services — companion to #358 |
+| L-004 | Analysis scripts in strategy layer | `strategies/spending_analyzer.py`, `strategies/strategy_analyzer.py` | Move to `lab/eval/` — Issue #360 |
+| L-005 | Strategy imports config layer directly | `strategies/vor_strategy.py` calls non-existent `load_config()` | Pass config via constructor; remove import — companion to #359 |
+
+### Migration Gate
+
+The ADR-001 package restructuring (`classes/ → core/`, etc.) must not begin until **all five violations above are resolved** and all tests pass. The migration itself should then be a mechanical rename with no behavior changes.
+
+### Import-Linter Enforcement
+
+Once the migration is complete, the following `import-linter` rules must be added to `pyproject.toml` to prevent regressions:
+
+```toml
+[[tool.importlinter.contracts]]
+name = "core cannot import app or lab"
+type = "forbidden"
+source_modules = ["core"]
+forbidden_modules = ["app", "lab", "api"]
+
+[[tool.importlinter.contracts]]
+name = "lab cannot import production strategies"
+type = "forbidden"
+source_modules = ["lab"]
+forbidden_modules = ["strategies"]  # production strategies only
+
+[[tool.importlinter.contracts]]
+name = "app cannot import lab"
+type = "forbidden"
+source_modules = ["app", "api", "services"]
+forbidden_modules = ["lab"]
+```
