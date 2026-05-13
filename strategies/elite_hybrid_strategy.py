@@ -233,9 +233,3 @@ class EliteHybridStrategy(Strategy):
         need_ratio = (target_count - current_count) / target_count
         return min(1.0, need_ratio + 0.2)
     
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        # Assume 15 total roster slots based on config
-        total_slots = 15
-        current_roster_size = len(getattr(team, 'roster', []))
-        return max(0, total_slots - current_roster_size)

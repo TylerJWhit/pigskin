@@ -99,7 +99,9 @@ class Strategy(ABC):
         """Return remaining roster slots, delegating to team when possible."""
         get_slots = getattr(team, 'get_remaining_roster_slots', None)
         if callable(get_slots):
-            return get_slots()
+            result = get_slots()
+            if isinstance(result, (int, float)):
+                return int(result)
         # Fallback: compute from roster_config
         if hasattr(team, 'roster_config') and team.roster_config and isinstance(team.roster_config, dict):
             total_slots = sum(team.roster_config.values())
@@ -116,7 +118,9 @@ class Strategy(ABC):
         """Return position priority, delegating to team when possible."""
         get_prio = getattr(team, 'calculate_position_priority', None)
         if callable(get_prio):
-            return get_prio(getattr(player, 'position', 'UNKNOWN'))
+            result = get_prio(getattr(player, 'position', 'UNKNOWN'))
+            if isinstance(result, (int, float)):
+                return float(result)
         # Fallback internal computation
         position = getattr(player, 'position', 'UNKNOWN')
         current_roster = getattr(team, 'roster', [])
@@ -160,7 +164,9 @@ class Strategy(ABC):
         """Return minimum budget to reserve, delegating to team when possible."""
         calc_min = getattr(team, 'calculate_minimum_budget_needed', None)
         if callable(calc_min):
-            return calc_min(remaining_budget)
+            result = calc_min(remaining_budget)
+            if isinstance(result, (int, float)):
+                return float(result)
         return self._calculate_minimum_budget_needed(team, remaining_budget)
 
     def _should_force_bid(self, team: 'Team', remaining_budget: float, current_bid: float) -> bool:
@@ -281,7 +287,9 @@ class Strategy(ABC):
         bid = max(1.0, calculated_bid)
         enforce = getattr(team, 'enforce_budget_constraint', None)
         if callable(enforce):
-            return enforce(bid, remaining_budget)
+            result = enforce(bid, remaining_budget)
+            if isinstance(result, (int, float)):
+                return int(result)
         return self._enforce_budget_constraint(bid, team, remaining_budget)
         
     def calculate_bid_with_constraints(

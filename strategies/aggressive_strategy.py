@@ -46,7 +46,8 @@ class AggressiveStrategy(Strategy):
             return min(current_bid + min_mandatory_bid, max_possible_bid)
 
         # Guard against ZeroDivisionError when initial_budget is 0. (#145)
-        initial_budget = getattr(team, 'initial_budget', None) or remaining_budget or 1
+        _raw_budget = getattr(team, 'initial_budget', None)
+        initial_budget = _raw_budget if isinstance(_raw_budget, (int, float)) and _raw_budget > 0 else (remaining_budget or 1)
         budget_ratio = remaining_budget / initial_budget
         
         # If budget is low, be conservative

@@ -140,12 +140,6 @@ class RandomStrategy(Strategy):
         # Random decision based on calculated chance
         return random.random() < nomination_chance
     
-    def _get_remaining_roster_slots(self, team: 'Team') -> int:
-        """Calculate how many roster slots still need to be filled."""
-        total_slots = 15  # Based on config
-        current_roster_size = len(getattr(team, 'roster', []))
-        return max(0, total_slots - current_roster_size)
-    
     def _calculate_position_priority(self, player: 'Player', team: 'Team') -> float:
         """Calculate how much this position is needed (0.0 to 1.0)."""
         position = player.position
