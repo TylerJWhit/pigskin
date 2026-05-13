@@ -41,7 +41,7 @@ from utils.path_utils import setup_project_path
 setup_project_path()
 
 from api.sleeper_api import SleeperAPI
-from config.config_manager import ConfigManager
+from config.settings import get_settings
 from classes import AVAILABLE_STRATEGIES
 from cli.commands import CommandProcessor
 from utils.print_module import print_mock_draft
@@ -51,17 +51,16 @@ class AuctionDraftCLI:
     """Main CLI class for the auction draft tool."""
     
     def __init__(self):
-        self.config_manager = ConfigManager()
+        self._settings = get_settings()
         self.sleeper_api = SleeperAPI()
-        self.command_processor = CommandProcessor(config_manager=self.config_manager, sleeper_api=self.sleeper_api)
+        self.command_processor = CommandProcessor(sleeper_api=self.sleeper_api)
+        # Expose shared config_manager reference for backward-compat (see #172).
+        # CommandProcessor owns the instance; AuctionDraftCLI merely references it.
+        self.config_manager = self.command_processor.config_manager
         
     def _get_config_default(self, key: str, default=None):
         """Helper to get config values with error handling."""
-        try:
-            config = self.config_manager.load_config()
-            return getattr(config, key, default)
-        except Exception:
-            return default
+        return getattr(self._settings, key, default)
             
     def _handle_command_result(self, result: Dict, error_message: str = "Command failed") -> int:
         """Helper to handle standard command result patterns."""
@@ -295,8 +294,7 @@ class AuctionDraftCLI:
     def handle_sleeper_draft(self, args: List[str]) -> int:
         """Handle Sleeper draft display command."""
         # Get default draft ID from config if not provided
-        config = self.config_manager.load_config()
-        default_draft_id = getattr(config, 'sleeper_draft_id', None)
+        default_draft_id = getattr(self._settings, 'sleeper_draft_id', None)
         
         if not args and not default_draft_id:
             print("ERROR: Draft ID required (not provided and not set in config)", file=sys.stderr)

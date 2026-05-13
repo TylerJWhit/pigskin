@@ -31,20 +31,19 @@ class TestAuctionDraftCLI:
         """Test getting config defaults successfully."""
         cli = AuctionDraftCLI()
         
-        # Mock the config manager
-        mock_config = Mock()
-        mock_config.data_path = "/test/path"
-        cli.config_manager.load_config = Mock(return_value=mock_config)
+        # Mock _settings directly
+        cli._settings = Mock()
+        cli._settings.data_path = "/test/path"
         
         result = cli._get_config_default('data_path', '/default/path')
         assert result == "/test/path"
     
     def test_get_config_default_error(self):
-        """Test getting config defaults with error."""
+        """Test getting config defaults with error (missing key returns default)."""
         cli = AuctionDraftCLI()
         
-        # Mock the config manager to raise an exception
-        cli.config_manager.load_config = Mock(side_effect=Exception("Config error"))
+        # Use a settings mock with no 'data_path' attribute — getattr returns default
+        cli._settings = Mock(spec=[])
         
         result = cli._get_config_default('data_path', '/default/path')
         assert result == '/default/path'
