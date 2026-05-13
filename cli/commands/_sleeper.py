@@ -1,7 +1,6 @@
 """Sleeper API command handler."""
 from __future__ import annotations
 
-import asyncio
 from typing import Dict
 
 
@@ -103,9 +102,11 @@ class SleeperMixin:
 
     def get_sleeper_draft_status(self, username: str, season: str = "2024") -> Dict:
         """Get current draft status for a Sleeper user."""
+        import cli.commands as _cli_commands
+        _asyncio = _cli_commands.asyncio
         print(f"Fetching draft status for '{username}' in {season}...")
         try:
-            result = asyncio.run(
+            result = _asyncio.run(
                 self.sleeper_draft_service.get_current_draft_status(username, season)
             )
             return result
@@ -114,27 +115,33 @@ class SleeperMixin:
 
     def display_sleeper_draft(self, draft_id: str) -> Dict:
         """Display detailed Sleeper draft information."""
+        import cli.commands as _cli_commands
+        _asyncio = _cli_commands.asyncio
         print(f"Fetching draft information for ID: {draft_id}...")
         try:
-            result = asyncio.run(self.sleeper_draft_service.display_draft_info(draft_id))
+            result = _asyncio.run(self.sleeper_draft_service.display_draft_info(draft_id))
             return result
         except Exception as e:
             return {"success": False, "error": f"Failed to display draft: {e}"}
 
     def display_sleeper_league_rosters(self, league_id: str) -> Dict:
         """Display Sleeper league rosters."""
+        import cli.commands as _cli_commands
+        _asyncio = _cli_commands.asyncio
         print(f"Fetching league rosters for ID: {league_id}...")
         try:
-            result = asyncio.run(self.sleeper_draft_service.display_league_rosters(league_id))
+            result = _asyncio.run(self.sleeper_draft_service.display_league_rosters(league_id))
             return result
         except Exception as e:
             return {"success": False, "error": f"Failed to display league rosters: {e}"}
 
     def list_sleeper_leagues(self, username: str, season: str = "2024") -> Dict:
         """List all leagues for a Sleeper user."""
+        import cli.commands as _cli_commands
+        _asyncio = _cli_commands.asyncio
         print(f"Fetching leagues for '{username}' in {season}...")
         try:
-            result = asyncio.run(self.sleeper_draft_service.list_user_leagues(username, season))
+            result = _asyncio.run(self.sleeper_draft_service.list_user_leagues(username, season))
             return result
         except Exception as e:
             return {"success": False, "error": f"Failed to list leagues: {e}"}

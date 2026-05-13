@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, List, Optional
 
-from classes import AVAILABLE_STRATEGIES, Draft, Owner, Team, create_strategy
+from classes import AVAILABLE_STRATEGIES, Draft  # noqa: F401
 
 if TYPE_CHECKING:
     pass
@@ -34,9 +34,10 @@ class MockDraftMixin:
                     }
 
             config = self.config_manager.load_config()
-            from data.fantasypros_loader import FantasyProsLoader
+            import cli.commands as _cli_commands
+            _FantasyProsLoader = _cli_commands.FantasyProsLoader
 
-            loader = FantasyProsLoader(config.data_path)
+            loader = _FantasyProsLoader(config.data_path)
             players = loader.load_all_players()
 
             print(f"Loaded {len(players)} players from FantasyPros")
@@ -94,6 +95,12 @@ class MockDraftMixin:
 
     def _create_mock_draft(self, config, players: List, strategies, num_teams: int) -> Draft:
         """Create a mock draft with teams and strategy assignment."""
+        import cli.commands as _cli_commands
+        _Draft = _cli_commands.Draft
+        _Team = _cli_commands.Team
+        _Owner = _cli_commands.Owner
+        _create_strategy = _cli_commands.create_strategy
+
         if isinstance(strategies, list) and len(strategies) > 1:
             strategy_name = f"Mixed ({len(strategies)} strategies)"
         elif isinstance(strategies, list):
@@ -108,7 +115,7 @@ class MockDraftMixin:
         else:
             roster_size = getattr(config, "roster_size", 16)
 
-        draft = Draft(
+        draft = _Draft(
             name=f"Mock Draft - {strategy_name} Strategy",
             budget_per_team=getattr(config, "budget_per_team", getattr(config, "budget", 200)),
             roster_size=roster_size,
@@ -118,15 +125,15 @@ class MockDraftMixin:
 
         for i in range(num_teams):
             team_strategy = strategies[i % len(strategies)]
-            strategy_obj = create_strategy(team_strategy)
+            strategy_obj = _create_strategy(team_strategy)
             if (
                 hasattr(strategy_obj, "enable_tournament_mode")
                 and "gridiron_sage" in team_strategy.lower()
             ):
                 strategy_obj.enable_tournament_mode(True)
-            owner = Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=(i == 0))
+            owner = _Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=(i == 0))
             roster_config = getattr(config, "roster_positions", None)
-            team = Team(
+            team = _Team(
                 f"team_{i+1}",
                 f"owner_{i+1}",
                 f"Team {i+1}",
@@ -143,15 +150,19 @@ class MockDraftMixin:
         """Create a test draft for tournament elimination rounds."""
         try:
             config = self.config_manager.load_config()
-            from data.fantasypros_loader import FantasyProsLoader
+            import cli.commands as _cli_commands
+            _FantasyProsLoader = _cli_commands.FantasyProsLoader
+            _Draft = _cli_commands.Draft
+            _Team = _cli_commands.Team
+            _Owner = _cli_commands.Owner
 
-            loader = FantasyProsLoader(config.data_path)
+            loader = _FantasyProsLoader(config.data_path)
             players = loader.load_all_players()
 
             if not players:
                 return None
 
-            draft = Draft(
+            draft = _Draft(
                 name=f"Tournament Draft - {num_teams} Teams",
                 budget_per_team=getattr(config, "budget_per_team", getattr(config, "budget", 200)),
                 roster_size=getattr(config, "roster_size", 16),
@@ -160,8 +171,8 @@ class MockDraftMixin:
             draft.add_players(players)
 
             for i in range(num_teams):
-                owner = Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=False)
-                team = Team(f"team_{i+1}", f"owner_{i+1}", f"Team {i+1}")
+                owner = _Owner(f"owner_{i+1}", f"Owner {i+1}", is_human=False)
+                team = _Team(f"team_{i+1}", f"owner_{i+1}", f"Team {i+1}")
                 owner.assign_team(team)
                 draft.add_team(team)
 
