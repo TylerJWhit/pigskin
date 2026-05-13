@@ -5,19 +5,8 @@ intentionally written to fail against the current stub so that a red/green
 cycle can be used to drive the implementation.
 """
 
-import pytest
 from unittest.mock import patch
 
-# All tests in this module are expected to fail until issue #195 is implemented.
-# Remove this mark (and verify green) once SleeperAuctionScraper has the
-# (league_id, season) constructor API and fetch() method.
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    reason="SleeperAuctionScraper(league_id, season) + fetch() not yet implemented (issue #195)",
-)
-
-# This import will succeed (stub exists) but the *interface* tested below
-# does not match the stub, so individual tests will fail.
 from lab.data.sleeper_auction_scraper import SleeperAuctionScraper
 
 
