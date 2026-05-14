@@ -127,16 +127,21 @@ class DraftSetup:
         Args:
             position_filter: List of positions to include (e.g., ['QB', 'RB', 'WR'])
             min_projected_points: Minimum projected points to include player
-            sleeper_api: Optional pre-constructed SleeperAPI client. If None,
-                one is created internally (allows testing via injection).
+            sleeper_api: SleeperAPI client to use for fetching player data.
+                Must be provided by the caller (domain layer does not create
+                integration-layer clients). Returns [] if not provided.
 
         Returns:
             List of Player objects
         """
         if sleeper_api is None:
-            from api.sleeper_api import SleeperAPI  # lazy import — keeps domain layer independent
-            sleeper_api = SleeperAPI()
-        
+            logger.warning(
+                "import_players_from_sleeper() called without a sleeper_api client. "
+                "The domain layer cannot create API clients. Inject a SleeperAPI "
+                "instance via the sleeper_api parameter to fetch live data."
+            )
+            return []
+
         try:
             # Get player data from Sleeper
             converted_players = sleeper_api.bulk_convert_players(position_filter)
