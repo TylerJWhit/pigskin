@@ -8,7 +8,7 @@ in the lab package.
 from __future__ import annotations
 
 import importlib
-from typing import Optional
+from typing import Any, Optional
 
 import click
 
@@ -29,7 +29,7 @@ class LazyGroup(click.Group):
         super().__init__(*args, **kwargs)
         self._import_name = import_name
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[click.BaseCommand]:
+    def get_command(self, ctx: click.Context, cmd_name: str) -> Optional[Any]:
         # Try the parent registry first (commands added via .add_command)
         rv = super().get_command(ctx, cmd_name)
         if rv is not None:

@@ -46,20 +46,20 @@ def render_output(
     elif fmt == OutputFormat.CSV:
         output = io.StringIO()
         if isinstance(data, dict):
-            writer = csv.DictWriter(output, fieldnames=list(data.keys()))
-            writer.writeheader()
-            writer.writerow(data)
+            dict_writer = csv.DictWriter(output, fieldnames=list(data.keys()))
+            dict_writer.writeheader()
+            dict_writer.writerow(data)
         elif isinstance(data, list) and data and isinstance(data[0], dict):
-            writer = csv.DictWriter(output, fieldnames=list(data[0].keys()))
-            writer.writeheader()
-            writer.writerows(data)
+            dict_writer = csv.DictWriter(output, fieldnames=list(data[0].keys()))
+            dict_writer.writeheader()
+            dict_writer.writerows(data)
         else:
-            writer = csv.writer(output)
+            plain_writer = csv.writer(output)
             if isinstance(data, list):
                 for row in data:
-                    writer.writerow(row if isinstance(row, (list, tuple)) else [row])
+                    plain_writer.writerow(row if isinstance(row, (list, tuple)) else [row])
             else:
-                writer.writerow([data])
+                plain_writer.writerow([data])
         print(output.getvalue(), end="")
 
 
