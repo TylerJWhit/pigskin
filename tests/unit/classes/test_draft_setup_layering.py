@@ -18,12 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-# All tests in this file are QA Phase 1 gates — expected to FAIL until the
-# fix for issue #358 is implemented. Remove this mark after implementation.
-pytestmark = pytest.mark.xfail(
-    strict=False,
-    reason="QA Phase 1 gate for #358 — fails until classes/draft_setup.py is decoupled from api/",
-)
+# All tests in this file are QA Phase 1 gates — implementation complete for #358.
+pytestmark = pytest.mark.unit
 
 
 
@@ -48,24 +44,22 @@ class TestDraftSetupNoApiImport:
 
         The domain layer (classes/) must never depend on the integration layer
         (api/).  This is the ARCH-001 layering violation.
-        Lazy imports inside function bodies are allowed (they keep the domain
-        layer importable without triggering the api/ dependency).
         """
         tree = _source_ast()
-        # Only check direct children of the module (top-level statements)
-        for node in ast.iter_child_nodes(tree):
-            if isinstance(node, ast.ImportFrom) and node.module:
-                assert not node.module.startswith("api."), (
-                    f"Layering violation: 'classes/draft_setup.py' imports "
-                    f"from '{node.module}' (api layer) at line {node.lineno}. "
-                    "Move API access to a service or inject via parameter."
-                )
-            elif isinstance(node, ast.Import):
-                for alias in node.names:
-                    assert not alias.name.startswith("api."), (
-                        f"Layering violation: top-level import of '{alias.name}' "
-                        f"at line {node.lineno}."
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                if isinstance(node, ast.ImportFrom) and node.module:
+                    assert not node.module.startswith("api."), (
+                        f"Layering violation: 'classes/draft_setup.py' imports "
+                        f"from '{node.module}' (api layer) at line {node.lineno}. "
+                        "Move API access to a service or inject via parameter."
                     )
+                elif isinstance(node, ast.Import):
+                    for alias in node.names:
+                        assert not alias.name.startswith("api."), (
+                            f"Layering violation: top-level import of '{alias.name}' "
+                            f"at line {node.lineno}."
+                        )
 
     def test_sleeper_api_not_imported_at_top_level(self):
         """SleeperAPI must not be imported at the top of draft_setup.py."""
@@ -131,7 +125,6 @@ class TestDraftSetupInjection:
         assert len(result) == 1
         assert result[0].name == "Test Player"
 
-    @pytest.mark.xfail(strict=False, reason="Smoke import test — allowed to pass even before fix")
     def test_import_players_without_injection_does_not_crash_on_import(self):
         """Importing classes.draft_setup must not trigger a network call or crash."""
         # Simply re-importing (or freshly importing) must not raise an error.

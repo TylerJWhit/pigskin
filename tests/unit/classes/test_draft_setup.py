@@ -74,49 +74,58 @@ class TestSetupDraftWithParticipants:
 class TestImportPlayersFromSleeper:
     def test_returns_players_on_success(self):
         from classes.draft_setup import DraftSetup
+        from unittest.mock import MagicMock
         player_data = [
             {'player_id': 'p1', 'name': 'Josh Allen', 'position': 'QB', 'team': 'BUF',
              'projected_points': 350.0, 'auction_value': 50.0, 'bye_week': 7}
         ]
-        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
-            instance = MockAPI.return_value
-            instance.bulk_convert_players.return_value = player_data
-            players = DraftSetup.import_players_from_sleeper()
+        mock_client = MagicMock()
+        mock_client.bulk_convert_players.return_value = player_data
+        players = DraftSetup.import_players_from_sleeper(sleeper_api=mock_client)
         assert len(players) == 1
         assert players[0].name == 'Josh Allen'
 
     def test_filters_by_min_projected_points(self):
         from classes.draft_setup import DraftSetup
+        from unittest.mock import MagicMock
         player_data = [
             {'player_id': 'p1', 'name': 'Josh Allen', 'position': 'QB', 'team': 'BUF',
              'projected_points': 350.0, 'auction_value': 50.0, 'bye_week': 7},
             {'player_id': 'p2', 'name': 'Backup K', 'position': 'K', 'team': 'CLE',
              'projected_points': 5.0, 'auction_value': 1.0, 'bye_week': 9},
         ]
-        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
-            instance = MockAPI.return_value
-            instance.bulk_convert_players.return_value = player_data
-            players = DraftSetup.import_players_from_sleeper(min_projected_points=100.0)
+        mock_client = MagicMock()
+        mock_client.bulk_convert_players.return_value = player_data
+        players = DraftSetup.import_players_from_sleeper(
+            min_projected_points=100.0, sleeper_api=mock_client
+        )
         assert len(players) == 1
 
     def test_returns_empty_on_exception(self):
         from classes.draft_setup import DraftSetup
-        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
-            instance = MockAPI.return_value
-            instance.bulk_convert_players.side_effect = ConnectionError("API down")
-            players = DraftSetup.import_players_from_sleeper()
+        from unittest.mock import MagicMock
+        mock_client = MagicMock()
+        mock_client.bulk_convert_players.side_effect = ConnectionError("API down")
+        players = DraftSetup.import_players_from_sleeper(sleeper_api=mock_client)
+        assert players == []
+
+    def test_returns_empty_when_no_client_injected(self):
+        from classes.draft_setup import DraftSetup
+        players = DraftSetup.import_players_from_sleeper()
         assert players == []
 
     def test_filters_by_position(self):
         from classes.draft_setup import DraftSetup
+        from unittest.mock import MagicMock
         player_data = [
             {'player_id': 'p1', 'name': 'Josh Allen', 'position': 'QB', 'team': 'BUF',
              'projected_points': 350.0, 'auction_value': 50.0, 'bye_week': 7},
         ]
-        with patch('api.sleeper_api.SleeperAPI') as MockAPI:
-            instance = MockAPI.return_value
-            instance.bulk_convert_players.return_value = player_data
-            players = DraftSetup.import_players_from_sleeper(position_filter=['QB'])
+        mock_client = MagicMock()
+        mock_client.bulk_convert_players.return_value = player_data
+        players = DraftSetup.import_players_from_sleeper(
+            position_filter=['QB'], sleeper_api=mock_client
+        )
         assert len(players) == 1
 
 
