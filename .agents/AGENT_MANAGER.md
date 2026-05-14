@@ -42,7 +42,8 @@ You are the **Agent Manager** for the **Pigskin Fantasy Football Draft Assistant
 ### Quality (`quality/`)
 | Agent File | Name | Purpose | Status |
 |-----------|------|---------|--------|
-| `qa.agent.md` | QA Agent | **Phase 1**: pre-development test definition; **Phase 2**: post-development verification | ✅ Active |
+| `qa.agent.md` | QA Agent | **Phase 2**: post-development test verification, ADR fulfillment review | ✅ Active |
+| `test-definition.agent.md` | Test Definition Agent | **Phase 1 only**: translate issue ACs into failing tests before development starts; enforces ADR-010 structure | ✅ Active |
 | `test-automation.agent.md` | Test Automation Agent | Unit, integration, E2E tests | ✅ Active |
 | `security.agent.md` | Security Agent | SAST, OWASP, CVE scanning | ✅ Active |
 | `performance.agent.md` | Performance Agent | Load tests, profiling | ✅ Active |
