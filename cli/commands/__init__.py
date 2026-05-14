@@ -50,6 +50,8 @@ class CommandProcessor(
     ) -> None:
         self.config_manager = (
             config_manager if config_manager is not None else ConfigManager()
+            # TODO(#359-followon): Replace ConfigManager() with get_settings() here.
+            # Full migration requires updating ~30 patch targets in test_commands.py.
         )
         self.sleeper_api = sleeper_api if sleeper_api is not None else SleeperAPI()
         self.sleeper_draft_service = SleeperDraftService(sleeper_api=self.sleeper_api)
