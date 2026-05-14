@@ -4,6 +4,7 @@ omit =
     venv/*
     tests/*
     setup.py
+    run_tests.py
     lab/*
     cli/commands/_tournament.py
     cli/commands/_tournament_stats.py

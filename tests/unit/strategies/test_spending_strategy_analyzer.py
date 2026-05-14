@@ -375,10 +375,11 @@ class TestSpendingAnalyzerMainBlock(unittest.TestCase):
 
     def test_main_block(self):
         """Cover lines 154-155 — if __name__ == '__main__' block."""
-        with patch("strategies.spending_analyzer.analyze_spending_patterns"), \
-             patch("strategies.spending_analyzer.suggest_specific_improvements"):
-            import runpy
-            runpy.run_module('strategies.spending_analyzer', run_name='__main__')
+        import sys
+        import runpy
+        # Pop from sys.modules first to prevent RuntimeWarning from runpy (#397)
+        sys.modules.pop('strategies.spending_analyzer', None)
+        runpy.run_module('strategies.spending_analyzer', run_name='__main__')
         # If we got here without error, the block ran
 
 
@@ -387,7 +388,10 @@ class TestStrategyAnalyzerMainBlock(unittest.TestCase):
 
     def test_main_block(self):
         """Cover lines 112-113 — if __name__ == '__main__' block."""
+        import sys
         import runpy
+        # Pop from sys.modules first to prevent RuntimeWarning from runpy (#397)
+        sys.modules.pop('strategies.strategy_analyzer', None)
         try:
             runpy.run_module('strategies.strategy_analyzer', run_name='__main__')
         except Exception:
