@@ -2,7 +2,7 @@
 # pre-push — sprint-branch guard + full CI suite before any push
 #
 # Mirrors the App CI workflow (app-ci.yml):
-#   flake8 (lint) → mypy (type check) → bandit (security) → pytest (unit + 85% coverage)
+#   flake8 (lint) → mypy (type check) → bandit (security) → pytest (unit + 90% coverage)
 #
 # Also enforces the 3-tier sprint branch workflow:
 #   feature/<slug>  →  sprint/N  →  develop  →  main
@@ -106,9 +106,9 @@ echo "      ✓ security scan passed"
 echo ""
 
 # ── 4. Unit tests + coverage gate ─────────────────────────────────────────────
-echo "[4/4] Unit tests + coverage gate (≥ 85%)..."
+echo "[4/4] Unit tests + coverage gate (≥ 90%)..."
 "$PYTEST" tests/ -x -q --timeout=60 \
-  --cov=. --cov-fail-under=85 \
+  --cov=. --cov-fail-under=90 \
   --cov-report=term-missing \
   --ignore=tests/test_integration.py \
   --ignore=tests/property

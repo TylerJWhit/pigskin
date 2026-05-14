@@ -1,7 +1,7 @@
 # app-ci.yml — PR-triggered pipeline for the production app
 #
 # Runs: flake8 (lint) → mypy (type check) → bandit (security scan)
-#       → pytest unit tests + 85% coverage gate → integration tests
+#       → pytest unit tests + 90% coverage gate → integration tests
 #
 # Idempotent: all steps are stateless and safe to re-run.
 # Python: 3.11+ (per setup.py python_requires=">=3.11")
