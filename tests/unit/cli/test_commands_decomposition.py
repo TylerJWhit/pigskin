@@ -18,12 +18,8 @@ from unittest.mock import patch
 
 import pytest
 
-# All tests in this file are QA Phase 1 gates — expected to FAIL until the
-# fix for issue #366 is implemented. Remove this mark after implementation.
-pytestmark = pytest.mark.xfail(
-    strict=False,
-    reason="QA Phase 1 gate for #366 — fails until cli/commands.py is decomposed",
-)
+# QA Phase 1 gates for #366 — cli/commands/ package decomposition verified complete.
+pytestmark = pytest.mark.unit
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 _COMMANDS_PATH = _REPO_ROOT / "cli" / "commands.py"
@@ -68,7 +64,6 @@ class TestCommandsModuleSize:
 # ---------------------------------------------------------------------------
 
 class TestCommandHandlerImports:
-    @pytest.mark.xfail(strict=False, reason="Import works today; only decomposition structure changes")
     def test_bid_handler_importable(self):
         """A bid recommendation handler must be importable after the split."""
         try:
@@ -76,7 +71,6 @@ class TestCommandHandlerImports:
         except ImportError as e:
             pytest.fail(f"Cannot import CommandProcessor from cli.commands: {e}")
 
-    @pytest.mark.xfail(strict=False, reason="Methods exist today; regression guard survives decomposition")
     def test_all_public_methods_present(self):
         """All CommandProcessor public methods must still exist after the split."""
         from cli.commands import CommandProcessor
