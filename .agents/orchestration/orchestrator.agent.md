@@ -45,7 +45,7 @@ BACKLOG
 READY  ←─────────────────────────────────────────────────┐
   Owner: Planning + QA                                    │
   • Planning confirms/refines acceptance criteria         │
-  • QA Agent Phase 1: writes failing tests, applies       │
+  • Test Definition Agent: writes failing tests, applies  │
     label qa:tests-defined                                │
   • Dev may return an In Progress item here at any time   │
     with a question comment tagging Planning or QA.       │
@@ -85,7 +85,7 @@ CLOSED
   • Closes the issue after documentation is complete
 ```
 
-**Label contract**: `qa:tests-defined` is the gate between Ready and In Progress. Only the QA Agent may apply this label. Development agents must check for it before starting any implementation work.
+**Label contract**: `qa:tests-defined` is the gate between Ready and In Progress. Only the **Test Definition Agent** may apply this label. Development agents must check for it before starting any implementation work.
 
 ### Incidental Issue Protocol
 If any agent discovers a bug, gap, or improvement opportunity **while working on a different task**, it must not silently ignore it:
@@ -155,7 +155,8 @@ gh project item-list 2 --owner TylerJWhit --format json \
 ### Quality
 | Agent | Invoke for |
 |-------|-----------|
-| QA Agent | Test plans, test case design |
+| Test Definition Agent | Writing failing tests for issues **before** development; `qa:tests-defined` label gate; ADR-010 test placement |
+| QA Agent | Post-development test verification, ADR fulfillment review, Phase 2 approval |
 | Test Automation Agent | pytest tests, mocks, coverage |
 | Security Agent | SAST, CVE scanning, OWASP review |
 | Performance Agent | Profiling, load testing, optimization |
@@ -208,7 +209,7 @@ For a complex workflow:
 > "Add a new bidding strategy"
 > 1. **Requirements Agent** — define strategy behavior and acceptance criteria
 > 2. **Architecture Agent** — confirm fits existing Strategy pattern
-> 3. **QA Agent (Phase 1)** — define failing tests the new strategy must pass; apply `qa:tests-defined` label
+> 3. **Test Definition Agent** — define failing tests the new strategy must pass; apply `qa:tests-defined` label
 > 4. **Backend Agent** — implement `strategies/new_strategy.py` to make QA tests pass
 > 5. **QA Agent (Phase 2)** — verify tests pass and implementation meets planning goals
 > 6. **Code Review Agent** — review implementation
@@ -248,7 +249,7 @@ move_status() {
 
 | Checkpoint | Board Action | Option ID |
 |------------|-------------|-----------|
-| QA Agent applies `qa:tests-defined` label | Ready → In Progress | `16cf461f` |
+| Test Definition Agent applies `qa:tests-defined` label | Ready → In Progress | `16cf461f` |
 | Developer opens PR | In Progress → In Review | `68c4a78a` |
 | QA Phase 2 + Planning approve PR | In Review → Done | `7fefbd66` |
 | DevOps merges PR and deletes branch | Done → Closed | `a0358230` |
@@ -258,13 +259,13 @@ move_status() {
 ## Common Workflows
 
 ### Bug Fix Flow
-`Bug Report → Bug Triage → QA Agent (Phase 1: define regression test) → [Backend|Frontend|Database] Agent (implement fix) → QA Agent (Phase 2: verify) → Code Review → CI/CD`
+`Bug Report → Bug Triage → Test Definition Agent (define regression test) → [Backend|Frontend|Database] Agent (implement fix) → QA Agent (Phase 2: verify) → Code Review → CI/CD`
 
 ### Feature Development Flow
-`Requirements → Architecture → QA Agent (Phase 1: define tests) → Backend/Frontend (implement to pass tests) → QA Agent (Phase 2: verify) → Code Review → Technical Docs → CI/CD → Deployment`
+`Requirements → Architecture → Test Definition Agent (define tests) → Backend/Frontend (implement to pass tests) → QA Agent (Phase 2: verify) → Code Review → Technical Docs → CI/CD → Deployment`
 
 ### Security Incident Flow
-`Security Agent → Bug Triage → QA Agent (Phase 1: define regression tests) → Backend Agent (fix) → QA Agent (Phase 2: verify) → Code Review → Deployment (expedited)`
+`Security Agent → Bug Triage → Test Definition Agent (define regression tests) → Backend Agent (fix) → QA Agent (Phase 2: verify) → Code Review → Deployment (expedited)`
 
 ### Release Flow
 `Project Manager (release scope) → CI/CD Agent → Deployment Agent → Monitoring Agent (post-deploy watch)`
