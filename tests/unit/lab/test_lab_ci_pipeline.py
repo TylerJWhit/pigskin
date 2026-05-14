@@ -11,12 +11,8 @@ from pathlib import Path
 
 import pytest
 
-# All tests in this file are QA Phase 1 gates — expected to FAIL until the
-# fix for issue #190 is implemented. Remove this mark after implementation.
-pytestmark = pytest.mark.xfail(
-    strict=False,
-    reason="QA Phase 1 gate for #190 — fails until lab-ci workflow and PromotionGate/BenchmarkRunner are implemented",
-)
+# QA Phase 1 gates for #190 — lab-ci.yml verified complete. xfail marks removed.
+pytestmark = pytest.mark.unit
 
 _REPO_ROOT = Path(__file__).parent.parent.parent.parent
 
